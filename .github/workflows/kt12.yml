@@ -1,0 +1,42 @@
+name: KT-12 Tutee evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'evals/tutee/**'
+      - 'backend/tests/integration/test_tutee_evaluation.py'
+      - '.github/workflows/kt12.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: kt12-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tutee-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_ENV: test
+      LLM_MODE: fake
+      DEMO_MODE: '0'
+      LOG_JSON: 'false'
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+      - run: uv sync --frozen
+      - name: Collect 30 simulated sessions (not a quality verdict)
+        run: uv run python ../evals/tutee/evaluate.py collect --output ../evals/.cache/kt12-ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kt12-tutee-simulation
+          path: evals/.cache/kt12-ci/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
