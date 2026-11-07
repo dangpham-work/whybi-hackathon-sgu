@@ -15,6 +15,17 @@
     - `GET /classes/{id}/matching-stats` → `MatchingStats {totalMatches, accepted, declined, expired, studied, itemsTotal, itemsVerified, acceptRate, studiedRate, verifiedRate}` (chỉ GV chủ lớp).
     - Không đổi schema CSDL. Thắng (GD-12): chạy `npm run gen:api`; màn GV-09 thêm chọn nút ưu tiên, nút hủy / thay SV, khối thống kê.
     - Quyền (KT-14): đã thêm route mới vào bảng `PHAN_QUYEN`.
+  - C2-18: quản trị (FR-AD-03, 04, 06, 07). Migration `412b81e85505`: bảng `usage_quotas`, `usage_records` (33 bảng).
+    - Tài khoản: `GET|POST /admin/users`, `PATCH /admin/users/{id}` (khóa / mở khóa, đổi tên), `POST /admin/users/{id}/reset-password`,
+      `POST /admin/users/import` (CSV UTF-8: `mssv, ho_ten, email, [khoa]`; trả `created` / `skipped` / `errors` theo dòng).
+      Mật khẩu ban đầu ngẫu nhiên 10 ký tự, **chỉ trả một lần**, không vào nhật ký. Môn học: `GET|POST /admin/courses`, `PUT /admin/courses/{id}`.
+    - Hạn mức: `GET|PUT /admin/quotas` (theo lớp `CLASS` hoặc SV `STUDENT`; `null` = không giới hạn, cả hai `null` = bỏ). Vượt hạn mức ⇒ **429
+      `QUOTA_EXCEEDED`** (`details.kind` = `TOKENS` | `AUDIO_MINUTES`) khi bắt đầu phiên, gửi lượt / hết giờ, tải ghi âm.
+      **Đăng chú ý** – đã sửa nhẹ `session_orchestrator.py` và `api/sessions.py`: `_active`/`start_session`/`audio_node` gọi `QuotaService.check`;
+      `handle_turn`/`handle_timeout` bọc thêm `_record_tokens` (ghi `gateway.tokens_used` vào `usage_records`); upload ghi âm gọi `orch.record_audio`.
+      Thời lượng ghi âm: WAV đọc đúng, webm/ogg/mp3/m4a **ước lượng theo dung lượng** (STT chưa trả thời lượng).
+    - Cờ vi phạm: `GET /admin/flags` (QTV thấy mọi lớp, GV chỉ lớp mình), `POST /admin/flags/{id}/resolve`; nhật ký thao tác: `GET /admin/audit-logs` (QTV).
+      Xử lý cờ chỉ đánh dấu đã xử lý – chưa đổi kết quả phiên (BR-12 "GV cho phép tính kết quả" chưa làm).
   - C2-17: cấu hình lớp, hồ sơ SV, ghi âm (FR-HM-07, 08, 09; NFR-09). Migration `a3f1c9d2e7b4` thêm `class_sections.challenge_count` (nối sau migration của #124).
     - `GET|PUT /classes/{id}/settings` → `ClassSettings` (đã chuyển sang `schemas/heatmap.py`): đổi ngưỡng xanh / vàng, cỡ mẫu thì
       `HeatmapService.update_settings` tính lại màu cả lớp, ghi `class_node_stats` và đẩy `heatmap.node` / `heatmap.alert`.

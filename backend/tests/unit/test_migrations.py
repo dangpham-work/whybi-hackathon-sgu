@@ -146,7 +146,7 @@ def test_db_has_all_tables_and_vector(conn):
             " WHERE table_schema='public' AND table_name<>'alembic_version'"
         )
     ).scalar_one()
-    assert n == 31, "30 bảng của ERD + node_review_windows (C2-15)"
+    assert n == 33, "30 bảng của ERD + node_review_windows (C2-15) + usage_quotas, usage_records (C2-18)"
     assert conn.execute(text("SELECT 1 FROM pg_extension WHERE extname='vector'")).scalar_one() == 1
 
 
