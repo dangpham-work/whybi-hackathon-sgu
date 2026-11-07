@@ -1,10 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { StatusBadge, StatusLegend } from "../components/StatusBadge";
-import { HEAT, MASTERY, ROOT_CAUSE } from "../lib/status";
+import { HEAT, MASTERY, ROOT_CAUSE, TREE_STATUS } from "../lib/status";
 
 describe("trạng thái luôn có biểu tượng + chữ (NFR-12, GD-01)", () => {
   it("mọi trạng thái MASTERY / HEAT / ROOT_CAUSE có icon và nhãn", () => {
     for (const look of [...Object.values(MASTERY), ...Object.values(HEAT), ROOT_CAUSE]) {
+      expect(look.icon).toBeTruthy();
+      expect(look.label.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("mọi trạng thái cây (TreeStatus) có icon và nhãn", () => {
+    expect(Object.keys(TREE_STATUS).sort()).toEqual(["ARCHIVED", "DRAFT", "EDITING", "FAILED", "GENERATING", "PUBLISHED", "VALIDATING"]);
+    for (const look of Object.values(TREE_STATUS)) {
       expect(look.icon).toBeTruthy();
       expect(look.label.trim().length).toBeGreaterThan(0);
     }

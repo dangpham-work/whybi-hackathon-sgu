@@ -2,10 +2,7 @@ import { Bell, ChevronRight, Menu, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useParams } from "react-router";
 import { NAV } from "../lib/nav";
-import { Avatar, SideNav, useCurrentScreen } from "./shell";
-
-// TODO(GD-04): lấy người dùng từ phiên đăng nhập; tạm dùng GV mẫu trong seed/users.json
-const USER = { name: "TS. Nguyễn Văn Bình", sub: "Khoa CNTT" };
+import { Avatar, SideNav, useCurrentScreen, useShellUser } from "./shell";
 
 /**
  * Khung web GV 1440px (Figma GV-01…GV-10): sidebar mực đậm 248px + thanh trên có breadcrumb.
@@ -14,6 +11,7 @@ const USER = { name: "TS. Nguyễn Văn Bình", sub: "Khoa CNTT" };
 export function LecturerLayout() {
   const { classId } = useParams();
   const screen = useCurrentScreen();
+  const USER = useShellUser();
   const { pathname } = useLocation();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => setDrawer(false), [pathname]);

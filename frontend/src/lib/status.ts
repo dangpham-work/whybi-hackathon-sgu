@@ -2,7 +2,22 @@
  * Quy ước trực quan – Hình 5.23 / Figma mục 05. Mọi màu LUÔN kèm biểu tượng (NFR-12):
  * người mù màu đỏ–lục vẫn phân biệt được.
  */
-import { Check, CircleSlash, Ellipsis, Circle, RotateCcw, X, TriangleAlert, Target, type LucideIcon } from "lucide-react";
+import {
+  Archive,
+  Check,
+  Circle,
+  CircleCheck,
+  CircleDashed,
+  CircleSlash,
+  Ellipsis,
+  FilePen,
+  RotateCcw,
+  Sparkles,
+  Target,
+  TriangleAlert,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 export type MasteryState = "LOCKED" | "AVAILABLE" | "IN_PROGRESS" | "MASTERED" | "NOT_PASSED" | "NEEDS_REVERIFY";
 export type HeatColor = "GREY" | "GREEN" | "YELLOW" | "RED";
@@ -28,6 +43,21 @@ export const HEAT: Record<HeatColor, Look> = {
   RED: { label: "< 40%", icon: X, className: "bg-st-fail text-red-900 border-red-700/40" },
   GREY: { label: "Chưa đủ mẫu", icon: Circle, className: "bg-st-grey text-ink-500 border-line-strong" },
 };
+
+/** Trạng thái phiên bản cây (TreeStatus – backend/app/models/enums.py): huy hiệu "Đã phát hành", "Bản nháp"… (Figma mục 04). */
+export type TreeStatus = "GENERATING" | "FAILED" | "DRAFT" | "EDITING" | "VALIDATING" | "PUBLISHED" | "ARCHIVED";
+
+export const TREE_STATUS: Record<TreeStatus, Look> = {
+  PUBLISHED: { label: "Đã phát hành", icon: CircleCheck, className: "bg-st-pass text-green-900 border-green-700/40" },
+  DRAFT: { label: "Bản nháp", icon: FilePen, className: "bg-honey-soft text-honey-deep border-honey/50" },
+  EDITING: { label: "Đang sửa", icon: FilePen, className: "bg-honey-soft text-honey-deep border-honey/50" },
+  VALIDATING: { label: "Đang kiểm tra", icon: Ellipsis, className: "bg-st-warn text-yellow-900 border-yellow-700/40" },
+  GENERATING: { label: "AI đang sinh cây", icon: Sparkles, className: "bg-teal-soft text-teal border-teal/40" },
+  FAILED: { label: "Sinh cây lỗi", icon: X, className: "bg-st-fail text-red-900 border-red-700/40" },
+  ARCHIVED: { label: "Đã lưu trữ", icon: Archive, className: "bg-st-grey text-ink-500 border-line-strong" },
+};
+/** Lớp chưa có cây nào (treeStatus = null). */
+export const NO_TREE: Look = { label: "Chưa có cây kỹ năng", icon: CircleDashed, className: "bg-st-grey text-ink-500 border-line-strong" };
 
 /** ◎ GỐC – điểm nghẽn gốc (viền đậm, nhấp nháy) */
 export const ROOT_CAUSE: Look = { label: "Điểm nghẽn gốc", icon: Target, className: "bg-ink-900 text-honey border-ink-900" };

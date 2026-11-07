@@ -4,8 +4,15 @@
  */
 import { Link, useMatches } from "react-router";
 import { Logo } from "../components/Logo";
+import { ROLE_LABEL, useCurrentUser } from "../lib/auth";
 import { isCurrent, NEED_CLASS_HINT, type NavItem } from "../lib/nav";
 import type { Screen } from "../screens";
+
+/** Người dùng hiện ở khung (GD-04): tên + vai từ GET /me; chưa đăng nhập → "Khách". */
+export function useShellUser(): { name: string; sub: string } {
+  const me = useCurrentUser();
+  return me ? { name: me.fullName, sub: ROLE_LABEL[me.role] } : { name: "Khách", sub: "Chưa đăng nhập" };
+}
 
 /** Màn đang mở (router gắn `handle: { screen }` cho mỗi route trong SCREENS). */
 export function useCurrentScreen(): Screen | undefined {

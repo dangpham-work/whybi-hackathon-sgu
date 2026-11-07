@@ -69,6 +69,7 @@ export interface paths {
         /**
          * Put Ai Config
          * @description Cấu hình nhà cung cấp LLM/STT/TTS và model dự phòng (FR-AD-05) – thẻ của Đăng.
+         *     LLM áp ngay vào gateway (giữ trong bộ nhớ tiến trình); lưu CSDL khi C2-06 xong. STT/TTS: C1-12, C1-14.
          */
         put: operations["put_ai_config_api_v1_admin_ai_config_put"];
         post?: never;
@@ -201,7 +202,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Refresh */
+        /**
+         * Refresh
+         * @description Đổi refresh token lấy cặp token mới; refresh cũ bị thu hồi.
+         */
         post: operations["refresh_api_v1_auth_refresh_post"];
         delete?: never;
         options?: never;
@@ -218,7 +222,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout */
+        /**
+         * Logout
+         * @description Thu hồi access token hiện tại (và refresh token nếu gửi kèm).
+         */
         post: operations["logout_api_v1_auth_logout_post"];
         delete?: never;
         options?: never;
@@ -235,8 +242,28 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Forgot Password */
+        /**
+         * Forgot Password
+         * @description Luôn 202 – không cho biết email có tồn tại hay không.
+         */
         post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset Password */
+        post: operations["reset_password_api_v1_auth_reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -647,7 +674,7 @@ export interface paths {
         };
         /**
          * Get Tree
-         * @description Cây đang phát hành (hoặc bản nháp với GV).
+         * @description Cây đang phát hành (hoặc bản nháp với GV). C2-02: đọc cây mẫu qua SkillTreeService, chưa dùng CSDL.
          */
         get: operations["get_tree_api_v1_classes__class_id__tree_get"];
         put?: never;
@@ -894,6 +921,8 @@ export interface components {
             /** Scenario */
             scenario: string;
             bloomLevel: components["schemas"]["BloomLevel"];
+            /** Expectedpoints */
+            expectedPoints?: string | null;
         };
         /** ClassCreate */
         ClassCreate: {
@@ -964,7 +993,10 @@ export interface components {
          * @enum {string}
          */
         CriterionCode: "CORRECTNESS" | "COVERAGE" | "ESSENCE" | "ROBUSTNESS" | "CLARITY";
-        /** CriterionResult */
+        /**
+         * CriterionResult
+         * @description Điểm có trọng số hiển thị cho SV / GV: score ∈ [0, max], max = weight·100 (ví dụ 5.4.4).
+         */
         CriterionResult: {
             code: components["schemas"]["CriterionCode"];
             /** Weight */
@@ -1002,6 +1034,11 @@ export interface components {
          * @enum {string}
          */
         FlagType: "PASTE_SUSPECTED" | "JAILBREAK" | "OFF_TOPIC" | "LOW_STT_CONFIDENCE" | "ANSWER_LEAK";
+        /** ForgotPasswordRequest */
+        ForgotPasswordRequest: {
+            /** Email */
+            email: string;
+        };
         /** GridRow */
         GridRow: {
             /**
@@ -1111,13 +1148,15 @@ export interface components {
         };
         /** LoginRequest */
         LoginRequest: {
-            /**
-             * Email
-             * Format: email
-             */
+            /** Email */
             email: string;
             /** Password */
             password: string;
+        };
+        /** LogoutRequest */
+        LogoutRequest: {
+            /** Refreshtoken */
+            refreshToken?: string | null;
         };
         /**
          * MasteryState
@@ -1155,10 +1194,7 @@ export interface components {
             id: string;
             /** Fullname */
             fullName: string;
-            /**
-             * Email
-             * Format: email
-             */
+            /** Email */
             email: string;
             role: components["schemas"]["Role"];
             /** Avatarurl */
@@ -1281,7 +1317,7 @@ export interface components {
         ProviderKind: "LLM" | "STT" | "TTS";
         /**
          * Question
-         * @description Câu hỏi của Tutee (kênh session:{id} → session.question).
+         * @description Câu hỏi của Tutee (kênh session:{id} → session.question; cũng là câu mở đầu).
          */
         Question: {
             /** Text */
@@ -1299,6 +1335,18 @@ export interface components {
          * @enum {string}
          */
         QuestionStrategy: "MISSING_KEY_POINT" | "MISCONCEPTION_PROBE" | "EDGE_CASE" | "TRANSFER";
+        /** RefreshRequest */
+        RefreshRequest: {
+            /** Refreshtoken */
+            refreshToken: string;
+        };
+        /** ResetPasswordRequest */
+        ResetPasswordRequest: {
+            /** Token */
+            token: string;
+            /** Newpassword */
+            newPassword: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -1373,7 +1421,10 @@ export interface components {
              */
             approved: boolean;
         };
-        /** SessionCreated */
+        /**
+         * SessionCreated
+         * @description Trả về của POST /sessions (201).
+         */
         SessionCreated: {
             /**
              * Sessionid
@@ -1386,6 +1437,7 @@ export interface components {
         /**
          * SessionResult
          * @description GET /sessions/{id}/result và payload sự kiện session.completed (Redis Pub/Sub).
+         *     Bên nghe: MasteryService (Long, C2-10) đọc studentId, nodeId, classId, verdict, flags, isPeerFollowup.
          */
         SessionResult: {
             /**
@@ -1454,6 +1506,8 @@ export interface components {
              * @default []
              */
             detectedMisconceptions: string[];
+            /** Completedat */
+            completedAt?: string | null;
         };
         /**
          * SessionStart
@@ -1507,6 +1561,11 @@ export interface components {
             /** Confidence */
             confidence: number;
             /**
+             * Words
+             * @default []
+             */
+            words: components["schemas"]["WordConfidence"][];
+            /**
              * Lowconfidencewords
              * @default []
              */
@@ -1548,11 +1607,15 @@ export interface components {
         };
         /**
          * Turn
-         * @description POST /sessions/{id}/turns – lời giảng hoặc câu trả lời.
+         * @description POST /sessions/{id}/turns – lời giảng (EXPLANATION) hoặc câu trả lời (ANSWER) của SV.
          */
         Turn: {
-            /** @default EXPLANATION */
-            turnType: components["schemas"]["TurnType"];
+            /**
+             * Turntype
+             * @default EXPLANATION
+             * @enum {string}
+             */
+            turnType: "EXPLANATION" | "ANSWER";
             /** @default TEXT */
             inputMode: components["schemas"]["InputMode"];
             /** Text */
@@ -1573,7 +1636,10 @@ export interface components {
             /** Responsetimems */
             responseTimeMs?: number | null;
         };
-        /** TurnReply */
+        /**
+         * TurnReply
+         * @description Trả về của POST /sessions/{id}/turns và /timeout.
+         */
         TurnReply: {
             status: components["schemas"]["SessionStatus"];
             question?: components["schemas"]["Question"] | null;
@@ -1590,11 +1656,17 @@ export interface components {
              */
             questionsTotal: number;
         };
-        /**
-         * TurnType
-         * @enum {string}
-         */
-        TurnType: "OPENING" | "EXPLANATION" | "QUESTION" | "ANSWER" | "SYSTEM_NOTICE";
+        /** UpdateMe */
+        UpdateMe: {
+            /** Fullname */
+            fullName?: string | null;
+            /** Avatarurl */
+            avatarUrl?: string | null;
+            /** Currentpassword */
+            currentPassword?: string | null;
+            /** Newpassword */
+            newPassword?: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1613,6 +1685,13 @@ export interface components {
          * @enum {string}
          */
         Verdict: "PASSED" | "FAILED";
+        /** WordConfidence */
+        WordConfidence: {
+            /** Word */
+            word: string;
+            /** Confidence */
+            confidence: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -1906,7 +1985,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1915,6 +1998,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1926,7 +2018,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {
@@ -1935,18 +2031,29 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     forgot_password_api_v1_auth_forgot_password_post: {
         parameters: {
-            query: {
-                email: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -1956,6 +2063,37 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1995,7 +2133,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMe"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2004,6 +2146,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

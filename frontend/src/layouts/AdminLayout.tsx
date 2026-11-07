@@ -2,14 +2,12 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { NAV } from "../lib/nav";
-import { SideNav, useCurrentScreen } from "./shell";
-
-// TODO(GD-04): lấy người dùng từ phiên đăng nhập; tạm dùng QTV mẫu trong seed/users.json
-const USER = { name: "Quản trị Whybi", sub: "Quản trị hệ thống" };
+import { SideNav, useCurrentScreen, useShellUser } from "./shell";
 
 /** Khung Quản trị (bổ sung – chưa có trong Figma, thẻ GD-15). Dựng theo mẫu khung GV. */
 export function AdminLayout() {
   const screen = useCurrentScreen();
+  const USER = useShellUser();
   const { pathname } = useLocation();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => setDrawer(false), [pathname]);

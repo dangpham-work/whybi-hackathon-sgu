@@ -1,85 +1,82 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { AsyncView } from "../components/AsyncView";
-import { ApiError, FRIENDLY } from "../lib/api";
-import { useApi, useChannel } from "../lib/hooks";
-import { RealtimeClient, type WsEvent } from "../lib/ws";
+import { ApiError } from "../lib/api";
+import { useApi } from "../lib/useApi";
 
-function Classes({ load }: { load: (signal: AbortSignal) => Promise<string[]> }) {
+function Demo({ load }: { load: (signal: AbortSignal) => Promise<string[]> }) {
   const state = useApi(load, []);
-  return (
-    <AsyncView state={state} loadingLabel="Đang tải lớp…" empty={<p>Chưa có lớp nào.</p>}>
-      {(names) => (
-        <ul>
-          {names.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      )}
-    </AsyncView>
-  );
+  return <AsyncView state={state}>{(items) => <ul>{items.map((i) => <li key={i}>{i}</li>)}</ul>}</AsyncView>;
 }
 
 describe("trạng thái tải và lỗi dùng chung (GD-02)", () => {
-  it("hiện đang tải rồi hiện dữ liệu", async () => {
-    render(<Classes load={() => Promise.resolve(["CTDL&GT"])} />);
-    expect(screen.getByRole("status").textContent).toContain("Đang tải lớp…");
-    expect(await screen.findByText("CTDL&GT")).toBeTruthy();
+  it("hiện 'Đang tải…' rồi tới dữ liệu", async () => {
+    render(<Demo load={() => Promise.resolve(["N1 Biến", "N2 Mảng"])} />);
+    expect(screen.getByRole("status").textContent).toContain("Đang tải");
+    expect(await screen.findByText("N2 Mảng")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("dữ liệu rỗng thì hiện thông báo rỗng", async () => {
-    render(<Classes load={() => Promise.resolve([])} />);
-    expect(await screen.findByText("Chưa có lớp nào.")).toBeTruthy();
-  });
-
-  it("lỗi API hiện câu dễ hiểu và bấm Thử lại thì gọi lại", async () => {
+  it("lỗi API hiện câu dễ hiểu kèm nút Thử lại; bấm thì gọi lại", async () => {
     const load = vi
       .fn<(s: AbortSignal) => Promise<string[]>>()
-      .mockRejectedValueOnce(new ApiError(0, "NETWORK_ERROR", FRIENDLY.NETWORK_ERROR))
-      .mockResolvedValueOnce(["Lớp A"]);
-    render(<Classes load={load} />);
-    expect((await screen.findByRole("alert")).textContent).toContain(FRIENDLY.NETWORK_ERROR);
-    fireEvent.click(screen.getByRole("button", { name: /Thử lại/ }));
-    expect(await screen.findByText("Lớp A")).toBeTruthy();
+      .mockRejectedValueOnce(new ApiError(403, "FORBIDDEN"))
+      .mockResolvedValueOnce(["N5 Con trỏ"]);
+    render(<Demo load={load} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Bạn không có quyền xem nội dung này.");
+    expect(alert.querySelector("svg")).toBeTruthy(); // màu đỏ luôn kèm biểu tượng
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(await screen.findByText("N5 Con trỏ")).toBeTruthy();
     expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it("lỗi JS lạ không lộ ra người dùng", async () => {
-    render(<Classes load={() => Promise.reject(new Error("x is undefined"))} />);
+  it("501 hiện 'đang phát triển' (không phải lỗi đỏ, không giả lập dữ liệu)", async () => {
+    render(<Demo load={() => Promise.reject(new ApiError(501, "NOT_IMPLEMENTED", undefined, { card: "C2-13" }))} />);
+    const box = await screen.findByText(/Chức năng đang được phát triển \(thẻ C2-13\)/);
+    expect(box).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("401 (chưa / hết đăng nhập) mời đăng nhập lại và quay về đúng trang", async () => {
+    window.history.pushState({}, "", "/sv/classes");
+    render(<Demo load={() => Promise.reject(new ApiError(401, "UNAUTHORIZED"))} />);
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain(FRIENDLY.HTTP_ERROR);
+    expect(alert.textContent).toContain("Phiên đăng nhập đã hết hạn");
+    expect(screen.getByRole("link", { name: "Đăng nhập lại" }).getAttribute("href")).toBe("/login?next=%2Fsv%2Fclasses");
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
+
+  it("lỗi không phải ApiError vẫn hiện câu chung, không lộ chi tiết kỹ thuật", async () => {
+    render(<Demo load={() => Promise.reject(new Error("TypeError: x is undefined"))} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Có lỗi xảy ra, vui lòng thử lại.");
     expect(alert.textContent).not.toContain("undefined");
   });
 
-  it("rời trang thì hủy yêu cầu", async () => {
+  it("dữ liệu rỗng hiện thông báo trống nếu được cấu hình", async () => {
+    function Empty() {
+      const state = useApi(() => Promise.resolve([] as string[]), []);
+      return (
+        <AsyncView state={state} isEmpty={(d) => d.length === 0} empty="Chưa có lớp nào">
+          {() => <p>có dữ liệu</p>}
+        </AsyncView>
+      );
+    }
+    render(<Empty />);
+    expect(await screen.findByText("Chưa có lớp nào")).toBeTruthy();
+  });
+
+  it("hủy yêu cầu cũ khi component bị gỡ", () => {
     let signal: AbortSignal | undefined;
     const { unmount } = render(
-      <Classes
+      <Demo
         load={(s) => {
           signal = s;
           return new Promise(() => {});
         }}
       />,
     );
-    await waitFor(() => expect(signal).toBeDefined());
     unmount();
-    expect(signal!.aborted).toBe(true);
-  });
-
-  it("useChannel đăng ký khi mount và hủy khi unmount", () => {
-    const client = new RealtimeClient(() => null, () => null);
-    const got: WsEvent[] = [];
-    function Listener() {
-      useChannel("job:1", (e) => got.push(e), client);
-      return null;
-    }
-    const sub = vi.spyOn(client, "subscribe");
-    const { unmount } = render(<Listener />);
-    expect(sub).toHaveBeenCalledWith("job:1", expect.any(Function));
-    const handler = sub.mock.calls[0][1];
-    act(() => handler({ channel: "job:1", event: "job.progress", payload: 50 }));
-    expect(got).toEqual([{ channel: "job:1", event: "job.progress", payload: 50 }]);
-    unmount();
-    // sau khi unmount, client không còn kênh nào
-    expect((client as unknown as { handlers: Map<string, unknown> }).handlers.size).toBe(0);
+    expect(signal?.aborted).toBe(true);
   });
 });

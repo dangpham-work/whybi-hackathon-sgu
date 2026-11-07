@@ -1,161 +1,131 @@
-import { RealtimeClient, channels, type WsStatus } from "../lib/ws";
+import { RealtimeClient, type WsEvent } from "../lib/ws";
 
-/** WebSocket giả: test tự mở / đóng / đẩy gói tin. */
+/** WebSocket giả: test tự mở / đóng / đẩy tin nhắn. */
 class FakeSocket {
-  static CONNECTING = 0;
   static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-  static instances: FakeSocket[] = [];
-
-  readyState = FakeSocket.CONNECTING;
+  static all: FakeSocket[] = [];
+  readyState = 0;
   sent: unknown[] = [];
-  onopen: ((e: unknown) => void) | null = null;
-  onclose: ((e: unknown) => void) | null = null;
-  onmessage: ((e: { data: string }) => void) | null = null;
-
+  onopen?: () => void;
+  onclose?: () => void;
+  onmessage?: (m: { data: string }) => void;
   constructor(public url: string) {
-    FakeSocket.instances.push(this);
+    FakeSocket.all.push(this);
   }
   send(data: string) {
     this.sent.push(JSON.parse(data));
   }
   close() {
-    this.readyState = FakeSocket.CLOSED;
+    this.readyState = 3;
+    this.onclose?.();
   }
-  // điều khiển từ test
   open() {
     this.readyState = FakeSocket.OPEN;
-    this.onopen?.({});
+    this.onopen?.();
+  }
+  push(msg: unknown) {
+    this.onmessage?.({ data: typeof msg === "string" ? msg : JSON.stringify(msg) });
   }
   drop() {
-    this.readyState = FakeSocket.CLOSED;
-    this.onclose?.({});
-  }
-  push(data: unknown) {
-    this.onmessage?.({ data: typeof data === "string" ? data : JSON.stringify(data) });
+    this.readyState = 3;
+    this.onclose?.();
   }
 }
 
-const last = () => FakeSocket.instances[FakeSocket.instances.length - 1];
-const URL = "ws://test/api/v1/ws";
+const make = () =>
+  new RealtimeClient(() => "tok", {
+    url: "ws://test/api/v1/ws",
+    WebSocketImpl: FakeSocket as unknown as typeof WebSocket,
+  });
+const latest = () => FakeSocket.all.at(-1)!;
 
-describe("WebSocket client dùng chung (GD-02)", () => {
-  beforeEach(() => {
-    FakeSocket.instances = [];
-    vi.useFakeTimers();
-    vi.stubGlobal("WebSocket", FakeSocket);
+beforeEach(() => {
+  FakeSocket.all = [];
+  vi.useFakeTimers();
+});
+afterEach(() => vi.useRealTimers());
+
+describe("RealtimeClient (GD-02)", () => {
+  it("đăng ký kênh sau khi mở kết nối, kèm token", () => {
+    const rt = make();
+    rt.subscribe("class:c1:heatmap", () => {});
+    rt.connect();
+    latest().open();
+    expect(latest().url).toBe("ws://test/api/v1/ws");
+    expect(latest().sent).toEqual([{ action: "subscribe", channel: "class:c1:heatmap", token: "tok" }]);
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
+  it("chuyển sự kiện đúng kênh, bỏ qua tin nhắn hỏng", () => {
+    const rt = make();
+    const a = vi.fn();
+    const b = vi.fn();
+    rt.connect();
+    latest().open();
+    rt.subscribe("job:1", a);
+    rt.subscribe("job:2", b);
+    latest().push({ channel: "job:1", event: "job.progress", payload: { pct: 40 } });
+    latest().push("{không phải json");
+    expect(a).toHaveBeenCalledWith({ channel: "job:1", event: "job.progress", payload: { pct: 40 } });
+    expect(b).not.toHaveBeenCalled();
   });
 
-  it("đăng ký kênh kèm token sau khi mở và chuyển sự kiện đúng kênh", () => {
-    const c = new RealtimeClient(() => "tok", () => URL);
-    const got = vi.fn();
-    const other = vi.fn();
-    c.subscribe(channels.heatmap("c1"), got);
-    c.subscribe(channels.job("j1"), other);
-    c.connect();
-    last().open();
-    expect(last().url).toBe(URL);
-    expect(last().sent).toEqual([
-      { action: "subscribe", channel: "class:c1:heatmap", token: "tok" },
-      { action: "subscribe", channel: "job:j1", token: "tok" },
-    ]);
-    last().push({ channel: "class:c1:heatmap", event: "heatmap.cell", payload: { x: 1 } });
-    expect(got).toHaveBeenCalledWith({ channel: "class:c1:heatmap", event: "heatmap.cell", payload: { x: 1 } });
-    expect(other).not.toHaveBeenCalled();
-    c.close();
+  it("tin nhắn không có kênh (vd. lỗi từ máy chủ) đi tới mọi người nghe", () => {
+    const rt = make();
+    const a = vi.fn();
+    rt.connect();
+    latest().open();
+    rt.subscribe("job:1", a);
+    latest().push({ event: "error", payload: { code: "NOT_IMPLEMENTED" } });
+    expect(a).toHaveBeenCalledWith(expect.objectContaining({ channel: "*", event: "error" }));
   });
 
-  it("bỏ qua gói tin hỏng, không ném lỗi", () => {
-    const c = new RealtimeClient(() => null, () => URL);
-    const got = vi.fn();
-    c.subscribe("job:1", got);
-    c.connect();
-    last().open();
-    expect(() => last().push("không phải JSON")).not.toThrow();
-    last().push({ foo: 1 });
-    expect(got).not.toHaveBeenCalled();
-    c.close();
-  });
-
-  it("hủy handler cuối cùng thì gửi unsubscribe", () => {
-    const c = new RealtimeClient(() => "t", () => URL);
-    c.connect();
-    last().open();
-    const off = c.subscribe("user:u1", () => {});
-    off();
-    expect(last().sent).toEqual([
-      { action: "subscribe", channel: "user:u1", token: "t" },
-      { action: "unsubscribe", channel: "user:u1", token: "t" },
-    ]);
-    c.close();
-  });
-
-  it("mất kết nối thì tự nối lại (lùi dần), đăng ký lại kênh và báo reconnected", () => {
-    const c = new RealtimeClient(() => "t", () => URL);
-    const got = vi.fn();
-    const statuses: WsStatus[] = [];
-    c.onStatus((s) => statuses.push(s));
-    c.subscribe("session:s1", got);
-    c.connect();
-    last().open();
-    last().drop();
-    expect(FakeSocket.instances).toHaveLength(1);
+  it("mất kết nối thì tự nối lại (lùi dần), đăng ký lại kênh và báo 'reconnected'", () => {
+    const rt = make();
+    const seen: WsEvent[] = [];
+    rt.subscribe("session:s1", (e) => seen.push(e));
+    rt.connect();
+    latest().open();
+    latest().drop();
+    expect(FakeSocket.all).toHaveLength(1);
     vi.advanceTimersByTime(1000);
-    expect(FakeSocket.instances).toHaveLength(2);
-    last().drop();
+    expect(FakeSocket.all).toHaveLength(2);
+    latest().drop(); // lần 2 lỗi ngay khi chưa mở → chờ 2 s
     vi.advanceTimersByTime(1999);
-    expect(FakeSocket.instances).toHaveLength(2);
+    expect(FakeSocket.all).toHaveLength(2);
     vi.advanceTimersByTime(1);
-    expect(FakeSocket.instances).toHaveLength(3);
-    last().open();
-    expect(last().sent).toContainEqual({ action: "subscribe", channel: "session:s1", token: "t" });
-    expect(got).toHaveBeenCalledWith({ channel: "*", event: "reconnected", payload: null });
-    expect(statuses).toEqual(["connecting", "open", "reconnecting", "open"]);
-    c.close();
+    latest().open();
+    expect(latest().sent).toEqual([{ action: "subscribe", channel: "session:s1", token: "tok" }]);
+    expect(seen.map((e) => e.event)).toEqual(["reconnected"]);
   });
 
-  it("close() dừng hẳn: không nối lại dù hẹn giờ đang chờ", () => {
-    const c = new RealtimeClient(() => "t", () => URL);
-    c.connect();
-    last().open();
-    last().drop();
-    c.close();
-    vi.advanceTimersByTime(60_000);
-    expect(FakeSocket.instances).toHaveLength(1);
-    expect(c.status).toBe("closed");
+  it("hủy đăng ký: không nhận nữa và báo máy chủ khi hết người nghe", () => {
+    const rt = make();
+    const a = vi.fn();
+    rt.connect();
+    latest().open();
+    const off = rt.subscribe("user:u1", a);
+    off();
+    latest().push({ channel: "user:u1", event: "notification", payload: {} });
+    expect(a).not.toHaveBeenCalled();
+    expect(latest().sent.at(-1)).toEqual({ action: "unsubscribe", channel: "user:u1", token: "tok" });
   });
 
-  it("môi trường đã bị hủy (không có URL / WebSocket) thì không nối và không ném lỗi", () => {
-    const noUrl = new RealtimeClient(() => "t", () => null);
-    expect(() => noUrl.connect()).not.toThrow();
-    expect(noUrl.status).toBe("closed");
-
-    // Mất URL (location đã hủy) lúc socket đóng
-    let url: string | null = URL;
-    const c = new RealtimeClient(() => "t", () => url);
-    c.connect();
-    last().open();
-    url = null;
-    expect(() => last().drop()).not.toThrow();
+  it("close() dừng hẳn, không nối lại", () => {
+    const rt = make();
+    rt.connect();
+    latest().open();
+    rt.close();
     vi.advanceTimersByTime(60_000);
-    expect(FakeSocket.instances).toHaveLength(1);
-    expect(c.status).toBe("closed");
+    expect(FakeSocket.all).toHaveLength(1);
+  });
 
-    // Mất cả lớp WebSocket (môi trường test đã dọn) lúc socket đóng
-    const c2 = new RealtimeClient(() => "t", () => URL);
-    c2.connect();
-    const sock = last();
-    sock.open();
-    vi.stubGlobal("WebSocket", undefined);
-    expect(() => sock.drop()).not.toThrow();
-    vi.advanceTimersByTime(60_000);
-    expect(FakeSocket.instances).toHaveLength(2);
-    expect(c2.status).toBe("closed");
+  it("trạng thái kết nối cho giao diện hiện 'mất kết nối'", () => {
+    const rt = make();
+    const states: string[] = [];
+    rt.onStatus((s) => states.push(s));
+    rt.connect();
+    latest().open();
+    latest().drop();
+    expect(states).toEqual(["connecting", "open", "reconnecting"]);
   });
 });

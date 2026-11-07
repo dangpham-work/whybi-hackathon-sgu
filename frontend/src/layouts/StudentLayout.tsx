@@ -2,15 +2,13 @@ import { Bell } from "lucide-react";
 import { Link, Outlet, useParams } from "react-router";
 import { Logo } from "../components/Logo";
 import { isCurrent, NAV, NEED_CLASS_HINT } from "../lib/nav";
-import { Avatar, useCurrentScreen } from "./shell";
-
-// TODO(GD-04): lấy người dùng từ phiên đăng nhập; tạm dùng SV mẫu trong seed/users.json
-const USER = { name: "Trần Bảo Châu" };
+import { Avatar, useCurrentScreen, useShellUser } from "./shell";
 
 /** Khung mobile SV 390px (Figma SV-01…SV-08): header trắng + thanh tab dưới. Responsive từ 360px (NFR-11). */
 export function StudentLayout() {
   const { classId } = useParams();
   const screen = useCurrentScreen();
+  const USER = useShellUser();
   const tabs = NAV.STUDENT(classId);
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-app">
