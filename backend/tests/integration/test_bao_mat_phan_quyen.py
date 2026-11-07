@@ -80,6 +80,7 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/sessions/{session_id}/timeout"): frozenset({SV}),
     ("GET", "/sessions/{session_id}/result"): frozenset({GV, SV}),
     ("GET", "/me/sessions"): frozenset({SV}),
+    ("GET", "/me/sessions/{session_id}"): frozenset({SV}),
     # Nghe lại ghi âm một lượt: GV (SV lớp mình), SV (của mình)
     ("GET", "/turns/{turn_id}/audio"): frozenset({GV, SV}),
     # Bản đồ nhiệt có tên SV, hồ sơ SV, báo cáo – chỉ GV
