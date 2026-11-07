@@ -37,6 +37,12 @@
 - Giữ ba ca hồi quy luật Guard AT01/AT02/AT07; test với LLM giả luôn VALID không đại diện cho hiệu quả của toàn bộ corpus mới. KT-07 phải đo toàn bộ ca với Guard thật, không coi test đơn vị xanh là đạt mục tiêu 90%.
 - Cần: người gán nhãn độc lập cho 62 lời giảng; 30 file ghi âm có đồng ý sử dụng; GV xác nhận cây chuẩn và giáo trình đi kèm.
 - Chờ CI của PR KT-04 và Long duyệt; Đăng rà thay đổi giới hạn test Guard về các ca hồi quy ban đầu. Không đổi code Guard hoặc kết quả đánh giá thực nghiệm.
+## KT-10 – giọng nói và bộ đo STT
+
+- C1-12 và GD-08 đã merge. Chuyển test/metrics/runner từ whybi-ai@3586904.
+- CI backend kiểm audio→transcript→lượt VOICE trên Postgres; Playwright kiểm ghi/dừng/ghi lại/gửi, lỗi STT, xác nhận khi confidence=0,65 và giới hạn 3 phút với microphone giả và HTTP có kịch bản.
+- Bộ đo giữ WER, thuật ngữ, độ trễ và provenance; chưa có 30 bản ghi người thật được đồng ý và xác nhận độc lập. Không dùng fixture hoặc provider fake làm số liệu chất lượng.
+- Không test local; PR thường, đóng #49 khi toàn bộ checks GitHub pass theo Quyền. Chưa xác nhận CD/VM.
 ## KT-05 – giả lập qua API phiên thật
 
 - Tiên quyết C1-01, C2-05 và API C1-07 (PR #119) đã merge. Script chuyển từ whybi-ai bcf5f1d.
