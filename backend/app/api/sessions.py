@@ -40,7 +40,7 @@ from app.models.schemas.session import (
     TurnReply,
 )
 from app.services.session_orchestrator import SessionOrchestrator
-from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService
+from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService, sniff_audio
 
 router = APIRouter(tags=["sessions"])
 
@@ -118,6 +118,9 @@ def upload_audio(
     """Transcribe the owner's active session; save recording only with consent (BR-13)."""
     node = orch.audio_node(user.id, session_id)
     audio = file.file.read(MAX_AUDIO_BYTES + 1)
+    fmt = sniff_audio(audio)
+    if fmt is not None:
+        orch.reserve_audio(user.id, session_id, audio, fmt.ext)
     return speech.transcribe(audio, node, session_id=session_id, consent=consent)
 
 
