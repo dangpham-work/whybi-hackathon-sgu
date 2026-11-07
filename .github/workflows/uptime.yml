@@ -1,0 +1,17 @@
+# Theo dõi uptime (C2-04, NFR-10): 5 phút ping /health của VM demo; lần chạy đỏ ⇒ GitHub gửi email báo.
+# Cần biến repo PUBLIC_URL (vd. https://whybi.example.com); chưa đặt thì bỏ qua.
+# ponytail: cron của GitHub trễ vài phút và tạm dừng sau 60 ngày repo không hoạt động –
+# cần đo SLA thật thì dùng dịch vụ ngoài (UptimeRobot, Better Stack) trỏ cùng URL.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    if: vars.PUBLIC_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS --max-time 15 --retry 2 --retry-delay 5 "${{ vars.PUBLIC_URL }}/health"
