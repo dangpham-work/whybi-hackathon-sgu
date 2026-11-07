@@ -10,6 +10,7 @@ import logging
 
 from app.realtime.bus import EventBus, RedisEventBus, get_bus
 from app.services import heatmap
+from app.services.live_matching import register_handlers as register_live_matching_handlers
 from app.services.mastery import register_handlers
 from app.services.matching import register_handlers as register_matching_handlers
 
@@ -21,6 +22,7 @@ def main(bus: EventBus | None = None) -> None:
     register_handlers(bus)
     heatmap.register_handlers(bus)
     register_matching_handlers(bus)  # C2-14: xác nhận lại sau học cặp
+    register_live_matching_handlers(bus)  # C2-15: mastery.changed → ghép theo sự kiện trong hạn kiểm tra
     if not isinstance(bus, RedisEventBus):
         raise SystemExit("mastery_listener cần Redis (EVENT_BUS khác 'memory', APP_ENV khác 'test')")
     log.info("mastery_listener: đang nghe session.completed, mastery.changed")

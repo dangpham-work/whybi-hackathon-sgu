@@ -7,17 +7,57 @@ Mã lỗi:
 - 409 NOT_ENOUGH_PARTICIPANTS details {participantCount} – < 2 SV bật ghép cặp và chưa có cặp hoạt động
 - 404 ENROLLMENT_NOT_FOUND · 403 FORBIDDEN (ghi danh của SV khác) · 403 NOT_CLASS_OWNER · 403 NOT_ENROLLED
 - 404 TREE_NOT_PUBLISHED (lớp chưa phát hành cây)
+- 404 NODE_NOT_IN_TREE (nút không thuộc cây đang phát hành) – C2-15
+- 422 DEADLINE_IN_PAST (hạn kiểm tra bài cũ phải ở tương lai) – C2-15
+- PATCH /matches/{id} (C2-15): 409 MATCH_INVALID_STATE (cặp đã kết thúc) · 422 REPLACE_NOT_IN_MATCH ·
+  404 STUDENT_NOT_IN_CLASS · 409 STUDENT_NOT_OPTED_IN · 409 STUDENT_BUSY (đang trong cặp hoạt động khác) ·
+  422 NO_COMPLEMENTARY_NODES (hai SV không có gì để dạy nhau)
 """
 
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import model_validator
 
 from app.models.enums import MatchStatus
 from app.models.schemas.common import ApiModel
 
 
 class RoundRequest(ApiModel):
-    priority_node_id: UUID | None = None  # "Ghép cặp ưu tiên N5" (FR-PM-04, C2-15 – hiện trả 501)
+    priority_node_id: UUID | None = None  # "Ghép cặp ưu tiên N5" (FR-PM-04, C2-15): ưu tiên cặp có người dạy nút này
+
+
+class MatchAdjust(ApiModel):
+    """GV điều chỉnh cặp thủ công (FR-PM-08, C2-15): hủy cặp (`cancel`) hoặc thay một SV bằng SV khác trong lớp.
+    Thay SV ⇒ tính lại nút dạy / học, cặp quay về PROPOSED để hai bên chấp nhận lại."""
+
+    cancel: bool = False
+    replace_student_id: UUID | None = None
+    with_student_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def _one_action(self) -> "MatchAdjust":
+        swap = self.replace_student_id is not None or self.with_student_id is not None
+        if self.cancel == swap:
+            raise ValueError("chọn đúng một: cancel=true hoặc (replaceStudentId + withStudentId)")
+        if swap and (self.replace_student_id is None or self.with_student_id is None):
+            raise ValueError("thay SV cần cả replaceStudentId và withStudentId")
+        return self
+
+
+class MatchingStats(ApiModel):
+    """Hiệu quả ghép cặp của lớp (mục 6.6.6, FR-PM-08)."""
+
+    total_matches: int
+    accepted: int  # cả hai đã chấp nhận
+    declined: int
+    expired: int
+    studied: int  # cả hai bấm "Đã học cùng"
+    items_total: int  # mục dạy–học của các cặp đã học cùng
+    items_verified: int  # trong đó người học đã Đạt khi xác nhận lại
+    accept_rate: float  # accepted / total_matches
+    studied_rate: float  # studied / accepted
+    verified_rate: float  # items_verified / items_total
 
 
 class MatchItemOut(ApiModel):
@@ -57,7 +97,7 @@ class MatchOut(ApiModel):
 
 class RoundOut(ApiModel):
     id: UUID
-    trigger_type: str  # MANUAL / SCHEDULED
+    trigger_type: str  # MANUAL / SCHEDULED / LIVE (ghép theo sự kiện trong hạn kiểm tra, C2-15)
     participant_count: int
     total_weight: float
     matches: list[MatchOut]
@@ -67,3 +107,21 @@ class RoundOut(ApiModel):
 
 class OptIn(ApiModel):
     peer_opt_in: bool
+
+
+class ReviewWindowRequest(ApiModel):
+    deadline_at: datetime  # phải ở tương lai; đặt lại cho cùng nút thì dời hạn
+
+
+class ReviewWindowOut(ApiModel):
+    """Hạn kiểm tra bài cũ của một nút (C2-15). Trong hạn, ghép cặp chạy theo sự kiện: người Đạt dạy tối đa 3 người
+    chưa Đạt; không đạt ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ chờ. Hết hạn thì dừng ghép tự động."""
+
+    node_id: UUID | None  # nút ở bản đang phát hành (None nếu key không còn trong cây)
+    node_key: str
+    deadline_at: datetime
+    open: bool
+    teacher_count: int  # SV bật ghép cặp đã Đạt nút (người dạy tiềm năng)
+    matched_count: int  # SV chưa Đạt đang có cặp ở nút này
+    waiting_student_ids: list[UUID] = []  # SV chưa Đạt chưa có người dạy – GV giảng trực tiếp hoặc ghép tay
+    message: str | None = None

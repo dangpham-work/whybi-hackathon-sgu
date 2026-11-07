@@ -35,8 +35,8 @@ def test_session_result_matches_example_5_4_4():
     assert data["unlockedNodes"] == ["N6"]
 
 
-def test_all_30_tables_registered():
+def test_all_tables_registered():
     import app.models  # noqa: F401
     from app.db.base import Base
 
-    assert len(Base.metadata.tables) == 30
+    assert len(Base.metadata.tables) == 31, "30 bảng của ERD + node_review_windows (C2-15)"

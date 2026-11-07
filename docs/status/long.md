@@ -8,6 +8,25 @@
   - C2-16: phiên bản cây (FR-SK-10). `GET /classes/{id}/tree-versions` (mới nhất trước), `POST /tree-versions/{v}/restore`
     (sao thành DRAFT mới, bản cũ giữ nguyên, rubric duyệt lại), `GET /tree-versions/{a}/compare/{b}` → `TreeDiff`
     (nút thêm / bỏ / đổi theo key, cạnh thêm / bỏ). Endpoint compare là bổ sung ngoài Bảng 5.10 – Thắng (GD-14) dùng cho màn so sánh.
+  - C2-15 (phần 2/2): ưu tiên nút nghẽn, GV điều chỉnh cặp, thống kê hiệu quả. Chi tiết `docs/spec/mx4-matching.md`.
+    - `POST matching-rounds {priorityNodeId}` hết 501: nút được cộng thêm vào p(n); nút lạ ⇒ 404 `NODE_NOT_IN_TREE`.
+    - `PATCH /matches/{id}` hết 501: `{cancel:true}` hoặc `{replaceStudentId, withStudentId}` (lỗi: 409 `MATCH_INVALID_STATE` · 422 `REPLACE_NOT_IN_MATCH` ·
+      404 `STUDENT_NOT_IN_CLASS` · 409 `STUDENT_NOT_OPTED_IN` · 409 `STUDENT_BUSY` · 422 `NO_COMPLEMENTARY_NODES`).
+    - `GET /classes/{id}/matching-stats` → `MatchingStats {totalMatches, accepted, declined, expired, studied, itemsTotal, itemsVerified, acceptRate, studiedRate, verifiedRate}` (chỉ GV chủ lớp).
+    - Không đổi schema CSDL. Thắng (GD-12): chạy `npm run gen:api`; màn GV-09 thêm chọn nút ưu tiên, nút hủy / thay SV, khối thống kê.
+    - Quyền (KT-14): đã thêm route mới vào bảng `PHAN_QUYEN`.
+  - C2-15 (phần 1/2, PR này): **ghép cặp theo sự kiện** trong hạn kiểm tra bài cũ của nút (FR-PM-04), thay hướng "cổng tỉ lệ Đạt".
+    Phần 2 (ghép tay, đổi người dạy, hủy, thống kê) làm ở PR sau. Chi tiết luồng: `docs/spec/mx4-matching.md`.
+    - Luồng: SV Đạt nút ⇒ người dạy; không đạt ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ hàng chờ; **một người Đạt dạy tối đa 3 người chưa Đạt**.
+      Suy ra từ ma trận (không bảng hàng chờ), chạy khi có `mastery.changed` (tiến trình `mastery_listener`) và beat `live_rebalance` mỗi 60 giây.
+    - API mới (chỉ GV): `PUT /classes/{id}/nodes/{nodeId}/review-window {deadlineAt}` đặt / dời hạn (404 `NODE_NOT_IN_TREE`, 422 `DEADLINE_IN_PAST`);
+      `GET /classes/{id}/review-windows` ⇒ `[{nodeKey, deadlineAt, open, teacherCount, matchedCount, waitingStudentIds, message}]`.
+      Cặp tạo ra có người dạy = `studentA`, người học = `studentB`, `oneWay = true`, vòng `triggerType = "LIVE"`.
+    - **Migration mới `17ea8d98c97a`**: bảng thứ 31 `node_review_windows (class_id, node_key, deadline_at)`. Khóa theo key nút nên còn hiệu lực khi phát hành cây mới.
+    - Beat ghép lô hằng ngày (06:00) bỏ qua lớp đang có hạn mở. Ghép lô thủ công (`POST matching-rounds`) giữ nguyên.
+    - Thắng (GD-12): chạy `npm run gen:api`; thêm màn GV đặt hạn cho nút và hiện `message` / bạn còn chờ ở GV-09; cặp `LIVE` hiện qua `GET /classes/{id}/matches` như cũ.
+    - Quyền (KT-14): đã thêm 2 route vào bảng `PHAN_QUYEN` (`test_bao_mat_phan_quyen.py`) và đổi kỳ vọng 30 → 31 bảng (`test_migrations.py`, `test_contracts.py`); nhờ rà lại.
+    - Đăng, Thắng: thuật toán lõi của slide thêm mô hình "ghép theo sự kiện, đến trước được trước, hạn mức 3 người học" bên cạnh Blossom ghép lô.
   - C2-12: truy vết điểm nghẽn gốc (6.5.3) + cảnh báo "Nên giảng lại X". Ví dụ Hình 6.9 (Y = N6, |F| = 9,
     r(N5|N6) = 7/9) ra đúng gốc N5 Con trỏ – test hàm thuần và test CSDL thật (lớp 30 SV, cây mẫu).
   - C2-11: tổng hợp bản đồ nhiệt (hàng đợi `aggregation`) – tỉ lệ Đạt / đã thử, cỡ mẫu tối thiểu, màu Bảng 6.6,

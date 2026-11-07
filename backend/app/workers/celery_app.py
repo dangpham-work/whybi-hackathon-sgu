@@ -32,6 +32,8 @@ celery.conf.update(
         "matching-daily": {"task": "app.workers.matching.scheduled_rounds", "schedule": crontab(hour=6, minute=0)},
         # BR-09: gợi ý quá 48 giờ / xác nhận quá 7 ngày – C2-14
         "expire-matches": {"task": "app.workers.matching.expire_matches", "schedule": 300.0},
+        # C2-15: ghép theo sự kiện trong hạn kiểm tra bài cũ – bù khi sự kiện mastery.changed bị mất / có người dạy mới
+        "live-rebalance": {"task": "app.workers.matching.live_rebalance", "schedule": 60.0},
         # C2-11: đối soát bản đồ nhiệt từ CSDL – bù sự kiện mastery.changed bị mất (Pub/Sub không lưu tin)
         "heatmap-reconcile": {"task": "app.workers.aggregation.reconcile_all", "schedule": 600.0},
         # NFR-09: dọn ghi âm quá hạn (mặc định 30 ngày) – C2-17

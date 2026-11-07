@@ -54,6 +54,18 @@ class MatchingRound(UUIDPk, Base):
     created_at: Mapped[datetime] = created_at_col()
 
 
+class NodeReviewWindow(UUIDPk, Base):
+    """Hạn kiểm tra bài cũ của một nút trong lớp (C2-15): trong hạn, ghép cặp chạy theo sự kiện (người Đạt dạy
+    tối đa 3 người chưa Đạt). Khóa theo key nút (không theo id) để còn hiệu lực khi phát hành phiên bản cây mới."""
+
+    __tablename__ = "node_review_windows"
+    __table_args__ = (UniqueConstraint("class_id", "node_key"),)
+    class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
+    node_key: Mapped[str] = mapped_column(String(64))
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = created_at_col()
+
+
 class PeerMatch(UUIDPk, Base):
     __tablename__ = "peer_matches"
     __table_args__ = (CheckConstraint("student_a_id <> student_b_id", name="distinct_students"),)

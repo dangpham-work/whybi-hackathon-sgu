@@ -137,7 +137,7 @@ def test_db_at_head(conn):
 
 
 @needs_db
-def test_db_has_30_tables_and_vector(conn):
+def test_db_has_all_tables_and_vector(conn):
     from sqlalchemy import text
 
     n = conn.execute(
@@ -146,7 +146,7 @@ def test_db_has_30_tables_and_vector(conn):
             " WHERE table_schema='public' AND table_name<>'alembic_version'"
         )
     ).scalar_one()
-    assert n == 30
+    assert n == 31, "30 bảng của ERD + node_review_windows (C2-15)"
     assert conn.execute(text("SELECT 1 FROM pg_extension WHERE extname='vector'")).scalar_one() == 1
 
 

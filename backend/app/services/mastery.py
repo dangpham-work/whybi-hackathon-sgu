@@ -130,6 +130,15 @@ class MatchingSnapshot:
     pass_rate: dict[str, float]  # key → tỉ lệ SV ghi danh đã Đạt
 
 
+@dataclass
+class NodeOutcomes:
+    """Kết quả của SV đang ghi danh ở một nút, theo thời gian (ghép cặp theo sự kiện C2-15). Chỉ đọc."""
+
+    node_id: UUID | None  # id nút ở bản đang phát hành; None khi key không còn trong cây
+    passed: list[tuple[UUID, datetime]]  # đã Đạt, Đạt sớm → muộn
+    failed: list[tuple[UUID, datetime]]  # chưa Đạt nhưng đã trượt (kèm lần trượt gần nhất), đến trước → sau
+
+
 class MasteryService:
     def pending_results(self, session_ids: Iterable[UUID]) -> set[UUID]:
         """Các phiên vẫn có ô IN_PROGRESS, dùng đối soát sự kiện hoàn tất bị mất."""
@@ -371,6 +380,24 @@ class MasteryService:
             frontier={s: frontier(g, d) for s, d in done.items()},
             pass_rate={k: (sum(k in d for d in done.values()) / n if n else 0.0) for k in t.id_of},
         )
+
+    def node_outcomes(self, class_id: UUID, node_key: str) -> NodeOutcomes:
+        """Ai đã Đạt / đã trượt nút `node_key` ở bản đang phát hành – không khóa, không tạo ô, không commit.
+        Đã Đạt = MASTERED hoặc NEEDS_REVERIFY (mốc là lần cập nhật ô); đã trượt = chưa Đạt và có `last_failed_at`."""
+        node_id = self._tree(class_id).id_of.get(node_key)
+        if node_id is None:
+            return NodeOutcomes(None, [], [])
+        rows = self.db.execute(
+            select(
+                MasteryRecord.student_id, MasteryRecord.state, MasteryRecord.updated_at, MasteryRecord.last_failed_at
+            )
+            .join(Enrollment, (Enrollment.student_id == MasteryRecord.student_id) & (Enrollment.class_id == class_id))
+            .where(MasteryRecord.node_id == node_id)
+            .order_by(MasteryRecord.updated_at, MasteryRecord.student_id)
+        ).all()
+        passed = [(s, updated) for s, state, updated, _ in rows if state in DONE]
+        failed = [(s, at) for s, state, _, at in rows if state not in DONE and at is not None]
+        return NodeOutcomes(node_id, passed, sorted(failed, key=lambda x: (x[1], str(x[0]))))
 
     def my_map(self, class_id: UUID, student_id: UUID) -> MyMap:
         t = self._tree(class_id)

@@ -7,14 +7,23 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
-from app.core.errors import NotImplementedYet
 from app.db.session import get_db
-from app.models.schemas.matching import MatchOut, OptIn, RoundOut, RoundRequest
+from app.models.schemas.matching import (
+    MatchAdjust,
+    MatchingStats,
+    MatchOut,
+    OptIn,
+    ReviewWindowOut,
+    ReviewWindowRequest,
+    RoundOut,
+    RoundRequest,
+)
+from app.services.live_matching import LiveMatching
 from app.services.matching import MatchingService
 
 router = APIRouter(tags=["matching"])
 
-__all__ = ["MatchOut", "OptIn", "RoundOut", "RoundRequest", "router"]
+__all__ = ["MatchOut", "OptIn", "ReviewWindowOut", "ReviewWindowRequest", "RoundOut", "RoundRequest", "router"]
 
 
 def get_matching_service(db: Session = Depends(get_db)) -> MatchingService:
@@ -22,6 +31,27 @@ def get_matching_service(db: Session = Depends(get_db)) -> MatchingService:
 
 
 Matching = Annotated[MatchingService, Depends(get_matching_service)]
+
+
+@router.put("/classes/{class_id}/nodes/{node_id}/review-window", response_model=ReviewWindowOut)
+def set_review_window(
+    class_id: UUID,
+    node_id: UUID,
+    body: ReviewWindowRequest,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Lecturer,
+) -> ReviewWindowOut:
+    """C2-15: GV đặt hạn kiểm tra bài cũ của nút. Trong hạn ghép cặp chạy theo sự kiện: người Đạt dạy tối đa 3 người
+    chưa Đạt, không đạt ⇒ ghép ngay. Đặt lại cho cùng nút thì dời hạn."""
+    return LiveMatching(db).set_window(class_id, node_id, body.deadline_at, user)
+
+
+@router.get("/classes/{class_id}/review-windows", response_model=list[ReviewWindowOut])
+def list_review_windows(
+    class_id: UUID, db: Session = Depends(get_db), user: CurrentUser = Lecturer
+) -> list[ReviewWindowOut]:
+    """C2-15: các hạn của lớp kèm số người dạy, số bạn đã có cặp và bạn còn chờ (GV giảng trực tiếp / ghép tay)."""
+    return LiveMatching(db).list_windows(class_id, user)
 
 
 @router.post("/classes/{class_id}/matching-rounds", response_model=RoundOut, status_code=201)
@@ -54,6 +84,13 @@ def respond(
 
 
 @router.patch("/matches/{match_id}", response_model=MatchOut)
-def adjust_match(match_id: UUID, user: CurrentUser = Lecturer) -> MatchOut:
-    """GV điều chỉnh cặp thủ công (FR-PM-08, vòng 2)."""
-    raise NotImplementedYet("C2-15")
+def adjust_match(match_id: UUID, body: MatchAdjust, svc: Matching, user: CurrentUser = Lecturer) -> MatchOut:
+    """GV điều chỉnh cặp thủ công (FR-PM-08): `cancel` hủy cặp, hoặc `replaceStudentId` + `withStudentId` thay một SV
+    (nút dạy / học tính lại, cặp quay về PROPOSED)."""
+    return svc.adjust_match(match_id, user, body)
+
+
+@router.get("/classes/{class_id}/matching-stats", response_model=MatchingStats)
+def matching_stats(class_id: UUID, svc: Matching, user: CurrentUser = Lecturer) -> MatchingStats:
+    """Hiệu quả ghép cặp (6.6.6): tỉ lệ chấp nhận, học cùng, mục được xác nhận Đạt."""
+    return svc.stats(class_id, user)

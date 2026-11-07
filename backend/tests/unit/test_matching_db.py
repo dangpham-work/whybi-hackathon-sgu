@@ -9,15 +9,17 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.models.enums import MasteryState, MatchStatus, Role, Verdict
-from app.models.peer import PeerMatch, PeerMatchItem
+from app.models.peer import NodeReviewWindow, PeerMatch, PeerMatchItem
 from app.models.schemas.mastery import TOPIC_SESSION_COMPLETED
 from app.models.schemas.session import SessionResult
-from app.models.session import TeachingSession
+from app.models.session import MasteryRecord, TeachingSession
 from app.models.users import ClassSection, Enrollment, Student, User
 from app.realtime.bus import InMemoryEventBus
+from app.services.live_matching import LiveMatching
+from app.services.live_matching import register_handlers as register_live
 from app.services.mastery import MasteryService
 from app.services.matching import MatchingService
 from app.services.matching import register_handlers as register_matching
@@ -77,49 +79,51 @@ class Klass:
         self.db = w.db
         self.ids: dict[str, UUID] = {}
         self.enrollment: dict[str, UUID] = {}
-        svc = MasteryService(w.db, bus=bus)
+        self.svc = MasteryService(w.db, bus=bus)
         for name, (keys, opt_in) in PLAN.items():
-            u = User(
-                id=uuid4(), full_name=name, email=f"{name.lower()}.{uuid4().hex[:6]}@whybi.test", password_hash="x"
-            )
-            u.role = Role.STUDENT
-            w.db.add(u)
-            w.db.flush()
-            w.db.add(Student(user_id=u.id, student_code=uuid4().hex[:10]))
-            w.db.flush()
-            e = Enrollment(class_id=w.class_id, student_id=u.id, peer_opt_in=opt_in)
-            w.db.add(e)
-            w.db.flush()
-            self.ids[name], self.enrollment[name] = u.id, e.id
-            w.roles[u.id] = Role.STUDENT
-            svc.ensure_student(w.class_id, u.id)
-            for k in keys:
-                sid = uuid4()
-                w.db.add(
-                    TeachingSession(
-                        id=sid,
-                        student_id=u.id,
-                        node_id=self.node(k),
-                        class_id=w.class_id,
-                        input_mode="TEXT",
-                        status="CREATED",
-                    )
-                )
-                w.db.flush()
-                svc.start_session(u.id, self.node(k), sid)
-                svc.apply_result(
-                    SessionResult(
-                        session_id=sid,
-                        student_id=u.id,
-                        node_id=self.node(k),
-                        class_id=w.class_id,
-                        state=MasteryState.MASTERED,
-                        verdict=Verdict.PASSED,
-                        total_score=90,
-                        criteria=[],
-                    )
-                )
+            self.add_student(name, keys, opt_in)
+
+    def add_student(self, name: str, keys: list[str], opt_in: bool) -> None:
+        """Thêm SV vào lớp, đã Đạt các nút `keys` (theo thứ tự)."""
+        w = self.w
+        u = User(id=uuid4(), full_name=name, email=f"{name.lower()}.{uuid4().hex[:6]}@whybi.test", password_hash="x")
+        u.role = Role.STUDENT
+        w.db.add(u)
+        w.db.flush()
+        w.db.add(Student(user_id=u.id, student_code=uuid4().hex[:10]))
+        w.db.flush()
+        e = Enrollment(class_id=w.class_id, student_id=u.id, peer_opt_in=opt_in)
+        w.db.add(e)
+        w.db.flush()
+        self.ids[name], self.enrollment[name] = u.id, e.id
+        w.roles[u.id] = Role.STUDENT
+        self.svc.ensure_student(w.class_id, u.id)
+        for k in keys:
+            self.attempt(name, k, passed=True)
         self.name_of = {v: k for k, v in self.ids.items()}
+
+    def attempt(self, name: str, key: str, passed: bool = True) -> None:
+        """Một phiên của SV ở nút `key`: Đạt ⇒ MASTERED, không ⇒ NOT_PASSED (phát mastery.changed qua bus)."""
+        w, uid, sid = self.w, self.ids[name], uuid4()
+        w.db.add(
+            TeachingSession(
+                id=sid, student_id=uid, node_id=self.node(key), class_id=w.class_id, input_mode="TEXT", status="CREATED"
+            )
+        )
+        w.db.flush()
+        self.svc.start_session(uid, self.node(key), sid)
+        self.svc.apply_result(
+            SessionResult(
+                session_id=sid,
+                student_id=uid,
+                node_id=self.node(key),
+                class_id=w.class_id,
+                state=MasteryState.MASTERED if passed else MasteryState.NOT_PASSED,
+                verdict=Verdict.PASSED if passed else Verdict.FAILED,
+                total_score=90 if passed else 40,
+                criteria=[],
+            )
+        )
 
     def node(self, key: str) -> UUID:
         return UUID(next(n["id"] for n in self.tree["nodes"] if n["key"] == key))
@@ -223,9 +227,15 @@ def test_recent_pair_not_rematched_within_14_days(k):
     assert rnd["matches"] == [] and len(rnd["waitingStudentIds"]) == 2
 
 
-def test_priority_node_is_c2_15(k):
-    r = k.as_("gv").post(f"/api/v1/classes/{k.w.class_id}/matching-rounds", json={"priorityNodeId": str(k.node(N5))})
-    assert r.status_code == 501
+def test_priority_node_unknown_node_404_and_known_node_runs(k):
+    url = f"/api/v1/classes/{k.w.class_id}/matching-rounds"
+    r = k.as_("gv").post(url, json={"priorityNodeId": str(uuid4())})
+    assert r.status_code == 404 and r.json()["error"]["code"] == "NODE_NOT_IN_TREE"
+    r = k.as_("gv").post(url, json={"priorityNodeId": str(k.node(N5))})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert len(body["matches"]) == 2
+    assert N5 in {i["nodeKey"] for m in body["matches"] for i in m["items"]}, "cặp có người dạy N5 được chọn"
 
 
 # --- Bật / tắt tham gia (FR-PM-01, BR-10) --------------------------------------------------------
@@ -535,3 +545,263 @@ def test_full_followup_session_carries_peer_match_item(k):
     assert len(got) == 1 and got[0].peer_match_item_id == it.id and got[0].is_peer_followup is True
     k.db.expire_all()
     assert item(k, mid, "Chau").verified is (got[0].verdict == Verdict.PASSED)
+
+
+# --- Ghép theo sự kiện trong hạn kiểm tra bài cũ của nút (C2-15) ------------------------------------
+# Người Đạt dạy tối đa 3 người chưa Đạt; không đạt ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ chờ.
+
+
+def _window(k, node: str, hours: float = 24, who: str = "gv"):
+    when = (datetime.now(UTC) + timedelta(hours=hours)).isoformat()
+    url = f"/api/v1/classes/{k.w.class_id}/nodes/{k.node(node)}/review-window"
+    return k.as_(who).put(url, json={"deadlineAt": when})
+
+
+@pytest.fixture
+def live(k, bus):
+    """Nghe mastery.changed như tiến trình mastery_listener."""
+    register_live(bus, session_factory=lambda: _NoClose(k.db))
+    return k
+
+
+def _opt(k, name: str, on: bool) -> None:
+    r = k.as_(name).put(f"/api/v1/enrollments/{k.enrollment[name]}/peer-opt-in", json={"peerOptIn": on})
+    assert r.status_code == 200, r.text
+
+
+def _live_matches(k, node: str) -> list[tuple[str, str, str]]:
+    """(người dạy, người học, trạng thái) của mọi cặp có mục ở nút `node`."""
+    k.db.expire_all()
+    rows = k.db.execute(
+        select(PeerMatch)
+        .join(PeerMatchItem, PeerMatchItem.match_id == PeerMatch.id)
+        .where(PeerMatchItem.node_id == k.node(node))
+        .order_by(PeerMatch.created_at)
+    ).scalars()
+    return [(k.name_of[m.student_a_id], k.name_of[m.student_b_id], m.status) for m in rows]
+
+
+def test_live_failer_is_paired_at_once_with_a_passer(live):
+    k = live
+    assert _window(k, N2).status_code == 200
+    k.attempt("Ha", N2, passed=False)
+    [(teacher, learner, st)] = _live_matches(k, N2)
+    assert teacher in {"An", "Chau", "Dung"} and learner == "Ha" and st == "PROPOSED"
+    [m] = k.as_("gv").get(f"/api/v1/classes/{k.w.class_id}/matches").json()
+    assert m["oneWay"] is True and [i["nodeKey"] for i in m["items"]] == [N2]
+
+
+def test_live_failer_waits_for_a_passer_then_is_paired_when_one_arrives(live):
+    k = live
+    for name in ("Chau", "Dung"):  # hai người Đạt N4 tắt ghép cặp ⇒ chưa có người dạy
+        _opt(k, name, False)
+    _window(k, N4)
+    k.attempt("An", N4, passed=False)
+    assert _live_matches(k, N4) == []
+    k.attempt("Ha", N4, passed=True)  # Hà vừa Đạt N4 ⇒ nhận kèm An ngay
+    assert _live_matches(k, N4) == [("Ha", "An", "PROPOSED")]
+
+
+def test_live_teacher_takes_at_most_three_learners(live):
+    k = live
+    _opt(k, "Chau", False)  # Dũng là người dạy N4 duy nhất
+    for name in ("L1", "L2", "L3", "L4"):
+        k.add_student(name, [N1, N3], True)
+    _window(k, N4)
+    for name in ("L1", "L2", "L3", "L4"):
+        k.attempt(name, N4, passed=False)
+    got = _live_matches(k, N4)
+    assert sorted(learner for _, learner, _ in got) == ["L1", "L2", "L3"], "đến trước được trước, bạn thứ 4 chờ"
+    assert {teacher for teacher, _, _ in got} == {"Dung"}
+    _opt(k, "Chau", True)
+    LiveMatching(k.db).rebalance_class(k.w.class_id)  # beat dự phòng: có người dạy mới thì bạn chờ được ghép
+    assert ("Chau", "L4", "PROPOSED") in _live_matches(k, N4)
+
+
+def test_live_load_is_spread_across_passers(live):
+    k = live
+    _window(k, N4)  # Châu và Dũng cùng Đạt N4
+    k.attempt("An", N4, passed=False)
+    k.attempt("Ha", N4, passed=False)
+    assert {teacher for teacher, _, _ in _live_matches(k, N4)} == {"Chau", "Dung"}
+
+
+def test_live_stops_after_the_deadline(live):
+    k = live
+    assert _window(k, N2).status_code == 200
+    k.db.execute(
+        update(NodeReviewWindow)
+        .where(NodeReviewWindow.class_id == k.w.class_id)
+        .values(deadline_at=datetime.now(UTC) - timedelta(minutes=1))
+    )
+    k.db.flush()
+    k.attempt("Ha", N2, passed=False)
+    assert _live_matches(k, N2) == []
+
+
+def test_live_without_a_window_does_nothing(live):
+    live.attempt("Ha", N2, passed=False)
+    assert _live_matches(live, N2) == []
+
+
+def test_live_ignores_students_who_opted_out(live):
+    k = live
+    _opt(k, "Ha", False)
+    _window(k, N2)
+    k.attempt("Ha", N2, passed=False)
+    assert _live_matches(k, N2) == []
+
+
+def _retry_now(k, name: str, node: str) -> None:
+    """Bỏ thời gian chờ thử lại (BR-11) để test cho SV làm lại ngay."""
+    k.db.execute(
+        update(MasteryRecord)
+        .where(MasteryRecord.student_id == k.ids[name], MasteryRecord.node_id == k.node(node))
+        .values(last_failed_at=datetime.now(UTC) - timedelta(hours=1))
+    )
+    k.db.flush()
+
+
+def test_live_pending_match_is_dropped_when_the_learner_passes_later(live):
+    k = live
+    _window(k, N2)
+    k.attempt("Ha", N2, passed=False)
+    _retry_now(k, "Ha", N2)
+    k.attempt("Ha", N2, passed=True)
+    [(teacher, learner, st)] = _live_matches(k, N2)
+    assert learner == "Ha" and st == "DECLINED", "Hà đã Đạt nên không cần người dạy nữa"
+
+
+def test_live_declined_pair_is_not_repeated(live):
+    k = live
+    _window(k, N2)
+    k.attempt("Ha", N2, passed=False)
+    k.db.expire_all()
+    m = k.db.scalar(select(PeerMatch).join(PeerMatchItem).where(PeerMatchItem.node_id == k.node(N2)))
+    first_teacher = k.name_of[m.student_a_id]
+    assert k.act("Ha", str(m.id), "decline").status_code == 200
+    LiveMatching(k.db).rebalance_class(k.w.class_id)
+    again = [t for t, _, st in _live_matches(k, N2) if st == "PROPOSED"]
+    assert len(again) == 1 and again[0] != first_teacher, "không ghép lại đúng người vừa từ chối"
+
+
+def test_review_window_api_permissions_and_validation(k):
+    r = _window(k, N2, who="gv_other")
+    assert r.status_code == 403 and r.json()["error"]["code"] == "NOT_CLASS_OWNER"
+    r = _window(k, N2, who="An")
+    assert r.status_code == 403
+    r = _window(k, N2, hours=-1)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "DEADLINE_IN_PAST"
+    url = f"/api/v1/classes/{k.w.class_id}/nodes/{uuid4()}/review-window"
+    r = k.as_("gv").put(url, json={"deadlineAt": (datetime.now(UTC) + timedelta(hours=1)).isoformat()})
+    assert r.status_code == 404 and r.json()["error"]["code"] == "NODE_NOT_IN_TREE"
+
+
+def test_review_window_can_be_moved_and_is_one_per_node(k):
+    first = _window(k, N2, hours=2).json()
+    second = _window(k, N2, hours=5).json()
+    assert first["nodeKey"] == second["nodeKey"] == N2 and first["deadlineAt"] < second["deadlineAt"]
+    rows = k.as_("gv").get(f"/api/v1/classes/{k.w.class_id}/review-windows").json()
+    assert len(rows) == 1 and rows[0]["open"] is True
+
+
+def test_review_windows_report_students_still_waiting(live):
+    k = live
+    for name in ("Chau", "Dung"):
+        _opt(k, name, False)
+    _window(k, N4)
+    k.attempt("An", N4, passed=False)
+    [w] = k.as_("gv").get(f"/api/v1/classes/{k.w.class_id}/review-windows").json()
+    assert w["nodeKey"] == N4 and w["teacherCount"] == 0 and w["matchedCount"] == 0
+    assert w["waitingStudentIds"] == [str(k.ids["An"])]
+    assert "giảng trực tiếp" in w["message"]
+
+
+def test_daily_batch_skips_classes_with_an_open_review_window(k):
+    assert k.w.class_id in MatchingService(k.db).scheduled_class_ids()
+    assert _window(k, N2).status_code == 200
+    assert k.w.class_id not in MatchingService(k.db).scheduled_class_ids()
+
+
+# --- GV điều chỉnh cặp, thống kê hiệu quả (C2-15 phần 2) -------------------------------------------
+
+
+def adjust(k: Klass, who: str, mid: str, body: dict):
+    return k.as_(who).patch(f"/api/v1/matches/{mid}", json=body)
+
+
+def test_gv_cancel_pair_then_cannot_act_again(k):
+    mid = two_way(k)
+    r = adjust(k, "gv", mid, {"cancel": True})
+    assert r.status_code == 200 and r.json()["status"] == "DECLINED"
+    r = adjust(k, "gv", mid, {"cancel": True})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "MATCH_INVALID_STATE"
+
+
+def test_adjust_permissions_and_bad_body(k):
+    mid = two_way(k)
+    assert adjust(k, "An", mid, {"cancel": True}).status_code == 403
+    k.w.current = k.w.gv_other
+    r = k.w.api.patch(f"/api/v1/matches/{mid}", json={"cancel": True})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "NOT_CLASS_OWNER"
+    assert adjust(k, "gv", mid, {}).status_code == 422
+    assert adjust(k, "gv", mid, {"cancel": True, "replaceStudentId": str(k.ids["Ha"])}).status_code == 422
+    assert adjust(k, "gv", mid, {"replaceStudentId": str(k.ids["Chau"])}).status_code == 422
+    assert adjust(k, "gv", str(uuid4()), {"cancel": True}).json()["error"]["code"] == "MATCH_NOT_FOUND"
+
+
+def test_gv_replaces_student_recomputes_items_and_resets_acceptance(k):
+    mid = two_way(k)
+    assert k.act("An", mid, "accept").status_code == 200
+    k.add_student("Binh", [N1, N3, N2, N4], True)  # cùng năng lực với Châu, chưa trong cặp nào
+    r = adjust(k, "gv", mid, {"replaceStudentId": str(k.ids["Chau"]), "withStudentId": str(k.ids["Binh"])})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "PROPOSED"
+    assert {body["studentAId"], body["studentBId"]} == {str(k.ids["An"]), str(k.ids["Binh"])}
+    teach = {(k.name_of[UUID(i["teacherId"])], i["nodeKey"]) for i in body["items"]}
+    assert teach == {("An", N5), ("Binh", N4)}
+    k.db.expire_all()
+    m = k.db.get(PeerMatch, UUID(mid))
+    assert not (m.accepted_by_a or m.accepted_by_b), "đổi người ⇒ hai bên phải chấp nhận lại"
+    assert k.act("Chau", mid, "accept").status_code == 403, "Châu đã ra khỏi cặp"
+    assert k.act("Binh", mid, "accept").status_code == 200
+
+
+def test_replace_validations(k):
+    mid = two_way(k)
+    a, c = str(k.ids["An"]), str(k.ids["Chau"])
+    err = lambda body: adjust(k, "gv", mid, body).json()["error"]["code"]  # noqa: E731
+    assert err({"replaceStudentId": str(k.ids["Ha"]), "withStudentId": str(k.ids["Khang"])}) == "REPLACE_NOT_IN_MATCH"
+    assert err({"replaceStudentId": c, "withStudentId": a}) == "REPLACE_NOT_IN_MATCH"
+    assert err({"replaceStudentId": c, "withStudentId": str(uuid4())}) == "STUDENT_NOT_IN_CLASS"
+    assert err({"replaceStudentId": c, "withStudentId": str(k.ids["Khang"])}) == "STUDENT_NOT_OPTED_IN"
+    assert err({"replaceStudentId": c, "withStudentId": str(k.ids["Ha"])}) == "STUDENT_BUSY"
+    k.add_student("Zed", [N1, N3, N2, N5], True)  # giống hệt An: không ai có gì để dạy người kia
+    assert err({"replaceStudentId": c, "withStudentId": str(k.ids["Zed"])}) == "NO_COMPLEMENTARY_NODES"
+    assert status(k, mid) == MatchStatus.PROPOSED, "lỗi thì cặp giữ nguyên"
+
+
+def test_matching_stats_rates(k):
+    url = f"/api/v1/classes/{k.w.class_id}/matching-stats"
+    zero = k.as_("gv").get(url).json()
+    assert zero["totalMatches"] == 0 and zero["acceptRate"] == 0 and zero["verifiedRate"] == 0
+    mid = to_studied(k)  # cũng tạo cặp Dũng–Hà (một chiều), chưa ai phản hồi
+    s = k.as_("gv").get(url).json()
+    assert (s["totalMatches"], s["accepted"], s["studied"]) == (2, 1, 1)
+    assert s["acceptRate"] == 0.5 and s["studiedRate"] == 1.0
+    assert s["itemsTotal"] == 2 and s["itemsVerified"] == 0 and s["verifiedRate"] == 0
+    k.db.expire_all()
+    it = item(k, mid, "Chau")
+    it.verified = True
+    k.db.commit()
+    s = k.as_("gv").get(url).json()
+    assert s["itemsVerified"] == 1 and s["verifiedRate"] == 0.5
+
+
+def test_matching_stats_permissions(k):
+    url = f"/api/v1/classes/{k.w.class_id}/matching-stats"
+    assert k.as_("An").get(url).status_code == 403
+    k.w.current = k.w.gv_other
+    r = k.w.api.get(url)
+    assert r.status_code == 403 and r.json()["error"]["code"] == "NOT_CLASS_OWNER"
