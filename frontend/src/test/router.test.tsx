@@ -17,9 +17,9 @@ describe("router tự nạp (GD-01)", () => {
   });
 
   it("màn chưa có file trang hiện trang giữ chỗ đúng mã màn", async () => {
-    open("/gv/classes/demo/heatmap");
-    expect(await screen.findByRole("heading", { name: "Dashboard bản đồ nhiệt" })).toBeTruthy();
-    expect(screen.getByText(/GV-05 · Vòng 1 · Thẻ GD-10/)).toBeTruthy();
+    open("/gv/classes/demo/settings");
+    expect(await screen.findByRole("heading", { name: "Cấu hình ngưỡng" })).toBeTruthy();
+    expect(screen.getByText(/GV-10 · Vòng 2 · Thẻ GD-14/)).toBeTruthy();
   });
 
   it("màn có file pages/<vai>/<MÃ>.tsx được nạp tự động (AUTH-01)", async () => {
