@@ -29,3 +29,8 @@
 | Thuật toán: DAG, truy vết điểm nghẽn gốc, ghép cặp trọng số cực đại | Long | — |
 | Bài toán, người dùng, cơ sở sư phạm, triển khai thực tế | Thắng | Đăng |
 | Kiểm thử, độ tin cậy, chỉ tiêu MT1–MT6 | Quyền | Đăng |
+
+
+## KT-11 – kiểm chứng tự động
+
+PR KT-11 chạy backend và UI/realtime trên GitHub CI. Đây là kiểm thử với LLM fake; biên bản diễn tập thật của repo mới còn chờ nhóm thực hiện. Xem evals/results/kt11-bien-ban-demo-lan-1.md; không sao chép số đo từ repo cũ.
