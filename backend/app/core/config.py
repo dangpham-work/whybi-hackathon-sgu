@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     openai_compat_base_url: str = ""
     openai_compat_api_key: str = ""
     llm_session_token_budget: int = 20_000
+    llm_timeout_s: float = 30
+    llm_max_retries: int = 2
+    llm_transient_retries: int = 1
+    llm_cache_size: int = 256
+    llm_embedding_model: str = "gemini-embedding-001"
+    openai_compat_json_mode: Literal["json_schema", "json_object"] = "json_schema"
     embedding_dim: int = 768
 
     # Giọng nói – mục 6.4

@@ -27,7 +27,12 @@
     - `DEFAULT_CRITERION_WEIGHTS` (Bảng 6.4): 0,25 / 0,25 / 0,20 / 0,20 / 0,10.
   - Quy ước điểm: Judge chấm 0–100 mỗi tiêu chí; kết quả hiển thị quy về điểm có trọng số (22/25…); tổng 0–100.
   - `LLM_MODE=fake`: schema có `examples` (JSON Schema) thì fake trả ví dụ đó → `call_json(JudgeResult, …)` hợp lệ.
-- Đang làm: C1-02 (LLM Adapter).
+- C1-02: đã chuyển LLM Gateway và provider Gemini / OpenAI-compatible; đang kiểm chứng CI.
+  - `call_json` kiểm schema, thử lại, chuyển model dự phòng; hỗ trợ cache và ngân sách token phiên qua Redis.
+  - QTV đổi cấu hình LLM qua `PUT /admin/ai-config`; cấu hình ghi đè hiện chỉ trong tiến trình.
+  - Thêm `google-genai` theo lockfile; bổ sung cấu hình timeout, retry, cache và embedding.
+  - Phần STT/TTS và quản trị khác giữ cho các thẻ sau; `FakeProvider` bổ sung `model` theo hợp đồng gateway.
+- Đang làm: C1-02 – chờ kết quả CI và Long duyệt PR.
 - Cần từ người khác:
   - Long: rà hợp đồng phiên (đồng chủ `session.py`); MasteryService (C2-10) nghe `session.completed` với payload `SessionResult` ở trên.
   - Thắng: chạy `npm run gen:api` sau khi PR C1-01 merge (đã thử sinh kiểu từ OpenAPI + `tsc` không lỗi).
