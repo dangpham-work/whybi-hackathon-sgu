@@ -69,3 +69,13 @@
   - Long: danh sách môn cho GV (`GET /admin/courses` chỉ QTV) thì mới làm được nút "Tạo lớp học phần" ở GV-01; chưa làm nút này.
   - Chưa có API đọc trạng thái giáo trình đã tải: tải lại trang giữa chừng thì GV-03 không khôi phục được thanh tiến độ.
   - Phần Figma chưa làm: hoạt động gần đây, cảnh báo điểm nghẽn gốc (cần C2-13), thống kê ghép cặp ở GV-02.
+
+## GD-09 – GV-04 Trình sửa cây và rubric (2026-10-24)
+
+- Xong: tải bản nháp (`GET /classes/{id}/tree?draft=true`), thêm nút, nối cạnh bằng kéo thả (409 `CYCLE_DETECTED` hiện đường đi theo tên nút), xóa cạnh tiên quyết,
+  sửa tên / chương / Bloom, sửa rubric (ý chính, quan niệm sai, ngưỡng), lưu nháp, duyệt, sinh lại bằng AI, phát hành (liệt kê `details.errors` khi 422), tạo bản nháp từ bản đã phát hành.
+  Cảnh báo "N nút chưa duyệt rubric" theo BR-05. Test: `src/test/gd09.test.tsx`.
+- Cần từ Long (C2-09):
+  - `DELETE /nodes/{id}` và API gộp nút: nút "Xóa nút", "Gộp nút" đang khóa, chưa làm giả.
+  - OpenAPI `POST /classes/{id}/tree-versions` nên khai báo body tùy chọn; `details.errors` của `PUBLISH_CHECK_FAILED` nên là mảng chuỗi tiếng Việt.
+- Chưa làm (thuộc GD-14): lịch sử, so sánh, khôi phục phiên bản. "Kiểm tra DAG" riêng chưa có vì backend chặn chu trình ngay khi nối và kiểm lại khi phát hành.
