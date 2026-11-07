@@ -2,14 +2,12 @@
 
 > Cập nhật sau mỗi thẻ (kế hoạch §4.2). Mọi người – và mọi phiên AI – đọc hết `docs/status/` trước khi sửa code.
 
-- Xong:
-  - GD-01 – khung giao diện 3 vai (PR #79)
-  - GD-03 – component `SkillTree` (React Flow + dagre), dùng chung cho GV-04, GV-05, SV-02
+- Xong: GD-01 – khung giao diện 3 vai (GV sidebar + breadcrumb, SV thanh tab dưới, QTV sidebar), ngăn kéo menu dưới 1024px, trang 404; route tự nạp có `handle.screen`
 - Phát sự kiện / hợp đồng đã chốt:
-  - `SkillTree` (`frontend/src/components/SkillTree.tsx`): props `mode` (`edit` | `heatmap` | `learner`), `nodes` / `edges` (kiểu `Node` / `Edge` sinh từ OpenAPI), `mastery` / `heat` theo `key` của nút, `details`, `rootCauseKey`, `selectedKey`, `onNodeClick`, `onNodeMove`, `onConnect`.
-  - Tự sắp xếp bằng `layoutTree()` (`frontend/src/lib/tree-layout.ts`, dùng dagre). Nếu mọi nút đã có `positionX/Y` thì dùng vị trí đã lưu.
-  - `frontend/src/lib/api-types.ts` sinh lại từ OpenAPI của backend hiện tại.
-- Đang làm: —
+  - Menu theo vai ở `frontend/src/lib/nav.ts` (`NAV.LECTURER/STUDENT/ADMIN`) – thêm mục menu thì sửa ở đây.
+  - `frontend/src/router.tsx` export `routes` (test / e2e dựng bằng `createMemoryRouter`); màn mới vẫn chỉ cần tạo `src/pages/<vai>/<MÃ>.tsx`.
+  - Layout lấy màn đang mở qua `useCurrentScreen()` (`src/layouts/shell.tsx`).
+- Đang làm: GD-03
 - Cần từ người khác:
-  - Long (C2-02): giữ `Node.positionX/positionY` và `Edge.source` như `schemas/tree.py` hiện tại; SkillTree dựa vào các trường này.
-  - Long (C2-13): bản đồ nhiệt nên trả màu theo `key` của nút (hoặc kèm `key`) để truyền thẳng vào `heat`.
+  - GD-04 / Long (C2-07): API phiên đăng nhập để thay người dùng mẫu trong layout (hiện lấy tên từ `seed/users.json`).
+  - Quyền (e2e): menu có `aria-label="Điều hướng chính"`, breadcrumb `aria-label="Đường dẫn"` – dùng làm bộ chọn.
