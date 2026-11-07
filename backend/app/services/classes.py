@@ -68,6 +68,10 @@ class ClassService:
             raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
         return cls
 
+    def info(self, class_id: UUID) -> ClassSection:
+        """Bản ghi lớp – lời gọi nội bộ (báo cáo C2-20), không kiểm quyền."""
+        return self._get(class_id)
+
     def lecturer_id(self, class_id: UUID) -> UUID:
         """GV phụ trách lớp – lời gọi nội bộ (quyền bản đồ nhiệt C2-13), không kiểm quyền."""
         return self._get(class_id).lecturer_id
