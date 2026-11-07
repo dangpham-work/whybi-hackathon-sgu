@@ -1,0 +1,236 @@
+{
+  "_source": "Hình 2.2 (cây) và Bảng 6.1 (rubric N5) – đề cương v0.1. Rubric các nút khác: Quyền soạn trước ngày thi.",
+  "versionNo": 1,
+  "status": "DRAFT",
+  "nodes": [
+    {
+      "code": "N1",
+      "key": "n1_bien_bo_nho",
+      "title": "Biến, kiểu dữ liệu & bộ nhớ",
+      "chapterRef": "Chương 1",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N2",
+      "key": "n2_mang",
+      "title": "Mảng",
+      "chapterRef": "Chương 2",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N3",
+      "key": "n3_ham_tham_so",
+      "title": "Hàm & tham số",
+      "chapterRef": "Chương 2",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N4",
+      "key": "n4_de_quy",
+      "title": "Đệ quy",
+      "chapterRef": "Chương 2",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N5",
+      "key": "n5_con_tro",
+      "title": "Con trỏ",
+      "chapterRef": "Chương 3",
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Con trỏ là biến lưu địa chỉ của một ô nhớ.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Toán tử & lấy địa chỉ; toán tử * truy xuất giá trị tại địa chỉ.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Con trỏ có kiểu – kiểu quyết định cách đọc ô nhớ và bước nhảy khi cộng con trỏ.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Con trỏ NULL",
+          "Con trỏ tới con trỏ",
+          "Quan hệ con trỏ và mảng"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Con trỏ chứa giá trị của biến.",
+            "isCritical": true,
+            "probeQuestion": "Nếu con trỏ chứa giá trị của biến, thì khi mình đổi biến, con trỏ có đổi theo không?"
+          },
+          {
+            "id": "MC2",
+            "content": "free() xong thì con trỏ tự thành NULL.",
+            "isCritical": true,
+            "probeQuestion": "Sau free() mình in giá trị của chính con trỏ ra thì nó in ra địa chỉ nào?"
+          },
+          {
+            "id": "MC3",
+            "content": "Nhầm * trong khai báo với * khi truy xuất.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Hai con trỏ cùng trỏ một ô nhớ, sửa qua con trỏ thứ nhất thì con trỏ thứ hai thấy gì?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "free() rồi vẫn đọc qua con trỏ thì chuyện gì xảy ra?",
+            "bloomLevel": "ANALYZE"
+          },
+          {
+            "id": "SC3",
+            "scenario": "Vì sao int* p; p+1 không tăng địa chỉ lên đúng 1 byte?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "UNDERSTAND",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          43,
+          44,
+          45,
+          46,
+          47
+        ],
+        "approved": true
+      }
+    },
+    {
+      "code": "N6",
+      "key": "n6_cap_phat_dong",
+      "title": "Cấp phát động (malloc/free, new/delete)",
+      "chapterRef": "Chương 3",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N7",
+      "key": "n7_dslk",
+      "title": "Danh sách liên kết",
+      "chapterRef": "Chương 4",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N8",
+      "key": "n8_ngan_xep_hang_doi",
+      "title": "Ngăn xếp & Hàng đợi",
+      "chapterRef": "Chương 4",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N9",
+      "key": "n9_cay_nhi_phan",
+      "title": "Cây nhị phân",
+      "chapterRef": "Chương 5",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N10",
+      "key": "n10_bst",
+      "title": "Cây nhị phân tìm kiếm (BST)",
+      "chapterRef": "Chương 5",
+      "bloomLevel": "UNDERSTAND"
+    },
+    {
+      "code": "N11",
+      "key": "n11_avl",
+      "title": "Cây AVL",
+      "chapterRef": "Chương 5",
+      "bloomLevel": "UNDERSTAND"
+    }
+  ],
+  "edges": [
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n2_mang",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n3_ham_tham_so",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n5_con_tro",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n3_ham_tham_so",
+      "toKey": "n4_de_quy",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n3_ham_tham_so",
+      "toKey": "n5_con_tro",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n5_con_tro",
+      "toKey": "n6_cap_phat_dong",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n6_cap_phat_dong",
+      "toKey": "n7_dslk",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n2_mang",
+      "toKey": "n8_ngan_xep_hang_doi",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n7_dslk",
+      "toKey": "n8_ngan_xep_hang_doi",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n7_dslk",
+      "toKey": "n9_cay_nhi_phan",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n4_de_quy",
+      "toKey": "n9_cay_nhi_phan",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n9_cay_nhi_phan",
+      "toKey": "n10_bst",
+      "source": "LECTURER",
+      "confidence": 1.0
+    },
+    {
+      "fromKey": "n10_bst",
+      "toKey": "n11_avl",
+      "source": "LECTURER",
+      "confidence": 1.0
+    }
+  ]
+}
