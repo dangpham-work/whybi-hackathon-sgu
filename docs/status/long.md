@@ -15,6 +15,12 @@
     - `GET /classes/{id}/matching-stats` → `MatchingStats {totalMatches, accepted, declined, expired, studied, itemsTotal, itemsVerified, acceptRate, studiedRate, verifiedRate}` (chỉ GV chủ lớp).
     - Không đổi schema CSDL. Thắng (GD-12): chạy `npm run gen:api`; màn GV-09 thêm chọn nút ưu tiên, nút hủy / thay SV, khối thống kê.
     - Quyền (KT-14): đã thêm route mới vào bảng `PHAN_QUYEN`.
+  - C2-20: lịch sử phiên và báo cáo lớp (FR-TB-15, FR-HM-10). Không đổi CSDL, không thêm thư viện (PDF dựng bằng PyMuPDF có sẵn).
+    - SV: `GET /me/sessions?class_id=` (kết quả các phiên đã chấm, mới nhất trước), `GET /me/sessions/{id}` → `ProfileSession`
+      (kết quả + transcript từng lượt + `audioUrl` nghe lại qua `GET /turns/{id}/audio`; chỉ phiên của mình, ghi âm quá hạn thì không có `audioUrl`).
+    - GV: `GET /classes/{id}/report?format=csv|pdf` tải tệp. CSV (UTF-8 có BOM): lưới SV × nút (nhãn "Đạt", "Chưa đạt"…) + 3 dòng tổng
+      theo nút (Đã thử, Đạt, Tỉ lệ Đạt %), ô tên / MSSV bắt đầu bằng `= + - @` được thêm `'` (chống CSV injection). PDF: tổng quan, bảng nút
+      (màu có chữ), cảnh báo điểm nghẽn, tiến độ từng SV. Số liệu lấy từ `HeatmapService.snapshot` nên khớp màn bản đồ nhiệt.
   - C2-19: thông báo (FR-AD-08, Bảng 5.11). Không đổi CSDL. `NotificationService.notify(...)` ghi `notifications` và chỉ GIAO (đẩy `notification`
     lên kênh `user:{id}` + email qua Celery `app.workers.notifications.deliver_email`, hàng đợi `aggregation`) SAU khi giao dịch của bên gọi commit;
     rollback thì bỏ. Chưa cấu hình `SMTP_HOST` thì email chỉ ghi log. `GET /notifications?unread_only=&limit=`, `POST /notifications/{id}/read`,
