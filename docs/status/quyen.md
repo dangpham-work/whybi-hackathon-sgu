@@ -17,6 +17,12 @@
   - Người có quyền admin repo: tạo bảng GitHub Projects theo mục 4 `docs/bug-triage.md`
   - GV / thư viện: giáo trình mẫu theo `seed/syllabi/README.md`
 
+## KT-12 – bộ đo Tutee 30 phiên
+
+- C1-06 đã merge. Chuyển runner/test và 30 kịch bản nháp từ whybi-ai@162062f; không sửa prompt, Guard hoặc API nghiệp vụ.
+- Workflow riêng chạy 30 phiên fake trên GitHub, lưu artifact kt12-tutee-simulation gồm hội thoại, provenance, summary và nhãn null chờ chấm độc lập.
+- Không tự điền nhãn không lộ đáp án; chưa đo chất lượng model thật, không ghi số liệu simulation thành kết quả thực nghiệm. Còn cần model thật và người chấm.
+- Không test local; theo Quyền, PR thường và đóng #51 khi toàn bộ check CI pass. Không xác nhận CD/VM.
 ## KT-04 – bộ dữ liệu và kiểm schema
 
 - Đã chuyển từ nguồn `whybi-ai` tại `f88c288`: 58 ca Guard, 62 lời giảng nháp AI, 30 mục manifest STT và 3 cây chuẩn.
