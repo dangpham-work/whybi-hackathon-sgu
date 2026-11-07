@@ -120,3 +120,11 @@
 - GV-05 tìm theo tên / MSSV (gửi `q`), "Ẩn tên khi chiếu" (gửi `anonymize=true`, tên không tới trình duyệt; tin `heatmap.cell` cũng bị làm trống tên), chế độ trình chiếu toàn màn hình, nút Xuất CSV / PDF (`GET /classes/{id}/report`, tải bằng token, lấy tên tệp từ `Content-Disposition`);
   GV-04 lịch sử phiên bản, so sánh hai bản theo tên nút, khôi phục thành bản nháp mới. Test: `src/test/gd14b.test.tsx`, `src/test/gd09.test.tsx`.
 - Cần từ Long: `GET /me/sessions` không kèm tên nút nên danh sách SV-08 chưa hiện "N5 Con trỏ" (chỉ có sau khi mở phiên); xin thêm `nodeTitle` vào `SessionResult`.
+## GD-15 – Màn quản trị và thông báo (2026-10-24)
+
+- Xong: AD-01 tài khoản (tìm, lọc, tạo, khóa/mở, đặt lại mật khẩu hiện một lần, nhập CSV có báo cáo), AD-02 môn học, AD-03 cấu hình AI (model chính / dự phòng),
+  AD-04 hạn mức, AD-05 cờ vi phạm + nhật ký thao tác; chuông thông báo (`NotificationBell`) trong 3 layout: danh sách, nhận mới qua kênh `user:{id}`, đánh dấu đã đọc.
+  Test: `src/test/gd15.test.tsx`. Thêm `lib/criteria.ts` (trùng bản ở PR GD-13) và sinh lại `api-types.ts`.
+- Cần từ Đăng / Long:
+  - Đăng (C1-02): chưa có `GET /admin/ai-config` nên AD-03 bắt đầu từ giá trị mặc định thay vì cấu hình đang chạy; xin thêm GET.
+  - Long (C2-18): `quotas` nhận `scopeId` (UUID) nên QTV phải dán id lớp / SV; xin API tìm lớp / SV theo tên để chọn thay vì nhập id. Không có API sửa thông tin môn ngoài PUT, chưa có xóa môn.

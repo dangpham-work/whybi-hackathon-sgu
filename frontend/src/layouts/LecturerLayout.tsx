@@ -1,6 +1,7 @@
-import { Bell, ChevronRight, Menu, Search, X } from "lucide-react";
+import { ChevronRight, Menu, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useParams } from "react-router";
+import { NotificationBell } from "../components/NotificationBell";
 import { NAV } from "../lib/nav";
 import { Avatar, SideNav, useCurrentScreen, useShellUser } from "./shell";
 
@@ -64,9 +65,7 @@ export function LecturerLayout() {
             <Search aria-hidden size={16} />
             <input className="w-full bg-transparent text-ink-900 outline-none placeholder:text-ink-300" placeholder="Tìm lớp, sinh viên, nút…" aria-label="Tìm kiếm" />
           </label>
-          <button className="rounded-md border border-line-soft p-2" aria-label="Thông báo">
-            <Bell aria-hidden size={18} />
-          </button>
+          <NotificationBell />
           <Link to="/me" aria-label="Hồ sơ cá nhân">
             <Avatar name={USER.name} />
           </Link>

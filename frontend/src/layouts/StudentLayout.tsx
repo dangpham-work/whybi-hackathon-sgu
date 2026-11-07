@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { NotificationBell } from "../components/NotificationBell";
 import { Link, Outlet, useParams } from "react-router";
 import { Logo } from "../components/Logo";
 import { isCurrent, NAV, NEED_CLASS_HINT } from "../lib/nav";
@@ -22,9 +22,7 @@ export function StudentLayout() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button className="rounded-full bg-app p-2" aria-label="Thông báo">
-            <Bell aria-hidden size={18} />
-          </button>
+          <NotificationBell />
           <Link to="/me" aria-label="Hồ sơ cá nhân">
             <Avatar name={USER.name} />
           </Link>
