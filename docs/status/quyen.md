@@ -72,6 +72,13 @@
 - Lấy đúng deps.py từ whybi-ai@75145a4: HTTP và WebSocket dùng chung verified_claims và xử lý token không phải chuỗi bằng INVALID_TOKEN. Không kéo phần thu hồi theo user của C2-19 chưa có.
 - Theo Quyền: không test local và không chờ/chạy lại CI thủ công; sửa từ nguồn rồi push cùng PR. Chưa tuyên bố bản sửa đã pass CI.
 
+## KT-11 – MX3/MX4 và realtime
+
+- C2-13, C2-14, GD-10, GD-11 đã merge. Chuyển test backend/E2E từ whybi-ai@5a3eb84; không mang biên bản đo cũ sang.
+- Kiểm heatmap theo mẫu, truy vết gốc, ghép cặp 6.6.4, opt-in/từ chối/xác nhận lại và cập nhật nhất quán. Test realtime dùng Hub probe; E2E dùng nginx/API/Redis/Celery/WebSocket thật với LLM fake.
+- Orchestrator truyền pass_threshold của lớp vào Judge để ngưỡng 70/90 được áp đúng khi chấm, giữ các điều kiện BR-03 khác.
+- Chưa có video hay biên bản chạy demo thật của repo mới. Artifact CI giữ bằng chứng của test, không thay thế diễn tập 7 phút hoặc đo chất lượng AI.
+- Không test local; PR thường, đóng #50 khi toàn bộ checks GitHub pass theo Quyền. Không xử lý KT-08/KT-12 đang có người khác phụ trách.
 ## KT-07 – bộ chạy Guard và báo cáo CI
 
 - C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
