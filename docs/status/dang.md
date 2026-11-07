@@ -51,3 +51,10 @@
 - Hồi quy trước sửa: test_fake_embeddings_are_normalized_and_deterministic đỏ vì vector toàn 0. Sau sửa: test_fake_gateway.py + test_tree_builder.py có 18 passed; Ruff check/format xanh.
 - Toàn bộ tests/ai: 275 passed, 3 failed trong test_demo_mode.py do phần nối fallback C1-13 còn thiếu ở Tutee/Judge. Không quy số liệu fake thành đánh giá AI thật.
 - #145 chưa xong: còn phần nối C1-09/STT/TTS/timer và phụ thuộc C2. Nhánh này không thay schema, migration hay code của thành viên khác; không merge.
+
+## C1-13 – nối lại demo dự phòng khi LLM mất mạng
+
+- Khôi phục đúng các điểm gọi fallback đã có trong app.ai.demo: mở đầu/câu hỏi/coverage Tutee và một lượt chấm Judge, chỉ khi DEMO_MODE=1 và LLM_UNAVAILABLE.
+- Test hồi quy trước sửa: 3 lỗi trong test_demo_mode.py. Sau sửa toàn bộ tests/ai có 286 passed; thêm 8 ca bảo đảm không nuốt lỗi ngân sách token/cấu hình.
+- Giữ nguyên Guard, cách bọc transcript, hợp đồng, model và migration. LLM_MODE=fake không phải số liệu đánh giá model thật.
+- Phụ thuộc PR embedding trên fix/145-c1-embedding; chưa merge hoặc đóng thêm issue.

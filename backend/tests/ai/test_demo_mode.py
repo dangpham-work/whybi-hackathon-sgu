@@ -114,3 +114,29 @@ def test_cay_mau_va_rubric_luu_san():
     assert r is not None and r.approved is False and r.key_points
     assert demo.seed_rubric("khong_co_nut_nay") is None
     assert demo.seed_tree() is not demo.seed_tree()  # bản sao, sửa không ảnh hưởng bản đệm
+
+
+@pytest.mark.parametrize("operation", ["opening", "coverage", "question", "judge"])
+@pytest.mark.parametrize("code", ["TOKEN_BUDGET_EXCEEDED", "LLM_CONFIG_ERROR"])
+def test_demo_does_not_hide_budget_or_configuration_errors(demo_on, operation, code):
+    class ErrorGateway(DeadGateway):
+        def call_json(self, *args, **kwargs):
+            raise AppError(429, code, "blocked")
+
+    gateway = ErrorGateway()
+    tutee = TuteeAgent(gateway)
+    ctx = SessionContext(
+        node=NODE,
+        transcript=transcript("Con trỏ lưu địa chỉ."),
+        coverage=CoverageAnalysis(missing_points=[point.id for point in RUBRIC.key_points]),
+    )
+    with pytest.raises(AppError) as error:
+        if operation == "opening":
+            tutee.opening_line(NODE)
+        elif operation == "coverage":
+            tutee.analyze_coverage(ctx.transcript, NODE)
+        elif operation == "question":
+            tutee.next_question(ctx)
+        else:
+            JudgeAgent(gateway, runs=1).evaluate(ctx.transcript, RUBRIC, NODE.title, challenges_total=3)
+    assert error.value.code == code

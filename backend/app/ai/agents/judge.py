@@ -12,8 +12,10 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.ai import demo
 from app.ai.gateway import LLMGateway
 from app.ai.prompts import render_prompt, wrap_student_text
+from app.core.errors import AppError
 from app.models.enums import CriterionCode, Verdict
 from app.models.schemas.session import (
     DEFAULT_CRITERION_WEIGHTS,
@@ -178,14 +180,19 @@ class JudgeAgent:
     # --- chấm ---
 
     def _judge_once(self, text, node_title, rubric, reverse, challenges_total, session_id) -> JudgeResult:
-        raw = self.gateway.call_json(
-            JudgeResult,
-            self._messages(text, node_title, rubric, reverse),
-            model=self.model,
-            temperature=0,
-            session_id=session_id,
-            use_cache=False,
-        )
+        try:
+            raw = self.gateway.call_json(
+                JudgeResult,
+                self._messages(text, node_title, rubric, reverse),
+                model=self.model,
+                temperature=0,
+                session_id=session_id,
+                use_cache=False,
+            )
+        except AppError as exc:
+            if not demo.active(exc):
+                raise
+            raw = demo.judge_result(text, rubric, challenges_total)  # C1-13: chấm dự phòng bằng từ khóa
         return self._normalise(raw, rubric, challenges_total)
 
     def evaluate(
