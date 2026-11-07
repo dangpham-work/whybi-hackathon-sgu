@@ -106,6 +106,16 @@ class HeatmapService:
         """Ngưỡng màu của lớp (BR-06; GV đổi qua PUT /classes/{id}/settings – C2-17)."""
         return ClassService(self.db).color_rule(class_id)
 
+    def update_settings(self, class_id: UUID, user: "CurrentUser", body: out.ClassSettings) -> out.ClassSettings:
+        """PUT /classes/{id}/settings (FR-HM-08): lưu cấu hình rồi tính lại màu cả lớp và đẩy lên kênh heatmap."""
+        self.require_owner(class_id, user)
+        saved = ClassService(self.db).save_settings(class_id, body)
+        nodes = self.recompute_class(class_id)
+        alerts = self.trace_root_causes(class_id) if nodes else []
+        self.db.commit()
+        push_updates(class_id, nodes, alerts)  # sau commit, như hàng đợi aggregation
+        return saved
+
     def classify(self, stat: NodeStat, settings: ColorRule) -> NodeStat:
         """Phân màu lại một chỉ số theo ngưỡng khác (vd. GV xem trước cấu hình mới – C2-17)."""
         color, sample = classify(stat.attempted, stat.passed, settings)
@@ -238,10 +248,24 @@ class HeatmapService:
             )
         return _View(m, nodes, node_stats, alerts, rows)
 
-    def snapshot(self, class_id: UUID) -> out.HeatmapSnapshot:
-        """GET /classes/{id}/heatmap – không ghi CSDL. 404 TREE_NOT_PUBLISHED khi lớp chưa phát hành cây."""
+    @staticmethod
+    def _hide_names(rows: dict[UUID, out.GridRow]) -> dict[UUID, out.GridRow]:
+        """Chế độ trình chiếu (FR-HM-09): "SV 01", "SV 02"… theo thứ tự tên, bỏ MSSV – cùng một SV luôn cùng bí danh."""
+        order = sorted(rows.values(), key=lambda r: (r.student_name, r.student_code))
+        return {
+            r.student_id: r.model_copy(update={"student_name": f"SV {i:02d}", "student_code": ""})
+            for i, r in enumerate(order, 1)
+        }
+
+    def snapshot(self, class_id: UUID, q: str | None = None, anonymize: bool = False) -> out.HeatmapSnapshot:
+        """GET /classes/{id}/heatmap – không ghi CSDL. 404 TREE_NOT_PUBLISHED khi lớp chưa phát hành cây.
+        `q` lọc lưới theo tên / MSSV, `anonymize` ẩn tên khi chiếu (FR-HM-09); số liệu nút không đổi."""
         v = self._view(class_id)
-        grid = sorted(v.rows.values(), key=lambda r: (r.student_name, r.student_code))
+        rows = self._hide_names(v.rows) if anonymize else v.rows
+        grid = sorted(rows.values(), key=lambda r: (r.student_name, r.student_code))
+        if q and q.strip():
+            needle = q.strip().casefold()
+            grid = [r for r in grid if needle in r.student_name.casefold() or needle in r.student_code.casefold()]
         active = sum(1 for col in v.matrix.cells.values() for c in col.values() if c.state == MasteryState.IN_PROGRESS)
         return out.HeatmapSnapshot(
             class_id=class_id,
@@ -253,9 +277,10 @@ class HeatmapService:
             tree=v.matrix.tree,
         )
 
-    def node_detail(self, class_id: UUID, node_id: UUID) -> out.NodeDetail:
+    def node_detail(self, class_id: UUID, node_id: UUID, anonymize: bool = False) -> out.NodeDetail:
         """GET /classes/{id}/nodes/{n}/detail – SV có tên theo trạng thái tại nút, quan niệm sai, nút gốc."""
         v = self._view(class_id)
+        rows = self._hide_names(v.rows) if anonymize else v.rows
         key = next((k for k, n in v.nodes.items() if n.id == node_id), None)
         if key is None:
             raise AppError(
@@ -263,7 +288,7 @@ class HeatmapService:
             )
         by_state: dict[str, list[out.GridRow]] = {}
         for sid, c in v.matrix.cells[key].items():
-            by_state.setdefault(MasteryState(c.state).value, []).append(v.rows[sid])
+            by_state.setdefault(MasteryState(c.state).value, []).append(rows[sid])
         for group in by_state.values():
             group.sort(key=lambda r: (r.student_name, r.student_code))
         stat = v.node_stats[key]

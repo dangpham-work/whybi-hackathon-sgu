@@ -95,5 +95,15 @@ def reconcile_all() -> int:
 
 
 @celery.task(name="app.workers.aggregation.purge_expired_audio")
-def purge_expired_audio() -> None:
-    raise NotImplementedError("C2-17")
+def purge_expired_audio() -> int:
+    """NFR-09: beat hằng ngày – xóa ghi âm quá hạn lưu (mặc định 30 ngày). Trả số ghi âm đã xóa."""
+    from app.services.session_history import purge_expired_audio as purge
+
+    db = _session()
+    try:
+        return purge(db)
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
