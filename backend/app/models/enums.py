@@ -89,6 +89,13 @@ class HeatColor(StrEnum):
     RED = "RED"
 
 
+class HeatSample(StrEnum):
+    """Sample sufficiency for heatmap classification (C2-11)."""
+
+    NO_ATTEMPT = "NO_ATTEMPT"
+    INSUFFICIENT = "INSUFFICIENT"
+    SUFFICIENT = "SUFFICIENT"
+
 class MatchStatus(StrEnum):
     PROPOSED = "PROPOSED"
     WAITING_OTHER = "WAITING_OTHER"
