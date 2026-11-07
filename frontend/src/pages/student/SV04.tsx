@@ -1,4 +1,4 @@
-import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, TriangleAlert } from "lucide-react";
+import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, Timer, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { DevelopingBox, ErrorBox } from "../../components/AsyncView";
@@ -7,6 +7,8 @@ import { Logo } from "../../components/Logo";
 import { Recorder } from "../../components/Recorder";
 import { TranscriptConfirm } from "../../components/TranscriptConfirm";
 import { ApiError, apiCall, errorText, type Schema } from "../../lib/api";
+import { fetchAudioUrl } from "../../lib/audio";
+import { mmss, useCountdown } from "../../lib/countdown";
 import { createTypingMeter } from "../../lib/typing-meter";
 import { useChannel } from "../../lib/ws";
 
@@ -25,6 +27,8 @@ export interface SessionLocationState {
   nodeTitle?: string;
   inputMode?: InputMode;
   status?: SessionStatus;
+  /** SV bật đọc câu hỏi từ lúc bắt đầu (SessionStart.ttsEnabled). */
+  ttsEnabled?: boolean;
 }
 
 type Message = { id: number; from: "tutee"; text: string } | { id: number; from: "student"; text: string; mode: InputMode } | { id: number; from: "notice"; text: string };
@@ -64,6 +68,11 @@ export default function TeachingSession() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>();
   const askedAt = useRef(Date.now());
+  const [deadline, setDeadline] = useState<string | null>(initial.opening?.deadline ?? null);
+  const [tts, setTts] = useState(initial.ttsEnabled ?? false);
+  const ttsRef = useRef(tts);
+  ttsRef.current = tts;
+  const player = useRef<HTMLAudioElement | undefined>(undefined);
 
   const turnType: Turn["turnType"] = status === "CHALLENGING" ? "ANSWER" : "EXPLANATION";
   const live = LIVE.includes(status);
@@ -86,11 +95,44 @@ export default function TeachingSession() {
       return [...list, { id: nextId.current++, from: "tutee", text: q.text }];
     });
     askedAt.current = Date.now();
+    setDeadline(q.deadline ?? null);
+    if (ttsRef.current && q.audioUrl) void speak(q.audioUrl);
   }, []);
+
+  /** Đọc câu hỏi (FR-TB-10): tải âm thanh bằng token rồi phát; lỗi thì bỏ qua, phiên vẫn chạy bình thường. */
+  async function speak(audioUrl: string) {
+    try {
+      player.current?.pause();
+      const el = new Audio(await fetchAudioUrl(audioUrl));
+      player.current = el;
+      await el.play();
+    } catch {
+      /* TTS hỏng không được làm hỏng phiên */
+    }
+  }
+  useEffect(() => () => player.current?.pause(), []);
 
   useChannel(sessionId ? `session:${sessionId}` : null, (e) => {
     if (e.event === "session.question" && e.payload && typeof (e.payload as Question).text === "string") addQuestion(e.payload as Question);
   });
+
+  function applyReply(reply: Schema<"TurnReply">) {
+    if (reply.notice) setMessages((list) => [...list, { id: nextId.current++, from: "notice", text: reply.notice! }]);
+    setStatus(reply.status);
+    setProgress({ asked: reply.questionsAsked, total: reply.questionsTotal });
+    if (reply.question) addQuestion(reply.question);
+    else setDeadline(null);
+  }
+
+  /** Hết giờ trả lời: báo máy chủ tính câu này là chưa trả lời và sang câu kế (FR-TB-11). */
+  const seconds = useCountdown(deadline);
+  const timedOut = useRef<string | null>(null);
+  useEffect(() => {
+    if (seconds !== 0 || !deadline || timedOut.current === deadline || !live) return;
+    timedOut.current = deadline; // mỗi câu chỉ báo một lần
+    apiCall("post", "/sessions/{session_id}/timeout", { path: { session_id: sessionId } }).then(applyReply, setFailure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seconds, deadline]);
 
   /** Gửi một lượt; ném lỗi lại để ô gõ / Recorder giữ nội dung cho lần gửi lại. */
   async function postTurn(turn: Omit<Turn, "turnType" | "responseTimeMs">) {
@@ -105,10 +147,7 @@ export default function TeachingSession() {
         path: { session_id: sessionId },
         body: { ...turn, turnType, responseTimeMs },
       });
-      if (reply.notice) setMessages((list) => [...list, { id: nextId.current++, from: "notice", text: reply.notice! }]);
-      setStatus(reply.status);
-      setProgress({ asked: reply.questionsAsked, total: reply.questionsTotal });
-      if (reply.question) addQuestion(reply.question);
+      applyReply(reply);
     } catch (err) {
       setMessages((list) => list.filter((m) => m.id !== mine)); // gửi hỏng → bỏ bong bóng, nội dung còn ở ô gõ / Recorder
       setFailure(err);
@@ -170,7 +209,24 @@ export default function TeachingSession() {
       <header className="space-y-2 bg-ink-900 px-4 py-3 text-white">
         <p className="caps text-ink-300">Giảng cho Whybi</p>
         <h1 className="text-h2 font-bold">{initial.nodeTitle ?? "Phiên giảng lại"}</h1>
-        {progress.total > 0 && <Progress asked={progress.asked} total={progress.total} />}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {progress.total > 0 ? <Progress asked={progress.asked} total={progress.total} /> : <span />}
+          <div className="flex items-center gap-2">
+            {live && seconds !== null && (
+              <span role="timer" aria-label={`Còn ${seconds} giây để trả lời`} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-body-s font-bold ${seconds <= 15 ? "bg-red-600 text-white" : "bg-ink-700 text-white"}`}>
+                <Timer aria-hidden size={14} /> {mmss(seconds)}
+              </span>
+            )}
+            <button
+              type="button"
+              aria-pressed={tts}
+              onClick={() => setTts((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-full bg-ink-700 px-3 py-1 text-body-s font-semibold text-white"
+            >
+              {tts ? <Volume2 aria-hidden size={14} /> : <VolumeX aria-hidden size={14} />} {tts ? "Đang đọc câu hỏi" : "Đọc câu hỏi"}
+            </button>
+          </div>
+        </div>
       </header>
 
       <section role="log" aria-label="Hội thoại với Whybi" aria-live="polite" className="flex-1 space-y-4 px-4 py-4">

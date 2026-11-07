@@ -1,4 +1,4 @@
-import { CircleCheck, Info, Play, Users } from "lucide-react";
+import { CircleCheck, Info, Pencil, Play, Users } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -17,6 +17,8 @@ export default function LecturerMatching() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>();
   const [last, setLast] = useState<Schema<"RoundOut">>();
+  // Danh sách SV của lớp để chọn người thay thế khi điều chỉnh cặp (lấy từ lưới bản đồ nhiệt, chỉ GV phụ trách xem được)
+  const students = useApi((signal) => apiCall("get", "/classes/{class_id}/heatmap", { path: { class_id: classId }, signal }).then((h) => h.grid), [classId]);
   const title = (key: string) => tree.data?.nodes.find((n) => n.key === key)?.title ?? key;
   const code = (key: string) => tree.data?.nodes.find((n) => n.key === key)?.code ?? key;
 
@@ -92,12 +94,13 @@ export default function LecturerMatching() {
                     <th className="py-2 pr-3 font-semibold">A dạy B</th>
                     <th className="py-2 pr-3 font-semibold">B dạy A</th>
                     <th className="py-2 pr-3 font-semibold">Trọng số</th>
-                    <th className="py-2 font-semibold">Trạng thái</th>
+                    <th className="py-2 pr-3 font-semibold">Trạng thái</th>
+                    <th className="py-2 font-semibold">Điều chỉnh</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.map((m) => (
-                    <Row key={m.id} m={m} code={code} title={title} />
+                    <Row key={m.id} m={m} code={code} title={title} students={students.data ?? []} onChanged={() => { matches.reload(); stats.reload(); }} />
                   ))}
                 </tbody>
               </table>
@@ -116,16 +119,86 @@ export default function LecturerMatching() {
 }
 
 /** Mã lỗi riêng của vòng ghép cặp (matching.py) – chưa nằm trong FRIENDLY chung. */
+const ADJUST_ERR: Record<string, string> = {
+  MATCH_INVALID_STATE: "Cặp này đã kết thúc nên không điều chỉnh được.",
+  REPLACE_NOT_IN_MATCH: "Sinh viên được thay không thuộc cặp này.",
+  STUDENT_NOT_IN_CLASS: "Sinh viên được chọn không thuộc lớp.",
+  STUDENT_NOT_OPTED_IN: "Sinh viên được chọn đã tắt tham gia ghép cặp.",
+  STUDENT_BUSY: "Sinh viên được chọn đang trong một cặp hoạt động khác.",
+  NO_COMPLEMENTARY_NODES: "Hai sinh viên này không có nút nào để dạy lẫn nhau.",
+};
 function failureText(e: unknown): string {
   const code = (e as { code?: string }).code;
+  if (code && ADJUST_ERR[code]) return ADJUST_ERR[code];
   if (code === "NOT_ENOUGH_PARTICIPANTS") return "Chưa đủ 2 sinh viên bật ghép cặp để chạy vòng này.";
   if (code === "TREE_NOT_PUBLISHED") return "Lớp chưa phát hành cây kỹ năng nên chưa ghép cặp được.";
   return errorText(e);
 }
 
-function Row({ m, code, title }: { m: MatchOut; code: (k: string) => string; title: (k: string) => string }) {
+function Row({ m, code, title, students, onChanged }: { m: MatchOut; code: (k: string) => string; title: (k: string) => string; students: Schema<"GridRow">[]; onChanged: () => void }) {
   const look = MATCH_STATUS[m.status];
   const Icon = look.icon;
+  const [editing, setEditing] = useState(false);
+  return (
+    <>
+      <RowCells m={m} code={code} title={title} look={look} Icon={Icon} onEdit={isActive(m.status) ? () => setEditing((e) => !e) : undefined} />
+      {editing && (
+        <tr>
+          <td colSpan={7} className="bg-app p-3">
+            <Adjust m={m} students={students} onDone={() => { setEditing(false); onChanged(); }} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/** Điều chỉnh cặp thủ công (FR-PM-08): hủy cặp, hoặc thay một SV bằng SV khác (cặp quay về chờ hai bên chấp nhận lại). */
+function Adjust({ m, students, onDone }: { m: MatchOut; students: Schema<"GridRow">[]; onDone: () => void }) {
+  const [replace, setReplace] = useState(m.studentAId);
+  const [withId, setWithId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<unknown>();
+  const pair = [m.studentAId, m.studentBId];
+  async function send(body: Schema<"MatchAdjust">) {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      await apiCall("patch", "/matches/{match_id}", { path: { match_id: m.id }, body });
+      onDone();
+    } catch (e) {
+      setFailure(e);
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2">
+      {failure !== undefined && <ErrorBox text={failureText(failure)} />}
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-body-s font-semibold">
+          Thay
+          <select aria-label="Sinh viên được thay" className="ml-2 rounded-md border border-line-strong px-2 py-1.5" value={replace} onChange={(e) => setReplace(e.target.value)}>
+            <option value={m.studentAId}>{m.studentAName}</option>
+            <option value={m.studentBId}>{m.studentBName}</option>
+          </select>
+        </label>
+        <label className="text-body-s font-semibold">
+          bằng
+          <select aria-label="Sinh viên thay thế" className="ml-2 rounded-md border border-line-strong px-2 py-1.5" value={withId} onChange={(e) => setWithId(e.target.value)}>
+            <option value="">Chọn sinh viên…</option>
+            {students.filter((s) => !pair.includes(s.studentId)).map((s) => (
+              <option key={s.studentId} value={s.studentId}>{s.studentName}</option>
+            ))}
+          </select>
+        </label>
+        <Button disabled={busy || !withId} onClick={() => send({ cancel: false, replaceStudentId: replace, withStudentId: withId })}>Thay sinh viên</Button>
+        <Button variant="danger" disabled={busy} onClick={() => send({ cancel: true })}>Hủy cặp</Button>
+      </div>
+    </div>
+  );
+}
+
+function RowCells({ m, code, title, look, Icon, onEdit }: { m: MatchOut; code: (k: string) => string; title: (k: string) => string; look: (typeof MATCH_STATUS)[MatchOut["status"]]; Icon: (typeof MATCH_STATUS)[MatchOut["status"]]["icon"]; onEdit?: () => void }) {
   return (
     <tr className="border-t border-line-soft">
       <td className="py-2 pr-3 font-semibold">{m.studentAName}</td>
@@ -137,10 +210,17 @@ function Row({ m, code, title }: { m: MatchOut; code: (k: string) => string; tit
         <Chips keys={m.iLearn} code={code} title={title} />
       </td>
       <td className="py-2 pr-3 font-semibold">{m.weight.toFixed(1).replace(".", ",")}</td>
-      <td className="py-2">
+      <td className="py-2 pr-3">
         <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-body-s font-semibold ${look.className}`}>
           <Icon aria-hidden size={12} /> {look.label}
         </span>
+      </td>
+      <td className="py-2">
+        {onEdit && (
+          <button type="button" onClick={onEdit} aria-label={`Điều chỉnh cặp ${m.studentAName} và ${m.studentBName}`} className="rounded-md border border-line-strong p-1.5">
+            <Pencil aria-hidden size={14} />
+          </button>
+        )}
       </td>
     </tr>
   );

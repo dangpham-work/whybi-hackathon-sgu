@@ -98,3 +98,10 @@
   - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
   - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
 - Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.
+
+## GD-12 – SV-04 nút bật TTS và đồng hồ đếm giờ; GV-09 điều chỉnh cặp thủ công (2026-10-24)
+
+- Xong: SV-04 có đồng hồ đếm ngược theo `Question.deadline` (hết giờ gọi `POST /sessions/{id}/timeout` đúng một lần, hiện `notice`, sang câu kế) và nút bật/tắt đọc câu hỏi
+  (tải `Question.audioUrl` bằng token rồi phát; TTS lỗi thì phiên vẫn chạy). GV-09 điều chỉnh cặp thủ công: hủy cặp hoặc thay một SV (`PATCH /matches/{id}`), báo lỗi `STUDENT_BUSY`, `STUDENT_NOT_OPTED_IN`…
+  Thống kê hiệu quả ghép cặp đã có từ GD-11. Test: `src/test/gd12.test.tsx`.
+- Sửa lỗi gặp khi làm: `useCountdown` trả nhầm số 0 của câu cũ khi sang câu mới nên có thể gọi `/timeout` hai lần; nay giá trị gắn kèm hạn của nó.
