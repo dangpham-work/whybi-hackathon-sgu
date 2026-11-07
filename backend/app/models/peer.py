@@ -64,6 +64,10 @@ class PeerMatch(UUIDPk, Base):
     status: Mapped[str] = mapped_column(String(24))  # MatchStatus (Hình 4.30)
     accepted_by_a: Mapped[bool] = mapped_column(Boolean, default=False)
     accepted_by_b: Mapped[bool] = mapped_column(Boolean, default=False)
+    # "Đã học cùng" từng bên (C2-14): cả hai bấm ⇒ STUDIED (Hình 4.30)
+    studied_by_a: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    studied_by_b: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Hạn của trạng thái hiện tại (BR-09): PROPOSED/WAITING_OTHER 48 giờ; ACCEPTED, STUDIED 7 ngày
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_col()
 

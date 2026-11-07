@@ -10,7 +10,7 @@ Quy ước điểm (chốt ở C1-01):
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -102,6 +102,7 @@ class TurnReply(ApiModel):
     notice: str | None = None  # phản hồi trung lập khi Guard gắn cờ
     questions_asked: int = Field(0, ge=0)
     questions_total: int = Field(0, ge=0)
+    flags: list[FlagType] = []  # cờ Guard gắn cho lượt vừa gửi (C1-07); UI hiển thị notice, GV xem ở GV-08
 
     @model_validator(mode="after")
     def _progress(self) -> "TurnReply":
@@ -292,9 +293,69 @@ class JudgeResult(ApiModel):
         )
 
 
+# Key nút cây – cùng quy tắc với `NodeBase.key` (schemas/tree.py), ổn định giữa các phiên bản cây (mục 5.2.5).
+NodeKey = Annotated[str, Field(pattern=r"^[a-z0-9_]+$")]
+
+
+class NodeLockedDetails(ApiModel):
+    """`details` của lỗi 409 NODE_LOCKED ở POST /sessions (FR-TB-02, TC06): chỉ cho ô chưa mở (LOCKED), kèm key các
+    nút tiên quyết còn thiếu (UI tra tên nút từ cây đã tải). Ô NOT_PASSED đang chờ BR-11 ⇒ RETRY_COOLDOWN, ô MASTERED
+    ⇒ NODE_ALREADY_MASTERED – mã lỗi theo MasteryService (C2-10)."""
+
+    node_id: UUID
+    state: Literal[MasteryState.LOCKED]
+    missing_prerequisites: list[NodeKey] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _unique_keys(self) -> "NodeLockedDetails":
+        if len(set(self.missing_prerequisites)) != len(self.missing_prerequisites):
+            raise ValueError("missingPrerequisites có key trùng")
+        return self
+
+
+class NodeAlreadyMasteredDetails(ApiModel):
+    """`details` của lỗi 409 NODE_ALREADY_MASTERED ở POST /sessions: nút đã Đạt, chỉ học lại khi NEEDS_REVERIFY."""
+
+    node_id: UUID
+    state: Literal[MasteryState.MASTERED]
+
+
+_RESULT_EXAMPLE = {
+    "sessionId": "7f3c1a2e-0000-4000-8000-000000000001",
+    "studentId": "7f3c1a2e-0000-4000-8000-000000000002",
+    "nodeId": "7f3c1a2e-0000-4000-8000-000000000003",
+    "classId": "0fcd3055-a08a-5a08-b881-bbab21c660c2",
+    "state": "MASTERED",
+    "verdict": "PASSED",
+    "totalScore": 78,
+    "passThreshold": 70,
+    "criteria": [
+        {"code": "CORRECTNESS", "weight": 0.25, "score": 22, "max": 25},
+        {"code": "COVERAGE", "weight": 0.25, "score": 20, "max": 25},
+        {"code": "ESSENCE", "weight": 0.2, "score": 15, "max": 20},
+        {"code": "ROBUSTNESS", "weight": 0.2, "score": 14, "max": 20},
+        {"code": "CLARITY", "weight": 0.1, "score": 7, "max": 10},
+    ],
+    "strengths": ["Giải thích đúng con trỏ treo khi bị hỏi về free()"],
+    "reviewHints": ["Vì sao con trỏ cần có kiểu dữ liệu? Thử nghĩ về phép cộng con trỏ."],
+    "sourcePages": [45, 46],
+    "unlockedNodes": [],
+    "flags": [],
+    "isPeerFollowup": False,
+    "detectedMisconceptions": ["MC2"],
+    "failedConditions": [],
+    "attemptNo": 1,
+    "completedAt": "2026-10-15T08:30:00Z",
+}
+
+
 class SessionResult(ApiModel):
     """GET /sessions/{id}/result và payload sự kiện session.completed (Redis Pub/Sub).
-    Bên nghe: MasteryService (Long, C2-10) đọc studentId, nodeId, classId, verdict, flags, isPeerFollowup."""
+    Bên nghe: MasteryService (Long, C2-10) đọc studentId, nodeId, classId, verdict, flags, isPeerFollowup.
+    `state` là trạng thái Orchestrator ĐỀ XUẤT (PASSED ⇒ MASTERED, FAILED ⇒ NOT_PASSED); MasteryService là nguồn
+    chân lý và phát `mastery.changed`. `unlockedNodes` do MasteryService tính – Orchestrator để trống."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [_RESULT_EXAMPLE]})
 
     session_id: UUID
     student_id: UUID
@@ -311,5 +372,9 @@ class SessionResult(ApiModel):
     unlocked_nodes: list[str] = []
     flags: list[FlagType] = []
     is_peer_followup: bool = False
+    # C2-14 (thêm, tương thích ngược): mục ghép cặp mà phiên xác nhận lại = SessionStart.peerMatchItemId
+    peer_match_item_id: UUID | None = None
     detected_misconceptions: list[str] = []
+    failed_conditions: list[PassCondition] = []  # BR-03: vì sao Chưa đạt (GV-08)
+    attempt_no: int = Field(1, ge=1)
     completed_at: datetime | None = None
