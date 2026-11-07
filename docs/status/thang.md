@@ -80,6 +80,15 @@
   - OpenAPI `POST /classes/{id}/tree-versions` nên khai báo body tùy chọn; `details.errors` của `PUBLISH_CHECK_FAILED` nên là mảng chuỗi tiếng Việt.
 - Chưa làm (thuộc GD-14): lịch sử, so sánh, khôi phục phiên bản. "Kiểm tra DAG" riêng chưa có vì backend chặn chu trình ngay khi nối và kiểm lại khi phát hành.
 
+## GD-10 – GV-05, GV-06 (2026-10-24)
+
+- Xong: GV-05 bản đồ nhiệt (chế độ cây tô màu theo `HeatmapSnapshot.nodes`, chế độ lưới SV × Nút có tên + MSSV, panel cảnh báo điểm nghẽn, sĩ số / trực tuyến / phiên đang diễn ra);
+  cập nhật trực tiếp qua `class:{id}:heatmap` (`heatmap.cell|node|alert`, `lib/heatmap.ts`), nối lại thì tải lại ảnh chụp. GV-06 chi tiết nút: SV theo trạng thái, quan niệm sai, truy vết nút gốc.
+  Test: `src/test/gd10.test.tsx`. Bấm nút trên cây → GV-06 (không dùng modal).
+- Sinh lại `src/lib/api-types.ts` từ OpenAPI hiện tại của backend (bản cũ thiếu các trường C2-13); không có lỗi kiểu ở màn cũ.
+- Cần từ Long (C2-13): `NodeDetail.topMisconceptions` là `list[dict]` – màn đang đọc `content` / `count`; xin chốt tên trường. Payload `heatmap.cell|node` không có trong OpenAPI nên frontend tự khai báo kiểu (khớp `schemas/mastery.py`).
+- Chưa làm: tab "Điểm nghẽn", "Ghép cặp", danh sách "Đang diễn ra", nút "Nhắc SV thử lại", "Xuất danh sách" (cần API); ẩn tên khi chiếu, lọc, xuất báo cáo thuộc GD-14 / GD-16.
+
 ## GD-11 – GV-09, SV-07 (2026-10-24)
 
 - Xong: GV-09 chạy vòng ghép cặp (có chọn nút ưu tiên), danh sách cặp (A/B, nút dạy–học, trọng số, trạng thái), thống kê `matching-stats`;
