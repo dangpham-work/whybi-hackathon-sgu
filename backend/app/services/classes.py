@@ -61,6 +61,10 @@ class ClassService:
     def _view(self, cls: ClassSection) -> ClassView:
         return self._views([cls])[0]
 
+    def lecturer_id(self, class_id: UUID) -> UUID:
+        """GV phụ trách lớp – lời gọi nội bộ (quyền bản đồ nhiệt C2-13), không kiểm quyền."""
+        return self._get(class_id).lecturer_id
+
     def color_rule(self, class_id: UUID) -> ColorRule:
         """Ngưỡng màu heatmap của lớp (BR-06) – lời gọi nội bộ (HeatmapService C2-11), không kiểm quyền."""
         cls = self.db.get(ClassSection, class_id)
