@@ -97,6 +97,16 @@ def _rubric_sig(r: Rubric | None) -> dict | None:
 
 
 class MasteryService:
+    def pending_results(self, session_ids: Iterable[UUID]) -> set[UUID]:
+        """Các phiên vẫn có ô IN_PROGRESS, dùng đối soát sự kiện hoàn tất bị mất."""
+        ids = list(session_ids)
+        if not ids:
+            return set()
+        q = select(MasteryRecord.last_session_id).where(
+            MasteryRecord.state == MasteryState.IN_PROGRESS, MasteryRecord.last_session_id.in_(ids)
+        )
+        return {sid for sid in self.db.scalars(q) if sid is not None}
+
     def __init__(self, db: Session, bus: "EventBus | None" = None) -> None:
         self.db = db
         self.bus = bus if bus is not None else get_bus()
