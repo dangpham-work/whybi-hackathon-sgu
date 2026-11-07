@@ -26,12 +26,16 @@ class FakeOrch:
     def __init__(self) -> None:
         self.error: AppError | None = None
         self.calls: list[tuple] = []
+        self.reserved: list[tuple] = []
 
     def audio_node(self, student_id, session_id):
         self.calls.append((student_id, session_id))
         if self.error:
             raise self.error
         return NODE
+
+    def reserve_audio(self, student_id, session_id, audio, ext):
+        self.reserved.append((session_id, ext))
 
 
 @pytest.fixture
@@ -146,3 +150,25 @@ def test_rejects_oversized_recording_without_storing(client, wired):
     assert r.status_code == 413, r.text
     assert r.json()["error"]["code"] == "AUDIO_TOO_LARGE"
     assert store.objects == {}
+
+
+# --- Hạn mức phút ghi âm (C2-18): chỉ tính tệp đã qua kiểm tra --------------------------------------
+
+
+def test_valid_recording_reserves_quota_before_stt(client, wired):
+    _, orch = wired
+    sid = uuid4()
+    assert _post(client, sid).status_code == 200
+    assert orch.reserved == [(sid, "webm")]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [b"", b"not audio at all", WEBM[:4] + bytes(MAX_AUDIO_BYTES)],
+    ids=["rong", "sai-dinh-dang", "qua-co"],
+)
+def test_rejected_recording_is_not_charged(client, wired, data):
+    """Tệp rỗng / sai định dạng / quá cỡ bị từ chối trước STT thì không bị trừ hạn mức."""
+    _, orch = wired
+    assert _post(client, uuid4(), data=data).status_code in (413, 415, 422)
+    assert orch.reserved == []
