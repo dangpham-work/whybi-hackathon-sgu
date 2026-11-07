@@ -1,0 +1,113 @@
+# Whybi AI – Docker Compose theo Bảng 5.15 của đề cương (chủ sở hữu: Long / C2-03)
+#   docker compose up -d --build          # 7 dịch vụ chính
+#   docker compose --profile stt up -d    # thêm faster-whisper tự host (tùy chọn)
+name: whybi
+
+# api, worker, beat dùng chung một image: chỉ api build, hai dịch vụ còn lại dùng lại (tránh build 3 lần).
+x-backend: &backend
+  image: whybi-backend:dev
+  pull_policy: never
+  env_file:
+    - path: .env
+      required: false   # chạy được cả khi chưa tạo .env (dùng mặc định trong app/core/config.py)
+  environment:
+    SEED_DIR: /seed     # cây mẫu cho GET /classes/{id}/tree khi chưa có CSDL (C2-02)
+  volumes:
+    - ./seed:/seed:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio:
+      condition: service_started
+  restart: unless-stopped
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+      # - "443:443"   # bật khi có chứng chỉ TLS trên VM (C2-04)
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    build:
+      context: ./backend
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    <<: *backend
+    command: celery -A app.workers.celery_app worker -Q documents,aggregation,matching,ai -l info --concurrency 4
+
+  beat:
+    <<: *backend
+    command: celery -A app.workers.celery_app beat -l info
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-whybi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whybi}
+      POSTGRES_DB: ${POSTGRES_DB:-whybi}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whybi} -d ${POSTGRES_DB:-whybi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Kho đối tượng S3 (spec ghi MinIO). Image minio/minio không còn phát hành trên Docker Hub
+  # nên dùng RustFS – tương thích S3, giữ tên dịch vụ "minio" và endpoint http://minio:9000.
+  minio:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-whybi}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-whybi-minio-secret}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"
+      - "9001:9001"   # console
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  stt:
+    profiles: ["stt"]
+    image: fedirz/faster-whisper-server:latest-cpu
+    ports:
+      - "9100:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
