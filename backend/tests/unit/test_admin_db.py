@@ -26,6 +26,18 @@ from tests.unit.test_tree_edit_db import DB_URL
 
 pytestmark = pytest.mark.skipif(not DB_URL, reason="đặt TEST_DATABASE_URL để chạy trên Postgres thật")
 
+
+def _audio_chua_cai() -> bool:
+    """Endpoint /sessions/{id}/audio còn là bản khung (NotImplementedYet C1-12) thì chưa kiểm hạn mức ghi âm được."""
+    import inspect
+
+    from app.api import sessions as sessions_api
+
+    return "NotImplementedYet" in inspect.getsource(sessions_api.upload_audio)
+
+
+cho_c1_12 = pytest.mark.skipif(_audio_chua_cai(), reason="cần C1-12 (endpoint /audio); tự chạy lại khi C1-12 vào main")
+
 API = "/api/v1"
 
 
@@ -218,6 +230,7 @@ def _wav(seconds: int) -> bytes:
     return buf.getvalue()
 
 
+@cho_c1_12
 def test_vuot_han_muc_phut_ghi_am_chan_tai_len(published):  # noqa: F811
     w, tree = published
     from app.models.schemas.admin import QuotaIn
@@ -235,6 +248,7 @@ def test_vuot_han_muc_phut_ghi_am_chan_tai_len(published):  # noqa: F811
     assert turn(w, sid, "Biến là vùng nhớ có tên").status_code == 200
 
 
+@cho_c1_12
 def test_tai_ghi_am_cong_thoi_luong_vao_muc_dung(published):  # noqa: F811
     w, tree = published
     from app.models.schemas.admin import QuotaIn
