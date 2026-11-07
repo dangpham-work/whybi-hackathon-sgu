@@ -2,52 +2,19 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer
 from app.core.errors import NotImplementedYet
-from app.models.enums import HeatColor, MasteryState
+from app.db.session import get_db
 from app.models.schemas.common import ApiModel
-from app.models.schemas.mastery import HeatmapAlert
+from app.models.schemas.heatmap import GridRow, HeatmapSnapshot, NodeDetail, NodeStat
+from app.services.heatmap import HeatmapService
+
+__all__ = ["GridRow", "HeatmapSnapshot", "NodeDetail", "NodeStat", "router"]
 
 router = APIRouter(tags=["heatmap"])
-
-
-class NodeStat(ApiModel):
-    node_id: UUID
-    code: str
-    title: str
-    color: HeatColor
-    pass_rate: float | None
-    attempted_count: int
-    passed_count: int
-    is_root_cause: bool = False
-
-
-class GridRow(ApiModel):
-    student_id: UUID
-    student_name: str
-    student_code: str
-    states: dict[str, MasteryState]  # node_id → trạng thái
-    progress: float
-
-
-class HeatmapSnapshot(ApiModel):
-    class_id: UUID
-    enrolled_count: int
-    online_count: int = 0
-    active_sessions: int = 0
-    nodes: list[NodeStat]
-    grid: list[GridRow]
-    alerts: list[HeatmapAlert] = []
-
-
-class NodeDetail(ApiModel):
-    node_id: UUID
-    stat: NodeStat
-    students_by_state: dict[str, list[GridRow]]
-    top_misconceptions: list[dict]
-    root_cause_node_id: UUID | None = None
 
 
 class ClassSettings(ApiModel):
@@ -61,14 +28,23 @@ class ClassSettings(ApiModel):
 
 
 @router.get("/classes/{class_id}/heatmap", response_model=HeatmapSnapshot)
-def get_heatmap(class_id: UUID, user: CurrentUser = Lecturer) -> HeatmapSnapshot:
-    """Ảnh chụp: cây màu + lưới SV × Nút có tên; sau đó nghe kênh class:{id}:heatmap."""
-    raise NotImplementedYet("C2-13")
+def get_heatmap(class_id: UUID, user: CurrentUser = Lecturer, db: Session = Depends(get_db)) -> HeatmapSnapshot:
+    """Ảnh chụp: cây màu + lưới SV × Nút có tên; sau đó nghe kênh class:{id}:heatmap (FR-HM-01, 02, 04, 05).
+    Chỉ GV phụ trách lớp: 404 CLASS_NOT_FOUND / 403 NOT_CLASS_OWNER / 404 TREE_NOT_PUBLISHED."""
+    svc = HeatmapService(db)
+    svc.require_owner(class_id, user)
+    return svc.snapshot(class_id)
 
 
 @router.get("/classes/{class_id}/nodes/{node_id}/detail", response_model=NodeDetail)
-def node_detail(class_id: UUID, node_id: UUID, user: CurrentUser = Lecturer) -> NodeDetail:
-    raise NotImplementedYet("C2-13")
+def node_detail(
+    class_id: UUID, node_id: UUID, user: CurrentUser = Lecturer, db: Session = Depends(get_db)
+) -> NodeDetail:
+    """GV-06 (FR-HM-06): SV theo trạng thái (có tên), quan niệm sai phổ biến, nút gốc.
+    Nút không thuộc bản đang phát hành của lớp ⇒ 404 NODE_NOT_FOUND."""
+    svc = HeatmapService(db)
+    svc.require_owner(class_id, user)
+    return svc.node_detail(class_id, node_id)
 
 
 @router.get("/classes/{class_id}/students/{student_id}/profile")

@@ -93,6 +93,8 @@ class HeatmapCell(ApiModel):
     student_name: str
     node_id: UUID
     state: MasteryState
+    node_key: str | None = None  # C2-13: lưới tra theo key (GridRow.statesByKey)
+    student_code: str | None = None  # C2-13: MSSV
 
 
 class HeatmapNode(ApiModel):

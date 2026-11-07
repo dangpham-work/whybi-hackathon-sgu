@@ -187,8 +187,9 @@ def test_task_recompute_node_truy_vet_goc_truoc_commit(monkeypatch):
     monkeypatch.setattr(aggregation, "_session", lambda: db)
     monkeypatch.setattr(HeatmapService, "recompute", Mock(return_value=node))
     monkeypatch.setattr(HeatmapService, "trace_root_causes", Mock(side_effect=lambda *_: calls.append("trace") or []))
+    monkeypatch.setattr("app.services.heatmap.push_updates", lambda *_: calls.append("push"))  # C2-13
     assert aggregation.recompute_node(str(uuid4()), str(uuid4())) == {"nodeId": "x"}
-    assert calls == ["trace", "commit"]
+    assert calls == ["trace", "commit", "push"]
 
 
 def test_task_recompute_node_bo_qua_khi_nut_khong_thuoc_ban_phat_hanh(monkeypatch):
@@ -211,5 +212,6 @@ def test_task_recompute_class_truy_vet_goc(monkeypatch):
     monkeypatch.setattr(HeatmapService, "recompute_class", Mock(return_value=[Mock(), Mock()]))
     trace = Mock(return_value=[])
     monkeypatch.setattr(HeatmapService, "trace_root_causes", trace)
+    monkeypatch.setattr("app.services.heatmap.push_updates", Mock())  # C2-13: phát sau commit
     assert aggregation.recompute_class(str(uuid4())) == 2
     trace.assert_called_once()

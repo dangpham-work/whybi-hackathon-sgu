@@ -29,7 +29,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.enums import Role
-from app.models.users import User
+from app.models.users import Student, User
 
 log = logging.getLogger(__name__)
 
@@ -280,3 +280,16 @@ class AuthService:
                 raise AppError(400, "WRONG_PASSWORD", "Mật khẩu hiện tại không đúng")
             fields["password_hash"] = hash_password(new_password)
         return self.users.update(user_id, **fields) if fields else u
+
+
+def student_identities(db: Session, ids: Iterable[UUID]) -> dict[UUID, tuple[str, str]]:
+    """id → (họ tên, MSSV) theo lô – cho bản đồ nhiệt (C2-13) đọc tên SV qua service người dùng. Chỉ đọc."""
+    ids = list(ids)
+    if not ids:
+        return {}
+    q = (
+        select(User.id, User.full_name, Student.student_code)
+        .join(Student, Student.user_id == User.id, isouter=True)
+        .where(User.id.in_(ids))
+    )
+    return {uid: (name, code or "") for uid, name, code in db.execute(q)}

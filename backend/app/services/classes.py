@@ -61,11 +61,19 @@ class ClassService:
     def _view(self, cls: ClassSection) -> ClassView:
         return self._views([cls])[0]
 
-    def color_rule(self, class_id: UUID) -> ColorRule:
-        """Ngưỡng màu heatmap của lớp (BR-06) – lời gọi nội bộ (HeatmapService C2-11), không kiểm quyền."""
+    def _get(self, class_id: UUID) -> ClassSection:
         cls = self.db.get(ClassSection, class_id)
         if cls is None:
             raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
+        return cls
+
+    def lecturer_id(self, class_id: UUID) -> UUID:
+        """GV phụ trách lớp – lời gọi nội bộ (quyền bản đồ nhiệt C2-13), không kiểm quyền."""
+        return self._get(class_id).lecturer_id
+
+    def color_rule(self, class_id: UUID) -> ColorRule:
+        """Ngưỡng màu heatmap của lớp (BR-06) – lời gọi nội bộ (HeatmapService C2-11), không kiểm quyền."""
+        cls = self._get(class_id)
         return ColorRule.from_class(cls.color_thresholds, cls.min_sample)
 
     def list_for(self, user: "CurrentUser") -> list[ClassView]:

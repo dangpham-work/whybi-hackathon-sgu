@@ -247,6 +247,63 @@ def test_task_loi_thi_rollback(monkeypatch):
     db.commit.assert_not_called()
 
 
+# --- C2-13: phát realtime -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("reason", [MasteryChangeReason.SESSION_STARTED, MasteryChangeReason.SESSION_PASSED])
+def test_moi_mastery_changed_deu_phat_heatmap_cell(reason):
+    """Kể cả bắt đầu phiên (không tính lại số liệu) lưới vẫn hiện ô "đang giảng"."""
+    bus, cells = InMemoryEventBus(), []
+    register_handlers(bus, enqueue=lambda c, n: None, cell=cells.append)
+    ev = _event(reason)
+    bus.publish(TOPIC_MASTERY_CHANGED, ev)
+    assert [c.student_id for c in cells] == [ev.student_id]
+
+
+def test_task_phat_node_va_alert_sau_commit(monkeypatch):
+    from app.services import heatmap as hm
+    from app.workers import aggregation
+
+    order: list[str] = []
+    db = Mock()
+    db.commit.side_effect = lambda: order.append("commit")
+    node = node_payload(uuid4(), "n1", aggregate([], 0, ColorRule()), ColorRule())
+    monkeypatch.setattr(aggregation, "_session", lambda: db)
+    monkeypatch.setattr(hm.HeatmapService, "recompute", Mock(return_value=node))
+    monkeypatch.setattr(hm.HeatmapService, "trace_root_causes", Mock(return_value=["alert"]))
+    monkeypatch.setattr(hm, "push_updates", lambda c, n, a: order.append(("push", n, a)))
+    aggregation.recompute_node(str(uuid4()), str(uuid4()))
+    assert order == ["commit", ("push", [node], ["alert"])]
+
+
+def test_task_loi_thi_khong_phat(monkeypatch):
+    from app.services import heatmap as hm
+    from app.workers import aggregation
+
+    pushed = []
+    monkeypatch.setattr(aggregation, "_session", lambda: Mock())
+    monkeypatch.setattr(hm.HeatmapService, "recompute", Mock(side_effect=RuntimeError("hỏng")))
+    monkeypatch.setattr(hm, "push_updates", lambda *a: pushed.append(a))
+    with pytest.raises(RuntimeError):
+        aggregation.recompute_node(str(uuid4()), str(uuid4()))
+    assert pushed == []
+
+
+def test_redis_rot_khi_phat_chi_ghi_log(monkeypatch, caplog):
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    from app.realtime import gateway
+    from app.services import heatmap as hm
+
+    def hong(*a):
+        raise RedisConnectionError("rớt")
+
+    monkeypatch.setattr(gateway, "broadcast", hong)
+    cid = uuid4()
+    hm.push_updates(cid, [node_payload(uuid4(), "n1", aggregate([], 0, ColorRule()), ColorRule())], [])
+    assert str(cid) in caplog.text
+
+
 def test_heatmap_service_khong_truy_van_thang_bang_lop_cay():
     """AGENTS.md: không truy vấn thẳng bảng phần khác – lớp qua ClassService, cây qua SkillTreeService."""
     import inspect
