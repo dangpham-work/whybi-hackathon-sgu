@@ -22,7 +22,7 @@ HỢP ĐỒNG (C1-07) – JSON camelCase, lỗi {"error": {code, message, detail
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, LecturerOrStudent, Student
@@ -40,12 +40,17 @@ from app.models.schemas.session import (
     TurnReply,
 )
 from app.services.session_orchestrator import SessionOrchestrator
+from app.services.speech import MAX_AUDIO_BYTES, SpeechService
 
 router = APIRouter(tags=["sessions"])
 
 
 def get_orchestrator(db: Session = Depends(get_db)) -> SessionOrchestrator:
     return SessionOrchestrator(db)
+
+
+def get_speech_service() -> SpeechService:
+    return SpeechService()
 
 
 class NodeLockedErrorBody(ApiModel):
@@ -97,10 +102,19 @@ def start_session(
     return orch.start_session(user.id, body)
 
 
-@router.post("/sessions/{session_id}/audio", response_model=Transcript)
-def upload_audio(session_id: UUID, file: UploadFile = File(...), user: CurrentUser = Student) -> Transcript:
-    """Ghi âm ≤ 3 phút → STT tiếng Việt, chuẩn hóa thuật ngữ, độ tin cậy từng từ (FR-TB-05…07)."""
-    raise NotImplementedYet("C1-12")
+@router.post("/sessions/{session_id}/audio", response_model=Transcript, responses=_SESSION_ERRORS)
+def upload_audio(
+    session_id: UUID,
+    file: UploadFile = File(...),
+    consent: bool = Form(False),
+    user: CurrentUser = Student,
+    orch: SessionOrchestrator = Depends(get_orchestrator),
+    speech: SpeechService = Depends(get_speech_service),
+) -> Transcript:
+    """Transcribe the owner's active session; save recording only with consent (BR-13)."""
+    node = orch.audio_node(user.id, session_id)
+    audio = file.file.read(MAX_AUDIO_BYTES + 1)
+    return speech.transcribe(audio, node, session_id=session_id, consent=consent)
 
 
 @router.post("/sessions/{session_id}/turns", response_model=TurnReply, responses=_SESSION_ERRORS)

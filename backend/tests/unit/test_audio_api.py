@@ -5,13 +5,13 @@ from uuid import uuid4
 import pytest
 
 from app.ai.providers.stt import FakeSTTProvider
+from app.api import sessions as sessions_api
 from app.api.deps import CurrentUser, get_current_user
-from app.api.sessions import get_orchestrator, get_speech_service
 from app.core.errors import AppError
 from app.main import app
 from app.models.enums import Role
 from app.models.schemas.tree import KeyPointSchema, Node, Rubric
-from app.services.speech import MemoryAudioStore, SpeechService
+from app.services.speech import MAX_AUDIO_BYTES, MemoryAudioStore, SpeechService
 
 WEBM = b"\x1a\x45\xdf\xa3" + b"\0" * 64
 NODE = Node(
@@ -33,21 +33,18 @@ class FakeOrch:
             raise self.error
         return NODE
 
-    def reserve_audio(self, student_id, session_id, audio, ext):  # C2-18: tính hạn mức phút ghi âm trước STT
-        pass
-
 
 @pytest.fixture
 def wired():
     store = MemoryAudioStore()
     orch = FakeOrch()
     app.dependency_overrides[get_current_user] = lambda: CurrentUser(id=STUDENT_ID, role=Role.STUDENT)
-    app.dependency_overrides[get_orchestrator] = lambda: orch
-    app.dependency_overrides[get_speech_service] = lambda: SpeechService(
+    app.dependency_overrides[sessions_api.get_orchestrator] = lambda: orch
+    app.dependency_overrides[sessions_api.get_speech_service] = lambda: SpeechService(
         stt=FakeSTTProvider(), store=store, min_confidence=0.8
     )
     yield store, orch
-    for dep in (get_current_user, get_orchestrator, get_speech_service):
+    for dep in (get_current_user, sessions_api.get_orchestrator, sessions_api.get_speech_service):
         app.dependency_overrides.pop(dep, None)
 
 
@@ -127,3 +124,25 @@ def test_lecturer_cannot_upload(client):
         headers={"Authorization": "Bearer dev-lecturer"},
     )
     assert r.status_code == 403
+
+
+def test_audio_endpoint_checks_session_before_processing(client):
+    orch = FakeOrch()
+    orch.error = AppError(404, "SESSION_NOT_FOUND", "không có phiên")
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(id=STUDENT_ID, role=Role.STUDENT)
+    app.dependency_overrides[sessions_api.get_orchestrator] = lambda: orch
+    try:
+        r = _post(client, uuid4())
+        assert r.status_code == 404, r.text
+        assert r.json()["error"]["code"] == "SESSION_NOT_FOUND"
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(sessions_api.get_orchestrator, None)
+
+
+def test_rejects_oversized_recording_without_storing(client, wired):
+    store, _ = wired
+    r = _post(client, uuid4(), data=WEBM + b"x" * MAX_AUDIO_BYTES, consent=True)
+    assert r.status_code == 413, r.text
+    assert r.json()["error"]["code"] == "AUDIO_TOO_LARGE"
+    assert store.objects == {}

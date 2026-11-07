@@ -492,6 +492,15 @@ class SessionOrchestrator:
             )
         return result
 
+    # ------------------------------------------------------------------ POST /sessions/{id}/audio (C1-12)
+
+    def audio_node(self, student_id: UUID, session_id: UUID) -> Node:
+        """Glossary source for an active session owned by the requesting student."""
+        s = self._session(session_id, student_id)
+        if s.status not in ACTIVE:
+            raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
+        return self._node(s.node_id)[1]
+
     # ------------------------------------------------------------------ GET /sessions/{id}/result
 
     def get_result(self, user_id: UUID, role: Role, session_id: UUID) -> SessionResult:
