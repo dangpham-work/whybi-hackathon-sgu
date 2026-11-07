@@ -22,6 +22,7 @@ from app.models.enums import (
     MasteryState,
     QuestionStrategy,
     SessionStatus,
+    Speaker,
     TurnType,
     Verdict,
 )
@@ -92,6 +93,37 @@ class Turn(ApiModel):
         if self.input_mode == InputMode.VOICE and not self.audio_ref:
             raise ValueError("inputMode=VOICE cần audioRef (POST /sessions/{id}/audio trước)")
         return self
+
+
+class SessionTurnView(ApiModel):
+    """Một lượt hội thoại để dựng lại màn hình khi tải lại trang (GET /sessions/{id})."""
+
+    turn_no: int = Field(ge=1)
+    speaker: Speaker
+    turn_type: TurnType
+    text: str
+    input_mode: InputMode
+    created_at: datetime
+
+
+class SessionState(ApiModel):
+    """GET /sessions/{id} – trạng thái phiên của chính SV để khôi phục UI sau khi tải lại (bug #120).
+
+    `turns` theo thứ tự lượt, gồm cả thông báo của hệ thống (SYSTEM_NOTICE). `question` là câu Tutee đang chờ SV trả lời
+    (kèm hạn `deadline`, `audioUrl`); None khi phiên đã kết thúc. Giai đoạn tiếp theo suy ra từ `status`:
+    EXPLAINING ⇒ gửi EXPLANATION, CHALLENGING ⇒ gửi ANSWER."""
+
+    session_id: UUID
+    node_id: UUID
+    status: SessionStatus
+    input_mode: InputMode
+    tts_enabled: bool = False
+    turns: list[SessionTurnView]
+    question: Question | None = None
+    questions_asked: int = Field(0, ge=0)
+    questions_total: int = Field(0, ge=0)
+    started_at: datetime
+    ended_at: datetime | None = None
 
 
 class TurnReply(ApiModel):
@@ -372,6 +404,8 @@ class SessionResult(ApiModel):
     unlocked_nodes: list[str] = []
     flags: list[FlagType] = []
     is_peer_followup: bool = False
+    # C2-14 (thêm, tương thích ngược): mục ghép cặp mà phiên xác nhận lại = SessionStart.peerMatchItemId
+    peer_match_item_id: UUID | None = None
     detected_misconceptions: list[str] = []
     failed_conditions: list[PassCondition] = []  # BR-03: vì sao Chưa đạt (GV-08)
     attempt_no: int = Field(1, ge=1)

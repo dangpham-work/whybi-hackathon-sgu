@@ -14,6 +14,8 @@ Quy ước:
 
 import json
 import logging
+import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,8 +30,8 @@ from app.ai.agents.guard import GuardAgent
 from app.ai.agents.judge import JudgeAgent
 from app.ai.agents.tutee import MAX_QUESTIONS, MIN_QUESTIONS, CoverageAnalysis, SessionContext, TuteeAgent
 from app.ai.gateway import LLMGateway, get_gateway
+from app.core.config import get_settings
 from app.core.errors import AppError
-from app.models import tree as tree_orm
 from app.models.enums import (
     FlagType,
     InputMode,
@@ -47,14 +49,16 @@ from app.models.schemas.session import (
     SessionCreated,
     SessionResult,
     SessionStart,
+    SessionState,
+    SessionTurnView,
     Turn,
     TurnReply,
 )
 from app.models.schemas.tree import Node, Rubric
 from app.models.session import Evaluation, SecurityFlag, SessionTurn, TeachingSession
-from app.models.users import ClassSection
 from app.realtime.bus import get_bus
 from app.realtime.gateway import broadcast, channel_session
+from app.services.classes import ClassService
 from app.services.mastery import MasteryService
 from app.services.skill_tree import SkillTreeService
 
@@ -63,6 +67,7 @@ log = logging.getLogger(__name__)
 ACTIVE = frozenset({SessionStatus.EXPLAINING, SessionStatus.CHALLENGING})
 MAX_VIOLATIONS = 3  # Hình 4.26: vi phạm ≥ 3 lần ⇒ FLAGGED
 TIMEOUT_TEXT = "(hết giờ – chưa trả lời)"
+LATE_NOTICE = "Hết giờ ở câu này nên mình tính là chưa trả lời. Mình hỏi câu tiếp theo nhé."
 STRATEGY_COL_LEN = 24  # session_turns.strategy String(24)
 
 
@@ -136,12 +141,23 @@ class _History:
                 qs.append(Question(text=t.content or "…", strategy=strategy, target_point_id=target))
         return qs
 
-    def current_question(self) -> Question | None:
+    def current_turn(self) -> SessionTurn | None:
         for t in reversed(self.turns):
             if t.speaker == Speaker.TUTEE and t.turn_type in (TurnType.OPENING, TurnType.QUESTION):
-                strategy, target = decode_strategy(t.strategy)
-                return Question(text=t.content or "…", strategy=strategy, target_point_id=target)
+                return t
         return None
+
+    def current_question(self, deadline_of: Callable[[SessionTurn], datetime | None] | None = None) -> Question | None:
+        t = self.current_turn()
+        if t is None:
+            return None
+        strategy, target = decode_strategy(t.strategy)
+        return Question(
+            text=t.content or "…",
+            strategy=strategy,
+            target_point_id=target,
+            deadline=deadline_of(t) if deadline_of else None,
+        )
 
     def violations(self) -> int:
         return sum(1 for t in self.turns if t.speaker == Speaker.TUTEE and t.turn_type == TurnType.SYSTEM_NOTICE)
@@ -158,6 +174,7 @@ class SessionOrchestrator:
         gateway: LLMGateway | None = None,
         max_questions: int = 4,
         judge_runs: int = 2,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.db = db
         self.gateway = gateway or get_gateway()
@@ -165,19 +182,47 @@ class SessionOrchestrator:
         self.tutee = TuteeAgent(self.gateway, max_questions=max_questions, guard=self.guard)
         self.judge = JudgeAgent(self.gateway, runs=judge_runs)
         self.max_questions = max(MIN_QUESTIONS, min(MAX_QUESTIONS, max_questions))  # FR-TB-08: 3–5 câu
+        self.now = now  # đồng hồ có thể thay trong test (hạn trả lời, FR-TB-11)
+
+    # ------------------------------------------------------------------ cấu hình lớp (C1-15)
+
+    def _cfg(self, class_id: UUID):
+        """Ngưỡng Đạt và số câu phản biện GV đặt cho lớp (FR-HM-08, C2-17) – đọc mỗi lần để đổi cấu hình thì phiên
+        đang chạy cũng đổi theo."""
+        return ClassService(self.db).get_settings(class_id)
+
+    def _total(self, class_id: UUID) -> int:
+        return max(MIN_QUESTIONS, min(MAX_QUESTIONS, self._cfg(class_id).challenge_count))
+
+    @staticmethod
+    def _audio_url(s: TeachingSession, turn: SessionTurn) -> str | None:
+        """Địa chỉ phát giọng đọc câu hỏi (FR-TB-10) – chỉ khi SV bật TTS; tắt thì phiên không đổi gì."""
+        if not s.tts_enabled:
+            return None
+        return f"{get_settings().api_prefix}/sessions/{s.id}/turns/{turn.turn_no}/tts"
+
+    def _current_question(self, s: TeachingSession, h: "_History") -> Question | None:
+        q = h.current_question(self._deadline)
+        t = h.current_turn()
+        if q is not None and t is not None:
+            q.audio_url = self._audio_url(s, t)
+        return q
+
+    @staticmethod
+    def _limit() -> timedelta:
+        return timedelta(seconds=get_settings().answer_time_limit_s)
+
+    def _deadline(self, t: SessionTurn) -> datetime | None:
+        """Hạn trả lời của một câu phản biện: lúc hỏi + giới hạn; câu mở đầu (SV tự giảng) không có hạn."""
+        if t.turn_type != TurnType.QUESTION:
+            return None
+        return t.created_at + self._limit()
 
     # ------------------------------------------------------------------ nạp dữ liệu
 
     def _node(self, node_id: UUID) -> tuple[UUID, Node]:
-        """(class_id, Node kèm rubric) của nút. TODO(Long): SkillTreeService nên có hàm công khai cho việc này."""
-        n = self.db.get(tree_orm.ConceptNode, node_id)
-        if n is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        tv = SkillTreeService(self.db).version_schema(n.version_id)
-        node = next((x for x in tv.nodes if x.id == node_id), None)
-        if node is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        return tv.class_id, node
+        """(class_id, Node kèm rubric) của nút."""
+        return SkillTreeService(self.db).get_node_for_session(node_id)
 
     def _session(self, session_id: UUID, user_id: UUID, *, lock: bool = False) -> TeachingSession:
         q = select(TeachingSession).where(TeachingSession.id == session_id)
@@ -203,7 +248,7 @@ class SessionOrchestrator:
         return _History(list(rows))
 
     def _add_turn(self, s: TeachingSession, h: _History, **fields: Any) -> SessionTurn:
-        t = SessionTurn(session_id=s.id, turn_no=h.next_no(), **fields)
+        t = SessionTurn(session_id=s.id, turn_no=h.next_no(), created_at=self.now(), **fields)
         self.db.add(t)
         self.db.flush()
         h.turns.append(t)
@@ -224,6 +269,11 @@ class SessionOrchestrator:
 
     def start_session(self, student_id: UUID, body: SessionStart) -> SessionCreated:
         class_id, node = self._node(body.node_id)
+        if body.peer_match_item_id is not None:
+            # Import trong hàm: matching.py dùng SessionResult/SkillTreeService, tránh vòng import khi nạp app
+            from app.services.matching import MatchingService
+
+            MatchingService(self.db).check_followup_item(student_id, body.node_id, body.peer_match_item_id)
         attempt = self.db.scalar(
             select(func.count())
             .select_from(TeachingSession)
@@ -256,7 +306,8 @@ class SessionOrchestrator:
         try:
             opening = self.tutee.opening_line(node, session_id=str(s.id))
             h = _History([])
-            self._add_tutee(s, h, opening, TurnType.OPENING)
+            opening_turn = self._add_tutee(s, h, opening, TurnType.OPENING)
+            opening.audio_url = self._audio_url(s, opening_turn)
             s.status = SessionStatus.EXPLAINING
             self.db.commit()
         except Exception:
@@ -278,6 +329,12 @@ class SessionOrchestrator:
         h = self._history(s.id)
         explaining = s.status == SessionStatus.EXPLAINING
         turn_type = TurnType.EXPLANATION if explaining else TurnType.ANSWER
+
+        cur = h.current_turn()
+        deadline = self._deadline(cur) if cur is not None and not explaining else None
+        if deadline is not None and self.now() > deadline + timedelta(seconds=get_settings().answer_grace_s):
+            # Trả lời quá hạn (cộng thời gian trễ mạng): coi như hết giờ, lời trễ không vào transcript (FR-TB-11).
+            return self._timeout(s, h, node, notice=LATE_NOTICE)
 
         try:
             # C1-08: số liệu dán / tốc độ gõ chỉ có nghĩa với lượt gõ phím; lượt giọng nói do STT sinh chữ.
@@ -342,16 +399,16 @@ class SessionOrchestrator:
                 question=None,
                 notice=notice,
                 questions_asked=asked,
-                questions_total=max(asked, self.max_questions),
+                questions_total=max(asked, self._total(s.class_id)),
                 flags=flags,
             )
         self.db.commit()
         return TurnReply(
             status=SessionStatus(s.status),
-            question=h.current_question(),
+            question=self._current_question(s, h),
             notice=notice,
             questions_asked=asked,
-            questions_total=max(asked, self.max_questions),
+            questions_total=max(asked, self._total(s.class_id)),
             flags=flags,
         )
 
@@ -361,8 +418,13 @@ class SessionOrchestrator:
         """Câu hiện tại tính là chưa trả lời, sang câu kế (FR-TB-11). Đồng hồ / hạn theo lớp: C1-15."""
         s = self._active(session_id, student_id)
         _, node = self._node(s.node_id)
-        h = self._history(s.id)
+        return self._timeout(s, self._history(s.id), node)
+
+    def _timeout(self, s: TeachingSession, h: _History, node: Node, notice: str | None = None) -> TurnReply:
+        """Ghi nhận hết giờ: câu đang hỏi tính là chưa trả lời (không cộng câu phản biện), hỏi câu kế hoặc chấm."""
         try:
+            cur = h.current_turn()
+            deadline = self._deadline(cur) if cur is not None else None
             self._add_turn(
                 s,
                 h,
@@ -370,10 +432,13 @@ class SessionOrchestrator:
                 turn_type=TurnType.SYSTEM_NOTICE,
                 content=TIMEOUT_TEXT,
                 input_mode=InputMode.TEXT,
+                response_time_ms=int(self._limit().total_seconds() * 1000) if deadline else None,
             )
             if s.status == SessionStatus.EXPLAINING:
                 s.status = SessionStatus.CHALLENGING
             reply = self._advance(s, h, node, flags=[])
+            if notice is not None:
+                reply.notice = notice
         except Exception:
             self.db.rollback()
             raise
@@ -390,12 +455,14 @@ class SessionOrchestrator:
             transcript=transcript,
             coverage=coverage,
             asked=h.asked(),
-            max_questions=self.max_questions,
+            max_questions=self._total(s.class_id),
             session_id=str(s.id),
         )
         question = self.tutee.next_question(ctx)
         if question is not None:
-            self._add_tutee(s, h, question, TurnType.QUESTION)
+            turn = self._add_tutee(s, h, question, TurnType.QUESTION)
+            question.deadline = self._deadline(turn)
+            question.audio_url = self._audio_url(s, turn)
             self.db.commit()
             self._emit_question(s.id, question)
             asked = len(h.asked())
@@ -403,7 +470,7 @@ class SessionOrchestrator:
                 status=SessionStatus(s.status),
                 question=question,
                 questions_asked=asked,
-                questions_total=max(asked, self.max_questions),
+                questions_total=max(asked, self._total(s.class_id)),
                 flags=flags,
             )
         self._finish(s, h, node)
@@ -416,6 +483,14 @@ class SessionOrchestrator:
             flags=flags,
         )
 
+    @staticmethod
+    def _min_passed(rubric: Rubric, challenge_count: int, asked: int) -> int:
+        """k trong BR-03. Số câu lớp đặt trùng số câu của rubric ⇒ giữ k của rubric (GV đã chỉnh); khác ⇒ ⌈2/3·số câu⌉.
+        Không vượt số câu đã hỏi thực sự (phiên có thể dừng sớm)."""
+        same = challenge_count == rubric.min_challenges
+        k = rubric.min_passed_challenges if same else math.ceil(challenge_count * 2 / 3)
+        return max(1, min(k, asked)) if asked else k
+
     def _coverage(self, transcript: list[dict[str, Any]], node: Node, session_id: str) -> CoverageAnalysis:
         student_only = [t for t in transcript if t["role"] == "student"]
         if not student_only or node.rubric is None:
@@ -426,11 +501,14 @@ class SessionOrchestrator:
         s.status = SessionStatus.EVALUATING
         rubric = node.rubric or Rubric(key_points=[])
         asked = h.asked()
+        cfg = self._cfg(s.class_id)
         outcome = self.judge.evaluate(
             h.transcript(),
             rubric,
             node.title,
             challenges_total=len(asked),
+            pass_threshold=cfg.pass_threshold,
+            min_passed_challenges=self._min_passed(rubric, cfg.challenge_count, len(asked)),
             session_id=str(s.id),
         )
         flags = sorted(
@@ -457,6 +535,7 @@ class SessionOrchestrator:
             unlocked_nodes=[],
             flags=flags,
             is_peer_followup=s.is_peer_followup,
+            peer_match_item_id=s.peer_match_item_id,
             detected_misconceptions=[m.id for m in outcome.result.misconceptions],
             failed_conditions=outcome.pass_check.failed_conditions,
             attempt_no=s.attempt_no,
@@ -492,6 +571,66 @@ class SessionOrchestrator:
             )
         return result
 
+    # ------------------------------------------------------------------ GET /sessions/{id} (bug #120)
+
+    def get_state(self, student_id: UUID, session_id: UUID) -> SessionState:
+        """Trạng thái phiên của chính SV để UI khôi phục khi tải lại: hội thoại, câu đang chờ (hạn, TTS), tiến độ."""
+        s = self._session(session_id, student_id)
+        h = self._history(s.id)
+        active = s.status in ACTIVE
+        asked = len(h.asked())
+        return SessionState(
+            session_id=s.id,
+            node_id=s.node_id,
+            status=SessionStatus(s.status),
+            input_mode=InputMode(s.input_mode),
+            tts_enabled=bool(s.tts_enabled),
+            turns=[
+                SessionTurnView(
+                    turn_no=t.turn_no,
+                    speaker=Speaker(t.speaker),
+                    turn_type=TurnType(t.turn_type),
+                    text=t.content or "",
+                    input_mode=InputMode(t.input_mode),
+                    created_at=t.created_at,
+                )
+                for t in h.turns
+            ],
+            question=self._current_question(s, h) if active else None,
+            questions_asked=asked,
+            questions_total=max(asked, self._total(s.class_id)) if active else asked,
+            started_at=s.started_at,
+            ended_at=s.ended_at,
+        )
+
+    # ------------------------------------------------------------------ GET /sessions/{id}/turns/{n}/tts (C1-14)
+
+    def question_text_for_tts(self, student_id: UUID, session_id: UUID, turn_no: int) -> str:
+        """Chữ của câu hỏi Tutee ở lượt `turn_no` để đọc thành tiếng. Chỉ SV chủ phiên, phiên bật TTS, đúng lượt hỏi."""
+        s = self._session(session_id, student_id)
+        if not s.tts_enabled:
+            raise AppError(404, "TTS_NOT_ENABLED", "Phiên này không bật đọc câu hỏi")
+        t = self.db.scalar(
+            select(SessionTurn).where(
+                SessionTurn.session_id == s.id,
+                SessionTurn.turn_no == turn_no,
+                SessionTurn.speaker == Speaker.TUTEE,
+                SessionTurn.turn_type.in_([TurnType.OPENING, TurnType.QUESTION]),
+            )
+        )
+        if t is None:
+            raise AppError(404, "TURN_NOT_FOUND", "Không có câu hỏi ở lượt này", {"turnNo": turn_no})
+        return t.content or ""
+
+    # ------------------------------------------------------------------ POST /sessions/{id}/audio (C1-12)
+
+    def audio_node(self, student_id: UUID, session_id: UUID) -> Node:
+        """Nút của phiên đang diễn ra để SpeechService lấy glossary. Lỗi như /turns (404 / 403 / 409)."""
+        s = self._session(session_id, student_id)
+        if s.status not in ACTIVE:
+            raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
+        return self._node(s.node_id)[1]
+
     # ------------------------------------------------------------------ GET /sessions/{id}/result
 
     def get_result(self, user_id: UUID, role: Role, session_id: UUID) -> SessionResult:
@@ -501,8 +640,7 @@ class SessionOrchestrator:
         if role == Role.STUDENT and s.student_id != user_id:
             raise AppError(403, "FORBIDDEN", "Đây không phải phiên của bạn")
         if role == Role.LECTURER:
-            cls = self.db.get(ClassSection, s.class_id)  # TODO(Long): hàm kiểm GV chủ lớp dùng chung
-            if cls is None or cls.lecturer_id != user_id:
+            if ClassService(self.db).lecturer_id(s.class_id) != user_id:
                 raise AppError(403, "FORBIDDEN", "Phiên không thuộc lớp của bạn")
         if s.status != SessionStatus.COMPLETED:
             raise AppError(409, "RESULT_NOT_READY", "Phiên chưa chấm xong", {"status": s.status})

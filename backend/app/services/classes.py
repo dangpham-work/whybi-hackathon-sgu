@@ -60,6 +60,27 @@ class ClassService:
     def _view(self, cls: ClassSection) -> ClassView:
         return self._views([cls])[0]
 
+    def _get(self, class_id: UUID) -> ClassSection:
+        cls = self.db.get(ClassSection, class_id)
+        if cls is None:
+            raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
+        return cls
+
+    def lecturer_id(self, class_id: UUID) -> UUID:
+        return self._get(class_id).lecturer_id
+
+    def get_settings(self, class_id: UUID):
+        from app.models.schemas.heatmap import ClassSettings
+
+        cls = self._get(class_id)
+        thresholds = cls.color_thresholds or {}
+        return ClassSettings(
+            pass_threshold=cls.pass_threshold,
+            green_threshold=thresholds.get("green", 0.7),
+            yellow_threshold=thresholds.get("yellow", 0.4),
+            min_sample=cls.min_sample,
+            challenge_count=cls.challenge_count,
+        )
     def list_for(self, user: "CurrentUser") -> list[ClassView]:
         """GV-01: lớp GV phụ trách (mới tạo trước). SV-01: lớp SV đã tham gia (mới tham gia trước)."""
         if user.role == Role.LECTURER:
