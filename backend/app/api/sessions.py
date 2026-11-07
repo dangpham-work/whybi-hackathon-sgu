@@ -22,7 +22,7 @@ HỢP ĐỒNG (C1-07) – JSON camelCase, lỗi {"error": {code, message, detail
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, LecturerOrStudent, Student
@@ -40,7 +40,7 @@ from app.models.schemas.session import (
     TurnReply,
 )
 from app.services.session_orchestrator import SessionOrchestrator
-from app.services.speech import MAX_AUDIO_BYTES, SpeechService
+from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService
 
 router = APIRouter(tags=["sessions"])
 
@@ -51,6 +51,10 @@ def get_orchestrator(db: Session = Depends(get_db)) -> SessionOrchestrator:
 
 def get_speech_service() -> SpeechService:
     return SpeechService()
+
+
+def get_tts_service() -> TtsService:
+    return TtsService()
 
 
 class NodeLockedErrorBody(ApiModel):
@@ -115,6 +119,28 @@ def upload_audio(
     node = orch.audio_node(user.id, session_id)
     audio = file.file.read(MAX_AUDIO_BYTES + 1)
     return speech.transcribe(audio, node, session_id=session_id, consent=consent)
+
+
+@router.get(
+    "/sessions/{session_id}/turns/{turn_no}/tts",
+    responses={
+        200: {"content": {"audio/mpeg": {}, "audio/wav": {}}, "description": "Question audio"},
+        403: _SESSION_ERRORS[403],
+        404: {"model": ErrorResponse, "description": "SESSION_NOT_FOUND / TTS_NOT_ENABLED / TURN_NOT_FOUND"},
+        503: {"model": ErrorResponse, "description": "TTS_UNAVAILABLE"},
+    },
+)
+def question_audio(
+    session_id: UUID,
+    turn_no: int,
+    user: CurrentUser = Student,
+    orch: SessionOrchestrator = Depends(get_orchestrator),
+    tts: TtsService = Depends(get_tts_service),
+) -> Response:
+    """Read a question for the session owner; synthesize on first playback, then cache."""
+    text = orch.question_text_for_tts(user.id, session_id, turn_no)
+    audio, content_type = tts.audio_for(session_id, turn_no, text)
+    return Response(audio, media_type=content_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.post("/sessions/{session_id}/turns", response_model=TurnReply, responses=_SESSION_ERRORS)
