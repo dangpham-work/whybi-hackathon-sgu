@@ -1,0 +1,65 @@
+# Mẫu issue bug – Phụ lục C.1 kế hoạch phân công (KT-01). Quy trình phân loại: docs/bug-triage.md
+# Sau khi tạo: người phân loại gắn nhãn P0/P1/P2 và mod:<module> đúng với lựa chọn bên dưới.
+name: "🐞 Bug"
+description: Lỗi tìm thấy trên bản deploy chung
+title: "[P1][module] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Mức độ (Bảng 17)
+      options:
+        - "P0 – hỏng một bước demo 7 phút hoặc sập bản deploy"
+        - "P1 – sai dữ liệu / sai quyền / lỗi hiển thị nặng / không đúng đặc tả"
+        - "P2 – lỗi giao diện nhỏ, chữ, căn lề"
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options: [session, voice, documents, skilltree, mastery, heatmap, matching, admin, frontend, infra, eval]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      description: Đánh số từng bước bấm trên bản deploy, kèm tài khoản đã dùng
+      placeholder: |
+        1. Đăng nhập gv@whybi.test
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Môi trường
+      description: Nơi tái hiện được lỗi
+      placeholder: |
+        - Bản deploy: http://<máy chủ> hoặc local docker compose
+        - Commit / tag: a1d3f0e
+        - LLM_MODE / DEMO_MODE: fake / 0
+        - Trình duyệt, thiết bị: Chrome 130 trên Android
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+      description: Theo thẻ việc hoặc yêu cầu FR liên quan
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Kết quả thực tế
+      description: Điều đã xảy ra, ảnh chụp màn hình hoặc log
+    validations:
+      required: true
+  - type: input
+    id: card
+    attributes:
+      label: Thẻ việc liên quan
+      placeholder: "C1-05 hoặc #5"
