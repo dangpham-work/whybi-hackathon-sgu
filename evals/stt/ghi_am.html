@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghi âm STT</title>
+<style>
+  :root { --bg:#fff; --fg:#1b1f24; --muted:#5b6470; --line:#d6dbe1; --ok:#1a7f37; --rec:#cf222e; --accent:#0b5cad; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171b; --fg:#e6e9ed; --muted:#9aa4b0; --line:#2d333b; --ok:#3fb950; --rec:#f85149; --accent:#58a6ff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.4rem; margin:.2rem 0 1rem; }
+  fieldset { border:1px solid var(--line); border-radius:8px; padding:12px; margin:0 0 16px; }
+  label { display:block; margin:.4rem 0; }
+  input[type=text] { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  textarea { width:100%; min-height:90px; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  .cau { font-size:1.25rem; padding:12px; border-left:4px solid var(--accent); margin:8px 0; }
+  .terms { color:var(--muted); font-size:.9rem; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; }
+  button { padding:10px 14px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.rec { border-color:var(--rec); color:var(--rec); }
+  .trang { font-weight:600; }
+  .trang.ok { color:var(--ok); } .trang.dang { color:var(--rec); }
+  ol { padding-left:1.4rem; } li.xong::marker { color:var(--ok); }
+  li { cursor:pointer; } li.hien { font-weight:700; }
+  .canh { color:var(--rec); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ghi âm bộ đánh giá STT (30 đoạn)</h1>
+  <p id="loi" class="canh" hidden></p>
+
+  <fieldset>
+    <legend>Người nói</legend>
+    <label>Mã giả danh (không ghi tên thật), ví dụ <code>NN01</code>
+      <input id="speaker" type="text" maxlength="20" autocomplete="off"></label>
+    <label><input id="dongY" type="checkbox"> Tôi đồng ý cho đội WhyBloom dùng giọng nói này để đánh giá STT trong cuộc thi và lưu trong repo.</label>
+  </fieldset>
+
+  <section id="khung" hidden>
+    <div class="row"><span id="soThuTu" class="trang"></span><span id="trangThai" class="trang"></span></div>
+    <div id="cau" class="cau"></div>
+    <div id="terms" class="terms"></div>
+    <p class="terms">Đọc tự nhiên như đang giảng; có thể giải thích thêm cho đủ 30–120 giây. Nói thêm thì sửa ô dưới cho đúng lời đã nói.</p>
+    <label>Lời thực nói (lời tham khảo để tính WER)
+      <textarea id="reference"></textarea></label>
+    <div class="row">
+      <button id="btnGhi" class="rec">● Ghi</button>
+      <button id="btnDung" disabled>■ Dừng</button>
+      <span id="dongHo">0:00</span>
+    </div>
+    <audio id="nghe" controls hidden></audio>
+    <div class="row">
+      <button id="btnTai" disabled>Tải tệp âm thanh</button>
+      <button id="btnTruoc">← Câu trước</button>
+      <button id="btnSau">Câu sau →</button>
+    </div>
+  </section>
+
+  <fieldset>
+    <legend>Hoàn tất</legend>
+    <p>Chép các tệp <code>Sxx.webm</code> vào <code>evals/stt/audio/</code>, rồi tải manifest mới và ghi đè <code>evals/stt/manifest.jsonl</code>.</p>
+    <button id="btnManifest">Tải manifest.jsonl</button>
+    <span id="demXong"></span>
+  </fieldset>
+
+  <ol id="dsCau"></ol>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let rows = [], i = 0, rec = null, chunks = [], t0 = 0, timer = null;
+  const done = {};   // id -> {blob, url, speaker, reference}
+
+  function baoLoi(msg) { $("loi").textContent = msg; $("loi").hidden = false; }
+
+  fetch("manifest.jsonl").then((r) => {
+    if (!r.ok) throw new Error(r.status);
+    return r.text();
+  }).then((txt) => {
+    rows = txt.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    $("khung").hidden = false;
+    veDanhSach(); hien(0);
+  }).catch(() => baoLoi("Không đọc được manifest.jsonl. Mở trang qua máy chủ cục bộ: cd evals/stt && python -m http.server 8765, rồi vào http://localhost:8765/ghi_am.html"));
+
+  function veDanhSach() {
+    $("dsCau").innerHTML = "";
+    rows.forEach((r, k) => {
+      const li = document.createElement("li");
+      li.textContent = `${r.id} ${done[r.id] ? "✓ đã ghi" : ""} – ${r.reference.slice(0, 60)}`;
+      if (done[r.id]) li.className = "xong";
+      if (k === i) li.classList.add("hien");
+      li.onclick = () => hien(k);
+      $("dsCau").appendChild(li);
+    });
+    const n = Object.keys(done).length;
+    $("demXong").textContent = `Đã ghi ${n}/${rows.length}`;
+  }
+
+  function hien(k) {
+    i = Math.max(0, Math.min(rows.length - 1, k));
+    const r = rows[i], d = done[r.id];
+    $("soThuTu").textContent = `${r.id} (${i + 1}/${rows.length})`;
+    $("cau").textContent = r.reference;
+    $("terms").textContent = "Thuật ngữ cần nhận đúng: " + (r.terms || []).join(", ");
+    $("reference").value = d ? d.reference : r.reference;
+    $("trangThai").textContent = d ? "✓ đã ghi" : "chưa ghi";
+    $("trangThai").className = "trang " + (d ? "ok" : "");
+    $("nghe").hidden = !d; if (d) $("nghe").src = d.url;
+    $("btnTai").disabled = !d;
+    veDanhSach();
+  }
+
+  $("btnGhi").onclick = async () => {
+    if (!$("dongY").checked || !$("speaker").value.trim()) { baoLoi("Điền mã người nói và tick ô đồng ý trước khi ghi."); return; }
+    $("loi").hidden = true;
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { baoLoi("Không mở được micro: " + e.message); return; }
+    chunks = [];
+    rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      clearInterval(timer);
+      const r = rows[i], blob = new Blob(chunks, { type: "audio/webm" });
+      if (done[r.id]) URL.revokeObjectURL(done[r.id].url);
+      done[r.id] = { blob, url: URL.createObjectURL(blob), speaker: $("speaker").value.trim(), reference: $("reference").value.trim() };
+      $("btnGhi").disabled = false; $("btnDung").disabled = true;
+      hien(i);
+    };
+    rec.start(); t0 = Date.now();
+    $("trangThai").textContent = "● đang ghi"; $("trangThai").className = "trang dang";
+    $("btnGhi").disabled = true; $("btnDung").disabled = false;
+    timer = setInterval(() => {
+      const s = Math.floor((Date.now() - t0) / 1000);
+      $("dongHo").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      if (s >= 180) rec.stop();
+    }, 250);
+  };
+  $("btnDung").onclick = () => rec && rec.state === "recording" && rec.stop();
+  $("reference").oninput = () => { const d = done[rows[i].id]; if (d) d.reference = $("reference").value.trim(); };
+
+  function tai(blob, ten) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = ten; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $("btnTai").onclick = () => { const r = rows[i]; tai(done[r.id].blob, r.file.split("/").pop()); };
+  $("btnTruoc").onclick = () => hien(i - 1);
+  $("btnSau").onclick = () => hien(i + 1);
+
+  $("btnManifest").onclick = () => {
+    const out = rows.map((r) => {
+      const d = done[r.id];
+      return d ? { ...r, reference: d.reference, speaker: d.speaker, consent: true } : r;
+    });
+    tai(new Blob([out.map((o) => JSON.stringify(o)).join("\n") + "\n"], { type: "application/json" }), "manifest.jsonl");
+  };
+})();
+</script>
+</body>
+</html>
