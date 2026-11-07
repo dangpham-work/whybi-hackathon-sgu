@@ -25,3 +25,11 @@
 - Giữ ba ca hồi quy luật Guard AT01/AT02/AT07; test với LLM giả luôn VALID không đại diện cho hiệu quả của toàn bộ corpus mới. KT-07 phải đo toàn bộ ca với Guard thật, không coi test đơn vị xanh là đạt mục tiêu 90%.
 - Cần: người gán nhãn độc lập cho 62 lời giảng; 30 file ghi âm có đồng ý sử dụng; GV xác nhận cây chuẩn và giáo trình đi kèm.
 - Chờ CI của PR KT-04 và Long duyệt; Đăng rà thay đổi giới hạn test Guard về các ca hồi quy ban đầu. Không đổi code Guard hoặc kết quả đánh giá thực nghiệm.
+## KT-05 – giả lập qua API phiên thật
+
+- Tiên quyết C1-01, C2-05 và API C1-07 (PR #119) đã merge. Script chuyển từ whybi-ai bcf5f1d.
+- Khôi phục phần seed DB của KT-02 còn là stub trên main: scripts/seed_db.py nạp 32 tài khoản, lớp và cây trong CSDL demo; băm mật khẩu và chạy lại không xóa dữ liệu.
+- Script simulate_students.py đăng nhập riêng từng SV, gửi phiên/lượt/result, đợi my-map xác nhận MasteryService; N5 mặc định 9 MASTERED / 21 NOT_PASSED. Chạy lại không tạo phiên khi dữ liệu đã đúng, dừng khi xung đột.
+- Demo riêng: APP_ENV=dev, LLM_MODE=fake, DEMO_MODE=1; sau migration chạy seed_db.py, mastery_listener và simulate_students.py --serve-demo; gọi simulate_students.py --prepare-demo để nạp rubric minh họa và phát hành cây qua API GV. Chỉ dùng CSDL demo riêng; đây là dữ liệu giả lập, không phải kết quả đo AI.
+- C2-13 chưa merge: nếu heatmap trả đúng 501 NOT_IMPLEMENTED của C2-13, trả heatmapVerified=false và weakColor=null sau khi kiểm my-map đủ 30 SV. Mọi lỗi heatmap khác vẫn fail.
+- Test Postgres thật dùng schema/transaction riêng trong CI để xác nhận đủ 330 ô, 30 SV, phiên/evaluation hoàn tất và N5 9/21. Đang chờ CI trên PR; theo yêu cầu không chạy thêm test local.
