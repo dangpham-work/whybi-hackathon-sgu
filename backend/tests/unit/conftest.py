@@ -10,7 +10,5 @@ collect_ignore = [
     "test_session_reconcile_worker.py",  # C1-07 – celery_app nạp workers/documents cần syllabus.DocumentRef (C2-08)
     "test_session_state_db.py",  # C1-18 – cần GET /sessions/{id} (api/sessions C1-07 bản mới, SessionState)
     "test_session_timer_db.py",  # C1-15 – cần session_orchestrator.LATE_NOTICE (C1-07 bản mới, C2-17, C2-18)
-    "test_syllabus_preprocess.py",  # C1-09 – cần services/syllabus.DocumentRef… (C2-08 bản mới)
-    "test_syllabus_preprocess_db.py",  # C1-09 – như trên
     "test_tree_draft_db.py",  # C1-10 – cần fake._hash_embedding (C1-01) + class_sections.challenge_count (C2-17)
 ]
