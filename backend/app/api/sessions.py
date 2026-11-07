@@ -41,7 +41,7 @@ from app.models.schemas.session import (
 )
 from app.services.session_history import SessionHistoryService
 from app.services.session_orchestrator import SessionOrchestrator
-from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService
+from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService, validate_audio
 
 router = APIRouter(tags=["sessions"])
 
@@ -118,7 +118,10 @@ def upload_audio(
 ) -> Transcript:
     """Transcribe the owner's active session; save recording only with consent (BR-13)."""
     node = orch.audio_node(user.id, session_id)
-    audio = file.file.read(MAX_AUDIO_BYTES + 1)
+    audio = file.file.read(MAX_AUDIO_BYTES + 1)  # đọc tối đa giới hạn + 1 byte, không nạp tệp khổng lồ vào RAM
+    # Kiểm rỗng / định dạng / kích thước / độ dài TRƯỚC: tệp bị từ chối thì không bị trừ hạn mức phút ghi âm
+    fmt = validate_audio(audio)
+    orch.reserve_audio(user.id, session_id, audio, fmt.ext)  # hạn mức phút ghi âm, tính trước khi gọi STT
     return speech.transcribe(audio, node, session_id=session_id, consent=consent)
 
 
