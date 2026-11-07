@@ -10,7 +10,7 @@ from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
 from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.mastery import MyMap
-from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeVersion
+from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeDiff, TreeVersion
 from app.services.mastery import MasteryService
 from app.services.skill_tree import SkillTreeService
 
@@ -89,15 +89,21 @@ def publish(version_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> Tre
 
 
 @router.get("/classes/{class_id}/tree-versions", response_model=list[TreeVersion])
-def list_versions(class_id: UUID, user: CurrentUser = Lecturer) -> list[TreeVersion]:
-    """Lịch sử phiên bản (FR-SK-10, vòng 2)."""
-    raise NotImplementedYet("C2-16")
+def list_versions(class_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> list[TreeVersion]:
+    """Lịch sử phiên bản, mới nhất trước (FR-SK-10)."""
+    return trees.list_versions(class_id, user)
 
 
 @router.post("/tree-versions/{version_id}/restore", response_model=TreeVersion, status_code=201)
-def restore_version(version_id: UUID, user: CurrentUser = Lecturer) -> TreeVersion:
-    """Khôi phục phiên bản cũ thành bản nháp mới (FR-SK-10)."""
-    raise NotImplementedYet("C2-16")
+def restore_version(version_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> TreeVersion:
+    """Khôi phục phiên bản cũ thành bản nháp mới (FR-SK-10); bản cũ giữ nguyên, rubric duyệt lại."""
+    return trees.restore_version(version_id, user)
+
+
+@router.get("/tree-versions/{from_id}/compare/{to_id}", response_model=TreeDiff)
+def compare_versions(from_id: UUID, to_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> TreeDiff:
+    """So sánh hai phiên bản cùng lớp theo key nút: thêm, bỏ, đổi; cạnh thêm, bỏ (FR-SK-10)."""
+    return trees.compare_versions(from_id, to_id, user)
 
 
 @router.get("/classes/{class_id}/my-map", response_model=MyMap)

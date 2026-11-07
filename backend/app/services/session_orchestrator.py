@@ -60,6 +60,7 @@ from app.realtime.bus import get_bus
 from app.realtime.gateway import broadcast, channel_session
 from app.services.classes import ClassService
 from app.services.mastery import MasteryService
+from app.services.quota import QuotaService
 from app.services.skill_tree import SkillTreeService
 
 log = logging.getLogger(__name__)
@@ -239,7 +240,23 @@ class SessionOrchestrator:
         s = self._session(session_id, user_id, lock=True)
         if s.status not in ACTIVE:
             raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
+        QuotaService(self.db).check(s.student_id, s.class_id)  # FR-AD-06: hết hạn mức token ⇒ 429 QUOTA_EXCEEDED
         return s
+
+    def _record_tokens(self, session_id: UUID) -> None:
+        """Ghi số token phiên đã dùng (ngân sách theo phiên của gateway) vào mức dùng để so hạn mức (C2-18).
+        Lỗi ghi không được làm hỏng phiên đang chạy."""
+        used = getattr(self.gateway, "tokens_used", lambda _sid: 0)(str(session_id))
+        if not used:
+            return
+        try:
+            s = self.db.get(TeachingSession, session_id)
+            if s is not None:
+                QuotaService(self.db).record_tokens(s.id, s.student_id, s.class_id, used)
+                self.db.commit()
+        except Exception:  # noqa: BLE001
+            self.db.rollback()
+            log.exception("không ghi được mức dùng token của phiên %s", session_id)
 
     def _history(self, session_id: UUID) -> _History:
         rows = self.db.scalars(
@@ -318,12 +335,19 @@ class SessionOrchestrator:
             s.ended_at = datetime.now(UTC)
             mastery.abandon(student_id, body.node_id, s.id)  # commit
             raise
+        self._record_tokens(s.id)
         self._emit_question(s.id, opening)
         return SessionCreated(session_id=s.id, status=SessionStatus.EXPLAINING, opening=opening)
 
     # ------------------------------------------------------------------ POST /sessions/{id}/turns
 
     def handle_turn(self, student_id: UUID, session_id: UUID, turn: Turn) -> TurnReply:
+        try:
+            return self._handle_turn(student_id, session_id, turn)
+        finally:
+            self._record_tokens(session_id)
+
+    def _handle_turn(self, student_id: UUID, session_id: UUID, turn: Turn) -> TurnReply:
         s = self._active(session_id, student_id)
         _, node = self._node(s.node_id)
         h = self._history(s.id)
@@ -416,6 +440,12 @@ class SessionOrchestrator:
 
     def handle_timeout(self, student_id: UUID, session_id: UUID) -> TurnReply:
         """Câu hiện tại tính là chưa trả lời, sang câu kế (FR-TB-11). Đồng hồ / hạn theo lớp: C1-15."""
+        try:
+            return self._handle_timeout(student_id, session_id)
+        finally:
+            self._record_tokens(session_id)
+
+    def _handle_timeout(self, student_id: UUID, session_id: UUID) -> TurnReply:
         s = self._active(session_id, student_id)
         _, node = self._node(s.node_id)
         return self._timeout(s, self._history(s.id), node)

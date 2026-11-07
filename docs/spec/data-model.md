@@ -3,6 +3,7 @@
 > Gốc: mục 5.2 – [outline/05-thiet-ke.md](outline/05-thiet-ke.md) (ERD Hình 5.4–5.7, Bảng 5.2 danh sách bảng, 5.2.4 từ điển dữ liệu).
 
 - 30 bảng, cài trong `backend/app/models/{users,tree,session,peer}.py`; enum ở `models/enums.py`.
+  Thêm bảng thứ 31 `node_review_windows` (C2-15): hạn kiểm tra bài cũ theo (lớp, key nút), xem mục ghép theo sự kiện ở `mx4-matching.md`.
 - Migration đầu: `backend/alembic/versions/20261014_1af58d747696_initial_schema_30_tables.py`
   (bật `vector`, chỉ mục HNSW cho `document_chunks.embedding`). **Chỉ Long tạo migration** (§8.3).
 - Ràng buộc DAG (5.2.5): kiểm tra chu trình ở tầng ứng dụng (`app/algorithms/dag.py`) trước khi ghi `prerequisite_edges`.

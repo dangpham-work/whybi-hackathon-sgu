@@ -14,8 +14,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.algorithms.heatmap import ColorRule
 from app.core.errors import AppError
 from app.models.enums import Role
+from app.models.schemas.heatmap import ClassSettings
 from app.models.users import ClassSection, Course, Enrollment
 from app.models.users import Lecturer as LecturerProfile
 from app.models.users import Student as StudentProfile

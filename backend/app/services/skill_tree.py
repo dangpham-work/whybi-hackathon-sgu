@@ -311,6 +311,13 @@ class SkillTreeService:
                 out[class_id] = status  # bản sau ghi đè ⇒ còn lại phiên bản mới nhất
         return out
 
+    def node_keys(self, node_ids: list[UUID]) -> dict[UUID, str]:
+        """id nút → key (mọi phiên bản) – lời gọi nội bộ (MatchingService), không kiểm quyền."""
+        if not node_ids:
+            return {}
+        rows = self.db.execute(select(orm.ConceptNode.id, orm.ConceptNode.key).where(orm.ConceptNode.id.in_(node_ids)))
+        return {nid: key for nid, key in rows}
+
     def version_schema(self, version_id: UUID) -> TreeVersion:
         """Một phiên bản cây (kèm rubric) theo id – lời gọi nội bộ (MasteryService), không kiểm quyền."""
         v = self.db.get(orm.TreeVersion, version_id)

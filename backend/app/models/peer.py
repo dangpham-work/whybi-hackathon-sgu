@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -54,6 +55,18 @@ class MatchingRound(UUIDPk, Base):
     created_at: Mapped[datetime] = created_at_col()
 
 
+class NodeReviewWindow(UUIDPk, Base):
+    """Hạn kiểm tra bài cũ của một nút trong lớp (C2-15): trong hạn, ghép cặp chạy theo sự kiện (người Đạt dạy
+    tối đa 3 người chưa Đạt). Khóa theo key nút (không theo id) để còn hiệu lực khi phát hành phiên bản cây mới."""
+
+    __tablename__ = "node_review_windows"
+    __table_args__ = (UniqueConstraint("class_id", "node_key"),)
+    class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
+    node_key: Mapped[str] = mapped_column(String(64))
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = created_at_col()
+
+
 class PeerMatch(UUIDPk, Base):
     __tablename__ = "peer_matches"
     __table_args__ = (CheckConstraint("student_a_id <> student_b_id", name="distinct_students"),)
@@ -64,6 +77,10 @@ class PeerMatch(UUIDPk, Base):
     status: Mapped[str] = mapped_column(String(24))  # MatchStatus (Hình 4.30)
     accepted_by_a: Mapped[bool] = mapped_column(Boolean, default=False)
     accepted_by_b: Mapped[bool] = mapped_column(Boolean, default=False)
+    # "Đã học cùng" từng bên (C2-14): cả hai bấm ⇒ STUDIED (Hình 4.30)
+    studied_by_a: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    studied_by_b: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Hạn của trạng thái hiện tại (BR-09): PROPOSED/WAITING_OTHER 48 giờ; ACCEPTED, STUDIED 7 ngày
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_col()
 
@@ -97,3 +114,37 @@ class AuditLog(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     payload: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at_col()
+
+
+class UsageQuota(UUIDPk, Base):
+    """Hạn mức của một lớp hoặc một SV (FR-AD-06). NULL = không giới hạn loại đó. `scope_id` là id lớp / id SV."""
+
+    __tablename__ = "usage_quotas"
+    __table_args__ = (
+        UniqueConstraint("scope", "scope_id"),
+        CheckConstraint("scope in ('CLASS', 'STUDENT')", name="scope_valid"),
+        CheckConstraint("token_limit is null or token_limit >= 0", name="token_limit_non_negative"),
+        CheckConstraint("audio_minutes_limit is null or audio_minutes_limit >= 0", name="audio_limit_non_negative"),
+    )
+    scope: Mapped[str] = mapped_column(String(8))
+    scope_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    token_limit: Mapped[int | None] = mapped_column(Integer)
+    audio_minutes_limit: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UsageRecord(UUIDPk, Base):
+    """Mức đã dùng của một phiên: token LLM và giây ghi âm. Cộng theo lớp / theo SV để so với `usage_quotas`."""
+
+    __tablename__ = "usage_records"
+    __table_args__ = (
+        CheckConstraint("tokens >= 0 and audio_seconds >= 0", name="usage_non_negative"),
+        Index("ix_usage_records_class", "class_id"),
+        Index("ix_usage_records_student", "student_id"),
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teaching_sessions.id", ondelete="CASCADE"), unique=True)
+    student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.user_id", ondelete="CASCADE"))
+    class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
+    tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    audio_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
