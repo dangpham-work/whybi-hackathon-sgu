@@ -1,0 +1,11 @@
+#!/bin/sh
+# Commit phải bắt đầu bằng mã thẻ (AGENTS.md mục Git): "C1-05: chấm 5 tiêu chí theo BR-03".
+# Cho phép thêm: fix #<số>: … (bug), chore/docs/ci/build/test/refactor: …, Merge/Revert, fixup!/squash!.
+
+dong=$(head -n 1 "$1")
+if printf '%s' "$dong" | grep -qE '^((C1|C2|GD|KT)-[0-9]{2}: |fix #[0-9]+: |(chore|docs|ci|build|test|refactor)(\([^)]+\))?: |Merge |Revert |fixup! |squash! )'; then
+  exit 0
+fi
+echo "commit-msg: dòng đầu phải bắt đầu bằng mã thẻ, ví dụ 'C1-05: …' hoặc 'fix #12: …'." >&2
+echo "  Đang là: $dong" >&2
+exit 1

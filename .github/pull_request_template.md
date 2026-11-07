@@ -12,6 +12,14 @@ Closes #
 
 <!-- Dán đúng dòng "Xong khi" của thẻ và cách bạn đã kiểm tra (lệnh, ảnh chụp). -->
 
+## Đụng file ngoài phạm vi
+
+<!-- File không thuộc thư mục mình (bảng sở hữu trong AGENTS.md) hoặc hợp đồng chung: liệt kê kèm lý do. Không có thì ghi "Không". -->
+
+## Thư viện mới
+
+<!-- Gói thêm bằng uv add / npm i, kèm file lock. Không có thì ghi "Không". -->
+
 ## Checklist
 
 - [ ] Chỉ sửa trong thư mục mình sở hữu (hoặc chủ thư mục đã duyệt)
