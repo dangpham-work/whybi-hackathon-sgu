@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPk, created_at_col, range_check
@@ -48,6 +49,7 @@ class ConceptNode(UUIDPk, Base):
     __table_args__ = (UniqueConstraint("version_id", "key"),)
     version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tree_versions.id", ondelete="CASCADE"))
     key: Mapped[str] = mapped_column(String(64))  # ổn định giữa các phiên bản (di chuyển trạng thái SV)
+    code: Mapped[str | None] = mapped_column(String(8))  # nhãn hiển thị "N5" (C2-09)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
     chapter_ref: Mapped[str | None] = mapped_column(String(100))
@@ -79,6 +81,11 @@ class Rubric(UUIDPk, Base):
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"), unique=True)
     pass_threshold: Mapped[int] = mapped_column(SmallInteger, default=70)
     status: Mapped[str] = mapped_column(String(16), default="DRAFT")  # RubricStatus
+    # C2-09: đủ trường của schemas.tree.Rubric (FR-SK-05, Bảng 6.1)
+    target_bloom: Mapped[str] = mapped_column(String(16), default="UNDERSTAND", server_default="UNDERSTAND")
+    min_passed_challenges: Mapped[int] = mapped_column(SmallInteger, default=2, server_default="2")  # k (BR-03)
+    optional_points: Mapped[list | None] = mapped_column(JSONB)
+    source_pages: Mapped[list | None] = mapped_column(JSONB)
     approved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -96,6 +103,7 @@ class RubricCriterion(UUIDPk, Base):
 class KeyPoint(UUIDPk, Base):
     __tablename__ = "key_points"
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
+    code: Mapped[str | None] = mapped_column(String(8))  # "KP1" / "MC1" / "SC1" – Judge, Tutee tham chiếu (C2-09)
     content: Mapped[str] = mapped_column(Text)
     is_required: Mapped[bool] = mapped_column(Boolean, default=True)
     source_chunk_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("document_chunks.id", ondelete="SET NULL"))
@@ -104,6 +112,7 @@ class KeyPoint(UUIDPk, Base):
 class Misconception(UUIDPk, Base):
     __tablename__ = "misconceptions"
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
+    code: Mapped[str | None] = mapped_column(String(8))  # "KP1" / "MC1" / "SC1" – Judge, Tutee tham chiếu (C2-09)
     content: Mapped[str] = mapped_column(Text)
     probe_question: Mapped[str | None] = mapped_column(Text)
     is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -112,6 +121,7 @@ class Misconception(UUIDPk, Base):
 class ChallengeScenario(UUIDPk, Base):
     __tablename__ = "challenge_scenarios"
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
+    code: Mapped[str | None] = mapped_column(String(8))  # "KP1" / "MC1" / "SC1" – Judge, Tutee tham chiếu (C2-09)
     scenario: Mapped[str] = mapped_column(Text)
     bloom_level: Mapped[str] = mapped_column(String(16))
     expected_points: Mapped[str | None] = mapped_column(Text)

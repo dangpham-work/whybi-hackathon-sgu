@@ -65,6 +65,18 @@ class Node(ApiModel):
     rubric: Rubric | None = None
 
 
+class NodePatch(ApiModel):
+    """PATCH /nodes/{id} (C2-09): chỉ gửi trường cần đổi – kéo thả chỉ cần positionX / positionY. Không đổi được key."""
+
+    code: str | None = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = None
+    chapter_ref: str | None = None
+    bloom_level: BloomLevel | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+
+
 class Edge(ApiModel):
     """X → Y: phải hiểu X (from) trước khi học Y (to)."""
 
