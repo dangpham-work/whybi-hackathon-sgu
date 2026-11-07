@@ -285,7 +285,7 @@ class Simulator:
                 or final_cell["state"] != expected_weak[student_id]
                 or final_cell["attempts"] < 1
             ):
-                raise SimulationError("B?n ?? h?c t?p ch?a c? k?t qu? N5 ??ng k?ch b?n")
+                raise SimulationError("Bản đồ học tập chưa có kết quả N5 đúng kịch bản")
             print(
                 f"[{index + 1}/{len(self.students)}] {student['full_name']}: {weak['code']} {expected_weak[student_id]}"
             )
@@ -303,7 +303,7 @@ class Simulator:
         }
         snapshot = self.request("GET", f"/api/v1/classes/{class_id}/heatmap", teacher_token, allow_pending_heatmap=True)
         if snapshot is None:
-            print("C2-13 ch?a c?: ?? ki?m ch?ng b?n ?? 30 SV; ch?a ki?m m?u heatmap.")
+            print("C2-13 chưa có: đã kiểm chứng bản đồ từng SV; chưa kiểm màu heatmap.")
             return summary
         rows = {row["studentId"]: row for row in snapshot["grid"]}
         for row in rows.values():
