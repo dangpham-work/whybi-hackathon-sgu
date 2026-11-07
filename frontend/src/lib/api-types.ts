@@ -674,11 +674,38 @@ export interface paths {
         };
         /**
          * Get Tree
-         * @description Cây đang phát hành (hoặc bản nháp với GV). C2-02: đọc cây mẫu qua SkillTreeService, chưa dùng CSDL.
+         * @description Cây đang phát hành của lớp; GV phụ trách gửi `draft=true` để lấy phiên bản mới nhất (kể cả nháp).
+         *     SV phải đã tham gia lớp. Lớp mẫu SEED_CLASS_ID chưa có trong CSDL ⇒ trả cây từ seed/ (C2-02).
          */
         get: operations["get_tree_api_v1_classes__class_id__tree_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Versions
+         * @description Lịch sử phiên bản (FR-SK-10, vòng 2).
+         */
+        get: operations["list_versions_api_v1_classes__class_id__tree_versions_get"];
+        put?: never;
+        /**
+         * Create Version
+         * @description Tạo bản nháp mới (C2-09). Có body: nhập cây (nút, cạnh theo key, rubric) – `sanitize=true` chạy hậu xử lý
+         *     6.1.4 (phá chu trình, rút gọn bắc cầu), không sanitize mà có chu trình ⇒ 409 CYCLE_DETECTED.
+         *     Không body: sao bản đang phát hành để sửa tiếp.
+         */
+        post: operations["create_version_api_v1_classes__class_id__tree_versions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -694,7 +721,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Node */
+        /**
+         * Add Node
+         * @description Key trùng trong phiên bản ⇒ 409 NODE_KEY_EXISTS. Chỉ sửa được bản DRAFT / EDITING (409 VERSION_NOT_EDITABLE).
+         */
         post: operations["add_node_api_v1_tree_versions__version_id__nodes_post"];
         delete?: never;
         options?: never;
@@ -717,7 +747,7 @@ export interface paths {
         head?: never;
         /**
          * Update Node
-         * @description Sửa nút / vị trí kéo thả.
+         * @description Sửa nút / vị trí kéo thả – chỉ gửi trường cần đổi.
          */
         patch: operations["update_node_api_v1_nodes__node_id__patch"];
         trace?: never;
@@ -733,7 +763,8 @@ export interface paths {
         put?: never;
         /**
          * Add Edge
-         * @description Kiểm tra chu trình trước khi ghi; tạo chu trình ⇒ 409 CYCLE_DETECTED kèm đường đi (TC03).
+         * @description Kiểm tra chu trình trước khi ghi; tạo chu trình ⇒ 409 CYCLE_DETECTED kèm `details.path` (TC03).
+         *     Cạnh đã có ⇒ 409 EDGE_EXISTS; key lạ ⇒ 404 NODE_NOT_FOUND.
          */
         post: operations["add_edge_api_v1_tree_versions__version_id__edges_post"];
         delete?: never;
@@ -769,7 +800,7 @@ export interface paths {
         get?: never;
         /**
          * Put Rubric
-         * @description Sửa / duyệt rubric (FR-SK-08).
+         * @description Sửa / duyệt rubric (FR-SK-08): `approved=true` là duyệt.
          */
         put: operations["put_rubric_api_v1_nodes__node_id__rubric_put"];
         post?: never;
@@ -810,29 +841,10 @@ export interface paths {
         put?: never;
         /**
          * Publish
-         * @description Kiểm BR-05; khởi tạo / di chuyển trạng thái SV theo BR-14 (TC04, TC05).
+         * @description Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm `details.errors`.
+         *     Bản phát hành trước chuyển ARCHIVED. Khởi tạo / di chuyển trạng thái SV (BR-14): C2-10.
          */
         post: operations["publish_api_v1_tree_versions__version_id__publish_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/classes/{class_id}/tree-versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Versions
-         * @description Lịch sử phiên bản (FR-SK-10, vòng 2).
-         */
-        get: operations["list_versions_api_v1_classes__class_id__tree_versions_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -868,7 +880,9 @@ export interface paths {
         };
         /**
          * My Map
-         * @description Bản đồ học tập cá nhân: cây + trạng thái từng nút của SV (FR-TB-01).
+         * @description Bản đồ học tập cá nhân (FR-TB-01, SV-02 / SV-03): cây đang phát hành + trạng thái, điểm cao nhất, số lượt,
+         *     tiên quyết còn thiếu, giờ được thử lại của từng nút.
+         *     Lỗi: 403 NOT_ENROLLED, 404 CLASS_NOT_FOUND / TREE_NOT_PUBLISHED.
          */
         get: operations["my_map_api_v1_classes__class_id__my_map_get"];
         put?: never;
@@ -1214,6 +1228,41 @@ export interface components {
              */
             isCritical: boolean;
         };
+        /**
+         * MyMap
+         * @description Cây đang phát hành + trạng thái từng nút của SV. `tree` dùng thẳng cho SkillTree (mode="learner"),
+         *     `progress` tra theo `nodeKey` để tô màu (frontend/src/lib/status.ts).
+         */
+        MyMap: {
+            /**
+             * Classid
+             * Format: uuid
+             */
+            classId: string;
+            /**
+             * Studentid
+             * Format: uuid
+             */
+            studentId: string;
+            tree: components["schemas"]["TreeVersion"];
+            /** Progress */
+            progress: components["schemas"]["NodeProgress"][];
+            /**
+             * Frontier
+             * @default []
+             */
+            frontier: string[];
+            /**
+             * Masteredcount
+             * @default 0
+             */
+            masteredCount: number;
+            /**
+             * Totalcount
+             * @default 0
+             */
+            totalCount: number;
+        };
         /** Node */
         Node: {
             /** Id */
@@ -1254,6 +1303,62 @@ export interface components {
             }[];
             /** Rootcausenodeid */
             rootCauseNodeId?: string | null;
+        };
+        /**
+         * NodePatch
+         * @description PATCH /nodes/{id} (C2-09): chỉ gửi trường cần đổi – kéo thả chỉ cần positionX / positionY. Không đổi được key.
+         */
+        NodePatch: {
+            /** Code */
+            code?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Chapterref */
+            chapterRef?: string | null;
+            bloomLevel?: components["schemas"]["BloomLevel"] | null;
+            /** Positionx */
+            positionX?: number | null;
+            /** Positiony */
+            positionY?: number | null;
+        };
+        /**
+         * NodeProgress
+         * @description Một ô của SV: trạng thái + đủ dữ liệu cho SV-03 Chi tiết nút.
+         */
+        NodeProgress: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** Nodekey */
+            nodeKey: string;
+            state: components["schemas"]["MasteryState"];
+            /** Bestscore */
+            bestScore?: number | null;
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /**
+             * Missingprerequisites
+             * @default []
+             */
+            missingPrerequisites: string[];
+            /** Retryat */
+            retryAt?: string | null;
+            /**
+             * Canstart
+             * @default false
+             */
+            canStart: boolean;
+            /** Lastsessionid */
+            lastSessionId?: string | null;
+            /** Updatedat */
+            updatedAt?: string | null;
         };
         /** NodeStat */
         NodeStat: {
@@ -2840,6 +2945,74 @@ export interface operations {
             };
         };
     };
+    list_versions_api_v1_classes__class_id__tree_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeVersion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_version_api_v1_classes__class_id__tree_versions_post: {
+        parameters: {
+            query?: {
+                sanitize?: boolean;
+            };
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TreeVersion"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeVersion"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_node_api_v1_tree_versions__version_id__nodes_post: {
         parameters: {
             query?: never;
@@ -2886,7 +3059,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Node"];
+                "application/json": components["schemas"]["NodePatch"];
             };
         };
         responses: {
@@ -3071,37 +3244,6 @@ export interface operations {
             };
         };
     };
-    list_versions_api_v1_classes__class_id__tree_versions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                class_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TreeVersion"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     restore_version_api_v1_tree_versions__version_id__restore_post: {
         parameters: {
             query?: never;
@@ -3150,7 +3292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TreeVersion"];
+                    "application/json": components["schemas"]["MyMap"];
                 };
             };
             /** @description Validation Error */
