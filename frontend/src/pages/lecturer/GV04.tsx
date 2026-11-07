@@ -1,9 +1,10 @@
-import { Flag, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
+import { Flag, History, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { RubricEditor } from "../../components/RubricEditor";
+import { VersionHistory } from "../../components/VersionHistory";
 import { SkillTree, BLOOM_LABEL } from "../../components/SkillTree";
 import { apiCall, errorText, type Schema } from "../../lib/api";
 import { cycleMessage, emptyRubric, isEditable, newNodeKey, publishErrors, unapproved, type Rubric, type TreeVersion } from "../../lib/tree-edit";
@@ -31,6 +32,7 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "ok"; lines: string[] }>();
   const [adding, setAdding] = useState(false);
+  const [history, setHistory] = useState(false);
   const [title, setTitle] = useState("");
   const editable = isEditable(tree);
   const selected = tree.nodes.find((n) => n.key === selectedKey);
@@ -138,6 +140,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         <Button variant="secondary" disabled title="Chờ API gộp nút (C2)">
           Gộp nút
         </Button>
+        <Button variant="secondary" aria-pressed={history} onClick={() => setHistory((h) => !h)}>
+          <History aria-hidden size={16} /> Lịch sử
+        </Button>
         <span className="ml-auto text-body-s text-ink-500">{`v${tree.versionNo} · ${editable ? "Bản nháp" : tree.status === "PUBLISHED" ? "Đã phát hành" : tree.status}`}</span>
         <Button disabled={!editable || busy} onClick={publish}>
           <Flag aria-hidden size={16} /> Phát hành
@@ -176,6 +181,19 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
             <li key={l}>{l}</li>
           ))}
         </ul>
+      )}
+
+      {history && (
+        <VersionHistory
+          classId={classId}
+          nodeTitle={(key) => tree.nodes.find((n) => n.key === key)?.title ?? key}
+          onRestored={(draft) => {
+            setTree(draft);
+            setSelectedKey(null);
+            setHistory(false);
+            setMessage({ kind: "ok", lines: [`Đã khôi phục thành bản nháp v${draft.versionNo} – duyệt lại rubric rồi phát hành.`] });
+          }}
+        />
       )}
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">

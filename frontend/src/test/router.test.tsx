@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
+import { ScreenPlaceholder } from "../components/ScreenPlaceholder";
 import { routes } from "../router";
 import { SCREENS } from "../screens";
 
@@ -16,10 +17,11 @@ describe("router tự nạp (GD-01)", () => {
     for (const s of SCREENS) expect(paths).toContain(s.path);
   });
 
-  it("màn chưa có file trang hiện trang giữ chỗ đúng mã màn", async () => {
-    open("/gv/classes/demo/settings");
-    expect(await screen.findByRole("heading", { name: "Cấu hình ngưỡng" })).toBeTruthy();
-    expect(screen.getByText(/GV-10 · Vòng 2 · Thẻ GD-14/)).toBeTruthy();
+  it("trang giữ chỗ hiện đúng mã màn (không phụ thuộc màn nào đã dựng)", () => {
+    const gv = SCREENS.find((x) => x.code === "GV-05")!;
+    render(<ScreenPlaceholder screen={gv} />);
+    expect(screen.getByRole("heading", { name: gv.title })).toBeTruthy();
+    expect(screen.getByText(/GV-05 · Vòng 1 · Thẻ GD-10/)).toBeTruthy();
   });
 
   it("màn có file pages/<vai>/<MÃ>.tsx được nạp tự động (AUTH-01)", async () => {
