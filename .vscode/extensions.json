@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "anthropic.claude-code",
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "bradlc.vscode-tailwindcss",
+    "dbaeumer.vscode-eslint",
+    "ms-playwright.playwright",
+    "ms-azuretools.vscode-containers",
+    "jebbs.plantuml",
+    "editorconfig.editorconfig",
+    "github.vscode-pull-request-github"
+  ]
+}

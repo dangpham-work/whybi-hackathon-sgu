@@ -1,0 +1,20 @@
+{
+  "files.eol": "\n",
+  "files.encoding": "utf8",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": { "source.organizeImports.ruff": "explicit" }
+  },
+  "python.testing.pytestEnabled": true,
+  "python.testing.cwd": "${workspaceFolder}/backend",
+  "python.testing.pytestArgs": ["tests"],
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "tailwindCSS.experimental.configFile": "frontend/src/styles/index.css",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.venv": true,
+    "docs/diagrams/png": true,
+    "docs/spec/outline": true
+  }
+}
