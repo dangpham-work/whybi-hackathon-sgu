@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.ai.gateway import configure_llm
-from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin
-from app.core.errors import AppError, NotImplementedYet
+from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin, get_revocations
+from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.enums import ProviderKind, Role
 from app.models.schemas.admin import (
@@ -25,7 +25,10 @@ from app.models.schemas.admin import (
     UserPatch,
 )
 from app.models.schemas.common import ApiModel
+from app.models.schemas.notification import NotificationOut
 from app.services.admin import MAX_CSV_BYTES, AdminService
+from app.services.auth import Revocations
+from app.services.notification import NotificationService
 from app.services.quota import QuotaService
 
 router = APIRouter(tags=["admin"])
@@ -100,15 +103,26 @@ def create_user(body: UserCreate, user: CurrentUser = Admin, db: Session = Depen
 
 
 @router.patch("/admin/users/{user_id}", response_model=UserOut)
-def patch_user(user_id: UUID, body: UserPatch, user: CurrentUser = Admin, db: Session = Depends(get_db)) -> UserOut:
-    """Đổi họ tên, khóa / mở khóa (`isActive`). Tài khoản bị khóa không đăng nhập được."""
-    return AdminService(db).patch_user(user, user_id, body)
+def patch_user(
+    user_id: UUID,
+    body: UserPatch,
+    user: CurrentUser = Admin,
+    db: Session = Depends(get_db),
+    revocations: Revocations = Depends(get_revocations),
+) -> UserOut:
+    """Đổi họ tên, khóa / mở khóa (`isActive`). Khóa ⇒ không đăng nhập được và token đang dùng bị thu hồi ngay."""
+    return AdminService(db, revocations).patch_user(user, user_id, body)
 
 
 @router.post("/admin/users/{user_id}/reset-password", response_model=CreatedUser)
-def reset_password(user_id: UUID, user: CurrentUser = Admin, db: Session = Depends(get_db)) -> CreatedUser:
-    """Đặt lại mật khẩu ngẫu nhiên, chỉ trả lần này."""
-    return AdminService(db).reset_password(user, user_id)
+def reset_password(
+    user_id: UUID,
+    user: CurrentUser = Admin,
+    db: Session = Depends(get_db),
+    revocations: Revocations = Depends(get_revocations),
+) -> CreatedUser:
+    """Đặt lại mật khẩu ngẫu nhiên, chỉ trả lần này; mọi phiên đăng nhập cũ của người đó bị thu hồi ngay."""
+    return AdminService(db, revocations).reset_password(user, user_id)
 
 
 @router.post("/admin/users/import", response_model=ImportResult, status_code=201)
@@ -157,7 +171,22 @@ def put_quotas(body: QuotaIn, user: CurrentUser = Admin, db: Session = Depends(g
     return out
 
 
-@router.get("/notifications")
-def my_notifications(user: CurrentUser = AnyUser) -> list[dict]:
-    """Thông báo trong ứng dụng (FR-AD-08); realtime qua kênh user:{id}."""
-    raise NotImplementedYet("C2-19")
+@router.get("/notifications", response_model=list[NotificationOut])
+def my_notifications(
+    unread_only: bool = False, limit: int = 50, user: CurrentUser = AnyUser, db: Session = Depends(get_db)
+) -> list[NotificationOut]:
+    """Thông báo của chính mình, mới nhất trước (FR-AD-08); thông báo mới đến qua kênh WebSocket `user:{id}`."""
+    return NotificationService(db).list(user.id, unread_only, min(max(limit, 1), 200))
+
+
+@router.post("/notifications/read-all")
+def read_all_notifications(user: CurrentUser = AnyUser, db: Session = Depends(get_db)) -> dict:
+    return {"updated": NotificationService(db).mark_all_read(user.id)}
+
+
+@router.post("/notifications/{notification_id}/read", response_model=NotificationOut)
+def read_notification(
+    notification_id: UUID, user: CurrentUser = AnyUser, db: Session = Depends(get_db)
+) -> NotificationOut:
+    """Đánh dấu đã đọc. Thông báo của người khác ⇒ 404."""
+    return NotificationService(db).mark_read(user.id, notification_id)

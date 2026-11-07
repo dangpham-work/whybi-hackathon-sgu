@@ -1,7 +1,8 @@
 """Phụ thuộc dùng chung cho router: người dùng hiện tại, kiểm tra vai trò (RBAC – FR-AD-02, NFR-08). Chủ: Long.
 
 - `get_current_user`: giải mã JWT access (30 phút), kiểm token chưa bị thu hồi. Không truy vấn CSDL mỗi request:
-  vai trò lấy từ token. Khóa tài khoản có hiệu lực chậm nhất sau 30 phút (khi token hết hạn).
+  vai trò lấy từ token. Khóa tài khoản / đặt lại mật khẩu bởi QTV thu hồi ngay mọi access token cấp trước đó
+  (`Revocations.revoke_user`); đổi mật khẩu tự phục vụ vẫn chỉ chặn refresh token.
 - Kiểm quyền theo lớp (GV chỉ lớp mình, SV chỉ lớp đã tham gia – Bảng 5.13) làm ở service của từng thẻ (C2-08…).
 """
 
@@ -92,6 +93,9 @@ def user_from_token(token: str | None, revocations: Revocations) -> CurrentUser:
         user_id = UUID(claims["sub"])
     except (KeyError, ValueError):
         raise AppError(401, "INVALID_TOKEN", "Token không hợp lệ") from None
+    since = revocations.user_revoked_since(str(user_id))
+    if since is not None and claims.get("t0", claims["iat"]) < since:
+        raise AppError(401, "TOKEN_REVOKED", "Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại")
     return CurrentUser(id=user_id, role=role, full_name=claims.get("name", ""), jti=claims["jti"], exp=claims["exp"])
 
 

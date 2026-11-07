@@ -7,6 +7,7 @@ import csv
 import io
 import logging
 import secrets
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -37,6 +38,7 @@ from app.services.auth import student_identities
 
 if TYPE_CHECKING:
     from app.api.deps import CurrentUser
+    from app.services.auth import Revocations
 
 log = logging.getLogger(__name__)
 
@@ -67,8 +69,14 @@ def _header_map(fields: list[str]) -> dict[str, str]:
 
 
 class AdminService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, revocations: "Revocations | None" = None) -> None:
         self.db = db
+        self.revocations = revocations
+
+    def _revoke_sessions(self, user_id: UUID) -> None:
+        """Khóa tài khoản / đặt lại mật khẩu ⇒ mọi access token đang dùng hết hiệu lực ngay (không đợi 30 phút)."""
+        if self.revocations is not None:
+            self.revocations.revoke_user(str(user_id), datetime.now(UTC).timestamp())
 
     def audit(
         self, user: "CurrentUser", action: str, entity: str, entity_id: UUID | None, payload: dict | None = None
@@ -153,6 +161,8 @@ class AdminService:
         if body.is_active is not None:
             u.is_active = body.is_active
         self.audit(admin, "USER_UPDATE", "user", u.id, changes)
+        if body.is_active is False:
+            self._revoke_sessions(u.id)  # trước commit: không có khoảng hở token cũ còn dùng được sau khi khóa
         self.db.commit()
         return self._user_out(u, s)
 
@@ -161,6 +171,7 @@ class AdminService:
         password = new_password()
         u.password_hash = hash_password(password)
         self.audit(admin, "USER_RESET_PASSWORD", "user", u.id)
+        self._revoke_sessions(u.id)
         self.db.commit()
         return CreatedUser(user=self._user_out(u, s), password=password)
 

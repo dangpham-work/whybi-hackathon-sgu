@@ -112,11 +112,24 @@ class Revocations(Protocol):
 
     def is_revoked(self, jti: str) -> bool: ...
 
+    def revoke_user(self, user_id: str, since: float) -> None:
+        """Mọi token ACCESS cấp trước `since` (epoch giây, có phần thập phân) hết hiệu lực (khóa, đặt lại mật khẩu)."""
+        ...
+
+    def user_revoked_since(self, user_id: str) -> float | None: ...
+
 
 class InMemoryRevocations:
     def __init__(self) -> None:
         self._jti: dict[str, int] = {}
+        self._users: dict[str, float] = {}
         self._lock = threading.Lock()
+
+    def revoke_user(self, user_id: str, since: float) -> None:
+        self._users[user_id] = since
+
+    def user_revoked_since(self, user_id: str) -> float | None:
+        return self._users.get(user_id)
 
     def revoke(self, jti: str, exp: int) -> None:
         self._jti[jti] = exp
@@ -134,6 +147,7 @@ class InMemoryRevocations:
 
 class RedisRevocations:
     PREFIX = "auth:revoked:"
+    USER_PREFIX = "auth:user_revoked:"
 
     def __init__(self, redis_url: str) -> None:
         import redis
@@ -152,6 +166,14 @@ class RedisRevocations:
 
     def is_revoked(self, jti: str) -> bool:
         return bool(self._r.exists(self.PREFIX + jti))
+
+    def revoke_user(self, user_id: str, since: float) -> None:
+        # Token access sống tối đa jwt_access_minutes nên mốc chỉ cần giữ chừng đó (+ dư)
+        self._r.set(self.USER_PREFIX + user_id, since, ex=get_settings().jwt_access_minutes * 60 + 60)
+
+    def user_revoked_since(self, user_id: str) -> float | None:
+        v = self._r.get(self.USER_PREFIX + user_id)
+        return float(v) if v is not None else None
 
 
 def _mask(email: str) -> str:
