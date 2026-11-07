@@ -71,7 +71,12 @@ def _encode(sub: UUID, typ: TokenType, ttl: timedelta, now: datetime | None, **e
 
 def create_access_token(user_id: UUID, role: Role, full_name: str = "", now: datetime | None = None) -> str:
     minutes = get_settings().jwt_access_minutes
-    return _encode(user_id, "access", timedelta(minutes=minutes), now, role=str(role), name=full_name)
+    now = now or datetime.now(UTC)
+    # t0: thời điểm cấp có phần thập phân – so với mốc thu hồi theo người dùng (deps.user_from_token) mà không hở trong
+    # cùng một giây như `iat` nguyên
+    return _encode(
+        user_id, "access", timedelta(minutes=minutes), now, role=str(role), name=full_name, t0=now.timestamp()
+    )
 
 
 def create_refresh_token(user_id: UUID, password_hash: str, now: datetime | None = None) -> str:

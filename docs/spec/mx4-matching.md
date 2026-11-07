@@ -15,6 +15,34 @@
 | FR-PM-07 | Xác nhận lại bằng phiên giảng lại; cập nhật trạng thái cặp | SV, Hệ thống | M |
 | FR-PM-08 | GV xem danh sách cặp, điều chỉnh thủ công, thống kê hiệu quả | GV | S |
 
+## Ghép theo sự kiện trong hạn kiểm tra bài cũ (C2-15)
+
+Bổ sung cho vòng ghép lô (Blossom, 6.6). GV đặt **hạn kiểm tra bài cũ** cho từng nút của lớp
+(`PUT /classes/{id}/nodes/{nodeId}/review-window`, xem lại bằng `GET /classes/{id}/review-windows`). Trong hạn, ghép cặp chạy
+**ngay khi có kết quả**, không đợi cả lớp làm xong:
+
+- SV **Đạt** nút ⇒ thành người dạy; SV **không đạt** ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ vào hàng chờ,
+  có người Đạt mới thì bạn chờ được ghép theo thứ tự đến trước.
+- **Một người Đạt dạy tối đa 3 người chưa Đạt** (`TEACH_LIMIT`). Người học vào người dạy đang kèm ít nhất, hòa thì người Đạt sớm hơn.
+- Không còn cổng tỉ lệ Đạt. Không ghép lại cặp vừa từ chối trong 14 ngày. Chỉ SV đã bật ghép cặp (BR-10) tham gia.
+- Bạn đang chờ mà **tự Đạt** thì cặp chờ của họ bị hủy (họ thành người dạy). Hết hạn thì dừng ghép tự động;
+  `GET review-windows` cho GV thấy bạn còn chờ để giảng trực tiếp.
+- Mỗi cặp là một `peer_matches` (người dạy = A, người học = B, một mục dạy A → B) nên chấp nhận / học cùng / xác nhận lại như cũ.
+  Vòng ghép của các cặp này có `trigger_type = LIVE`.
+- Kích hoạt: sự kiện `mastery.changed` (xử lý ở tiến trình `mastery_listener`) và beat `live_rebalance` mỗi 60 giây (bù tin mất,
+  bù người dạy mới). Lớp đang có hạn mở **không** chạy ghép lô hằng ngày 06:00.
+- Code: `algorithms/live_matching.py` (hàm thuần `assign`), `services/live_matching.py`, bảng `node_review_windows`.
+
+## Ưu tiên nút nghẽn, điều chỉnh cặp, thống kê (C2-15 phần 2)
+
+- **Ưu tiên nút**: `POST /classes/{id}/matching-rounds {priorityNodeId}` cộng thêm 10 vào độ ưu tiên p(n) của nút đó (cả ghép hai chiều lẫn
+  một chiều), nên cặp có người dạy nút đó thắng khi tranh người. Nút không thuộc cây đang phát hành ⇒ 404 `NODE_NOT_IN_TREE`.
+- **GV điều chỉnh cặp** `PATCH /matches/{id}`: `{cancel: true}` hủy cặp (⇒ `DECLINED`) hoặc `{replaceStudentId, withStudentId}` thay một SV
+  bằng SV khác đã bật ghép cặp và chưa ở cặp hoạt động nào. Nút dạy / học tính lại từ ma trận hiện tại (tối đa 2 nút mỗi chiều), hai SV không
+  có gì để dạy nhau ⇒ 422 `NO_COMPLEMENTARY_NODES`; cặp quay về `PROPOSED`, hạn 48 giờ, hai bên chấp nhận lại. Chỉ cặp đang hoạt động.
+- **Thống kê** `GET /classes/{id}/matching-stats` (6.6.6): tỉ lệ chấp nhận (cả hai chấp nhận / tổng cặp), tỉ lệ học cùng (cả hai bấm / đã chấp nhận),
+  tỉ lệ mục dạy–học được xác nhận Đạt (trong các cặp đã học cùng). So sánh với SV tự ôn (thí điểm) chưa làm.
+
 ## Đọc thêm trong đề cương
 
 - 3.3.4 – [03-yeu-cau](outline/03-yeu-cau.md)

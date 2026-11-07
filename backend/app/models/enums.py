@@ -89,6 +89,14 @@ class HeatColor(StrEnum):
     RED = "RED"
 
 
+class HeatSample(StrEnum):
+    """Đủ mẫu để kết luận màu chưa (FR-HM-04: tách "chưa đủ mẫu / chưa thử" khỏi "chưa đạt") – C2-11."""
+
+    NO_ATTEMPT = "NO_ATTEMPT"  # chưa SV nào thử
+    INSUFFICIENT = "INSUFFICIENT"  # 0 < số đã thử < cỡ mẫu tối thiểu ⇒ XÁM
+    SUFFICIENT = "SUFFICIENT"  # đủ mẫu ⇒ XANH / VÀNG / ĐỎ theo p(n)
+
+
 class MatchStatus(StrEnum):
     PROPOSED = "PROPOSED"
     WAITING_OTHER = "WAITING_OTHER"

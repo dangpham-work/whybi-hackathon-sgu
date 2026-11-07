@@ -12,7 +12,13 @@ celery = Celery(
     "whybi",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.documents", "app.workers.aggregation", "app.workers.matching", "app.workers.sessions"],
+    include=[
+        "app.workers.documents",
+        "app.workers.aggregation",
+        "app.workers.matching",
+        "app.workers.sessions",
+        "app.workers.notifications",
+    ],
 )
 app = celery  # để `celery -A app.workers.celery_app` tìm thấy
 
@@ -22,6 +28,7 @@ celery.conf.update(
         "app.workers.documents.*": {"queue": "documents"},
         "app.workers.aggregation.*": {"queue": "aggregation"},
         "app.workers.matching.*": {"queue": "matching"},
+        "app.workers.notifications.*": {"queue": "aggregation"},
     },
     timezone="Asia/Ho_Chi_Minh",
     task_acks_late=True,
@@ -32,6 +39,10 @@ celery.conf.update(
         "matching-daily": {"task": "app.workers.matching.scheduled_rounds", "schedule": crontab(hour=6, minute=0)},
         # BR-09: gợi ý quá 48 giờ / xác nhận quá 7 ngày – C2-14
         "expire-matches": {"task": "app.workers.matching.expire_matches", "schedule": 300.0},
+        # C2-15: ghép theo sự kiện trong hạn kiểm tra bài cũ – bù khi sự kiện mastery.changed bị mất / có người dạy mới
+        "live-rebalance": {"task": "app.workers.matching.live_rebalance", "schedule": 60.0},
+        # C2-11: đối soát bản đồ nhiệt từ CSDL – bù sự kiện mastery.changed bị mất (Pub/Sub không lưu tin)
+        "heatmap-reconcile": {"task": "app.workers.aggregation.reconcile_all", "schedule": 600.0},
         # NFR-09: dọn ghi âm quá hạn (mặc định 30 ngày) – C2-17
         "purge-audio": {"task": "app.workers.aggregation.purge_expired_audio", "schedule": crontab(hour=3, minute=0)},
     },

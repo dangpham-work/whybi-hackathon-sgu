@@ -1,14 +1,35 @@
 """Quản trị – FR-AD-03…08. Chủ: Long (C2-18, C2-19), Đăng (C1-02: ai-config)."""
 
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy.orm import Session
 
 from app.ai.gateway import configure_llm
-from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin
-from app.core.errors import AppError, NotImplementedYet
-from app.models.enums import ProviderKind
+from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin, get_revocations
+from app.core.errors import AppError
+from app.db.session import get_db
+from app.models.enums import ProviderKind, Role
+from app.models.schemas.admin import (
+    AuditLogOut,
+    CourseIn,
+    CourseOut,
+    CreatedUser,
+    FlagOut,
+    ImportResult,
+    QuotaIn,
+    QuotaOut,
+    UserCreate,
+    UserOut,
+    UserPatch,
+)
 from app.models.schemas.common import ApiModel
+from app.models.schemas.notification import NotificationOut
+from app.services.admin import MAX_CSV_BYTES, AdminService
+from app.services.auth import Revocations
+from app.services.notification import NotificationService
+from app.services.quota import QuotaService
 
 router = APIRouter(tags=["admin"])
 
@@ -30,15 +51,26 @@ class AIConfig(ApiModel):
     audio_retention_days: int = 30
 
 
-@router.get("/admin/flags")
-def list_flags(resolved: bool = False, user: CurrentUser = LecturerOrAdmin) -> list[dict]:
-    """Danh sách cờ vi phạm (FR-AD-07)."""
-    raise NotImplementedYet("C2-18")
+@router.get("/admin/flags", response_model=list[FlagOut])
+def list_flags(
+    resolved: bool = False, user: CurrentUser = LecturerOrAdmin, db: Session = Depends(get_db)
+) -> list[FlagOut]:
+    """Cờ vi phạm (FR-AD-07), mới nhất trước. QTV thấy mọi lớp; GV chỉ thấy cờ của lớp mình phụ trách."""
+    return AdminService(db).list_flags(user, resolved)
 
 
-@router.post("/admin/flags/{flag_id}/resolve")
-def resolve_flag(flag_id: UUID, user: CurrentUser = LecturerOrAdmin) -> dict:
-    raise NotImplementedYet("C2-18")
+@router.post("/admin/flags/{flag_id}/resolve", response_model=FlagOut)
+def resolve_flag(flag_id: UUID, user: CurrentUser = LecturerOrAdmin, db: Session = Depends(get_db)) -> FlagOut:
+    """Đánh dấu đã xử lý và ghi nhật ký. Cờ không tồn tại hoặc thuộc lớp khác (với GV) ⇒ 404 FLAG_NOT_FOUND."""
+    return AdminService(db).resolve_flag(user, flag_id)
+
+
+@router.get("/admin/audit-logs", response_model=list[AuditLogOut])
+def list_audit_logs(
+    limit: int = 100, offset: int = 0, user: CurrentUser = Admin, db: Session = Depends(get_db)
+) -> list[AuditLogOut]:
+    """Nhật ký thao tác quản trị, mới nhất trước (FR-AD-07)."""
+    return AdminService(db).list_audit(min(max(limit, 1), 500), max(offset, 0))
 
 
 @router.put("/admin/ai-config", response_model=AIConfig)
@@ -50,30 +82,111 @@ def put_ai_config(body: AIConfig, user: CurrentUser = Admin) -> AIConfig:
     return body
 
 
-@router.get("/admin/users")
-def list_users(user: CurrentUser = Admin) -> list[dict]:
-    raise NotImplementedYet("C2-18")
+@router.get("/admin/users", response_model=list[UserOut])
+def list_users(
+    role: Role | None = None,
+    q: str | None = None,
+    active: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    user: CurrentUser = Admin,
+    db: Session = Depends(get_db),
+) -> list[UserOut]:
+    """Tài khoản (FR-AD-03); lọc theo vai trò, trạng thái, tìm theo tên / email / MSSV."""
+    return AdminService(db).list_users(role, q, active, min(max(limit, 1), 500), max(offset, 0))
 
 
-@router.post("/admin/users/import", status_code=201)
-def import_students(file: UploadFile = File(...), user: CurrentUser = Admin) -> dict:
-    """Nhập danh sách SV từ CSV (FR-AD-03)."""
-    raise NotImplementedYet("C2-18")
+@router.post("/admin/users", response_model=CreatedUser, status_code=201)
+def create_user(body: UserCreate, user: CurrentUser = Admin, db: Session = Depends(get_db)) -> CreatedUser:
+    """Tạo một tài khoản. Mật khẩu ban đầu ngẫu nhiên, chỉ trả lần này. 409 USER_EXISTS khi trùng email / MSSV."""
+    return AdminService(db).create_user(user, body)
 
 
-@router.get("/admin/courses")
-def list_courses(user: CurrentUser = Admin) -> list[dict]:
+@router.patch("/admin/users/{user_id}", response_model=UserOut)
+def patch_user(
+    user_id: UUID,
+    body: UserPatch,
+    user: CurrentUser = Admin,
+    db: Session = Depends(get_db),
+    revocations: Revocations = Depends(get_revocations),
+) -> UserOut:
+    """Đổi họ tên, khóa / mở khóa (`isActive`). Khóa ⇒ không đăng nhập được và token đang dùng bị thu hồi ngay."""
+    return AdminService(db, revocations).patch_user(user, user_id, body)
+
+
+@router.post("/admin/users/{user_id}/reset-password", response_model=CreatedUser)
+def reset_password(
+    user_id: UUID,
+    user: CurrentUser = Admin,
+    db: Session = Depends(get_db),
+    revocations: Revocations = Depends(get_revocations),
+) -> CreatedUser:
+    """Đặt lại mật khẩu ngẫu nhiên, chỉ trả lần này; mọi phiên đăng nhập cũ của người đó bị thu hồi ngay."""
+    return AdminService(db, revocations).reset_password(user, user_id)
+
+
+@router.post("/admin/users/import", response_model=ImportResult, status_code=201)
+def import_students(
+    file: UploadFile = File(...), user: CurrentUser = Admin, db: Session = Depends(get_db)
+) -> ImportResult:
+    """Nhập SV từ CSV UTF-8 (FR-AD-03), cột: mssv, ho_ten, email, [khoa]. Tạo tài khoản SV với mật khẩu ngẫu nhiên
+    (trả một lần trong `created`). Dòng trùng tài khoản có sẵn vào `skipped`, dòng sai vào `errors`."""
+    return AdminService(db).import_students(user, file.file.read(MAX_CSV_BYTES + 1))
+
+
+@router.get("/admin/courses", response_model=list[CourseOut])
+def list_courses(user: CurrentUser = Admin, db: Session = Depends(get_db)) -> list[CourseOut]:
     """Danh mục môn học (FR-AD-04)."""
-    raise NotImplementedYet("C2-18")
+    return AdminService(db).list_courses()
 
 
-@router.put("/admin/quotas")
-def put_quotas(user: CurrentUser = Admin) -> dict:
-    """Hạn mức token / phút ghi âm theo lớp, theo SV (FR-AD-06)."""
-    raise NotImplementedYet("C2-18")
+@router.post("/admin/courses", response_model=CourseOut, status_code=201)
+def create_course(body: CourseIn, user: CurrentUser = Admin, db: Session = Depends(get_db)) -> CourseOut:
+    return AdminService(db).save_course(user, body)
 
 
-@router.get("/notifications")
-def my_notifications(user: CurrentUser = AnyUser) -> list[dict]:
-    """Thông báo trong ứng dụng (FR-AD-08); realtime qua kênh user:{id}."""
-    raise NotImplementedYet("C2-19")
+@router.put("/admin/courses/{course_id}", response_model=CourseOut)
+def update_course(
+    course_id: UUID, body: CourseIn, user: CurrentUser = Admin, db: Session = Depends(get_db)
+) -> CourseOut:
+    return AdminService(db).save_course(user, body, course_id)
+
+
+@router.get("/admin/quotas", response_model=list[QuotaOut])
+def list_quotas(
+    scope: Literal["CLASS", "STUDENT"] | None = None, user: CurrentUser = Admin, db: Session = Depends(get_db)
+) -> list[QuotaOut]:
+    """Hạn mức đã đặt kèm mức đã dùng (FR-AD-06)."""
+    return QuotaService(db).list(scope)
+
+
+@router.put("/admin/quotas", response_model=QuotaOut)
+def put_quotas(body: QuotaIn, user: CurrentUser = Admin, db: Session = Depends(get_db)) -> QuotaOut:
+    """Đặt hạn mức token / phút ghi âm cho một lớp hoặc một SV (FR-AD-06); `null` = không giới hạn, cả hai `null` = bỏ.
+    Vượt hạn mức thì bắt đầu phiên, gửi lượt, tải ghi âm trả 429 QUOTA_EXCEEDED."""
+    svc = AdminService(db)
+    out = QuotaService(db).set(body)
+    svc.audit(user, "QUOTA_SET", "usage_quota", body.scope_id, body.model_dump(mode="json"))
+    db.commit()
+    return out
+
+
+@router.get("/notifications", response_model=list[NotificationOut])
+def my_notifications(
+    unread_only: bool = False, limit: int = 50, user: CurrentUser = AnyUser, db: Session = Depends(get_db)
+) -> list[NotificationOut]:
+    """Thông báo của chính mình, mới nhất trước (FR-AD-08); thông báo mới đến qua kênh WebSocket `user:{id}`."""
+    return NotificationService(db).list(user.id, unread_only, min(max(limit, 1), 200))
+
+
+@router.post("/notifications/read-all")
+def read_all_notifications(user: CurrentUser = AnyUser, db: Session = Depends(get_db)) -> dict:
+    return {"updated": NotificationService(db).mark_all_read(user.id)}
+
+
+@router.post("/notifications/{notification_id}/read", response_model=NotificationOut)
+def read_notification(
+    notification_id: UUID, user: CurrentUser = AnyUser, db: Session = Depends(get_db)
+) -> NotificationOut:
+    """Đánh dấu đã đọc. Thông báo của người khác ⇒ 404."""
+    return NotificationService(db).mark_read(user.id, notification_id)
