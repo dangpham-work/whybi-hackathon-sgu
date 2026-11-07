@@ -7,6 +7,7 @@ from sqlalchemy import (
     REAL,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -16,14 +17,18 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPk, created_at_col, utcnow
+from app.db.base import Base, UUIDPk, created_at_col, range_check, utcnow
 
 
 class ClassNodeStat(UUIDPk, Base):
     """Chỉ số tổng hợp theo cột của ma trận – Bảng 5.7."""
 
     __tablename__ = "class_node_stats"
-    __table_args__ = (UniqueConstraint("class_id", "node_id"),)
+    __table_args__ = (
+        UniqueConstraint("class_id", "node_id"),
+        CheckConstraint(range_check("pass_rate", 0, 1), name="pass_rate_range"),
+        CheckConstraint("passed_count <= attempted_count", name="passed_le_attempted"),
+    )
     class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
     enrolled_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -51,6 +56,7 @@ class MatchingRound(UUIDPk, Base):
 
 class PeerMatch(UUIDPk, Base):
     __tablename__ = "peer_matches"
+    __table_args__ = (CheckConstraint("student_a_id <> student_b_id", name="distinct_students"),)
     round_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matching_rounds.id", ondelete="CASCADE"))
     student_a_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.user_id"))
     student_b_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.user_id"))

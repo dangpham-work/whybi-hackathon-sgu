@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPk, created_at_col
+from app.db.base import Base, UUIDPk, created_at_col, range_check
 
 
 class SkillTree(UUIDPk, Base):
@@ -62,6 +62,7 @@ class PrerequisiteEdge(UUIDPk, Base):
     __table_args__ = (
         UniqueConstraint("version_id", "from_node_id", "to_node_id"),
         CheckConstraint("from_node_id <> to_node_id", name="no_self_loop"),  # BR-01
+        CheckConstraint(range_check("confidence", 0, 1), name="confidence_range"),
     )
     version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tree_versions.id", ondelete="CASCADE"))
     from_node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
@@ -72,6 +73,9 @@ class PrerequisiteEdge(UUIDPk, Base):
 
 class Rubric(UUIDPk, Base):
     __tablename__ = "rubrics"
+    __table_args__ = (
+        CheckConstraint(range_check("pass_threshold", 0, 100, nullable=False), name="pass_threshold_range"),
+    )
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"), unique=True)
     pass_threshold: Mapped[int] = mapped_column(SmallInteger, default=70)
     status: Mapped[str] = mapped_column(String(16), default="DRAFT")  # RubricStatus
