@@ -1,0 +1,101 @@
+{
+  "_source": "Cây chuẩn Cơ sở dữ liệu – nháp AI, chờ GV xác nhận; chưa có giáo trình kèm.",
+  "subject": "Cơ sở dữ liệu",
+  "syllabus": null,
+  "aliases": {
+    "d2_mo_hinh_quan_he": [
+      "Relational model"
+    ],
+    "d5_sql_truy_van": [
+      "SELECT",
+      "Truy vấn SQL"
+    ]
+  },
+  "nodes": [
+    {
+      "key": "d1_khai_niem",
+      "code": "D1",
+      "title": "Khái niệm CSDL & DBMS",
+      "chapterRef": "Chương 1"
+    },
+    {
+      "key": "d2_mo_hinh_quan_he",
+      "code": "D2",
+      "title": "Mô hình quan hệ",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "d3_khoa",
+      "code": "D3",
+      "title": "Khóa & ràng buộc toàn vẹn",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "d4_dai_so_quan_he",
+      "code": "D4",
+      "title": "Đại số quan hệ",
+      "chapterRef": "Chương 3"
+    },
+    {
+      "key": "d5_sql_truy_van",
+      "code": "D5",
+      "title": "SQL truy vấn",
+      "chapterRef": "Chương 4"
+    },
+    {
+      "key": "d6_phu_thuoc_ham",
+      "code": "D6",
+      "title": "Phụ thuộc hàm",
+      "chapterRef": "Chương 5"
+    },
+    {
+      "key": "d7_chuan_hoa",
+      "code": "D7",
+      "title": "Chuẩn hóa (1NF–BCNF)",
+      "chapterRef": "Chương 5"
+    },
+    {
+      "key": "d8_giao_tac",
+      "code": "D8",
+      "title": "Giao tác & ACID",
+      "chapterRef": "Chương 6"
+    }
+  ],
+  "edges": [
+    {
+      "fromKey": "d1_khai_niem",
+      "toKey": "d2_mo_hinh_quan_he",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d2_mo_hinh_quan_he",
+      "toKey": "d3_khoa",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d2_mo_hinh_quan_he",
+      "toKey": "d4_dai_so_quan_he",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d4_dai_so_quan_he",
+      "toKey": "d5_sql_truy_van",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d3_khoa",
+      "toKey": "d6_phu_thuoc_ham",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d6_phu_thuoc_ham",
+      "toKey": "d7_chuan_hoa",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "d5_sql_truy_van",
+      "toKey": "d8_giao_tac",
+      "source": "LECTURER"
+    }
+  ]
+}

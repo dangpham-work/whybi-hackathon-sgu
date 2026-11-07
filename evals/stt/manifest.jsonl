@@ -1,0 +1,30 @@
+{"id": "S01", "file": "audio/S01.webm", "reference": "Con trỏ là biến lưu địa chỉ của một ô nhớ, dùng dấu và để lấy địa chỉ.", "terms": ["con trỏ", "địa chỉ", "ô nhớ"], "consent": false}
+{"id": "S02", "file": "audio/S02.webm", "reference": "Hàm malloc xin bộ nhớ trên heap, dùng xong phải gọi free.", "terms": ["malloc", "heap", "free"], "consent": false}
+{"id": "S03", "file": "audio/S03.webm", "reference": "Nếu malloc thất bại thì nó trả về NULL nên phải kiểm tra trước khi dùng.", "terms": ["malloc", "NULL"], "consent": false}
+{"id": "S04", "file": "audio/S04.webm", "reference": "Danh sách liên kết gồm các nút, mỗi nút có con trỏ next trỏ tới nút sau.", "terms": ["danh sách liên kết", "nút", "next"], "consent": false}
+{"id": "S05", "file": "audio/S05.webm", "reference": "Sau khi free con trỏ vẫn giữ địa chỉ cũ, gọi là con trỏ treo.", "terms": ["free", "con trỏ treo"], "consent": false}
+{"id": "S06", "file": "audio/S06.webm", "reference": "Toán tử sao dùng để truy xuất giá trị tại địa chỉ mà con trỏ trỏ tới.", "terms": ["toán tử", "con trỏ", "địa chỉ"], "consent": false}
+{"id": "S07", "file": "audio/S07.webm", "reference": "Con trỏ int cộng một thì tăng bốn byte vì sizeof int bằng bốn.", "terms": ["con trỏ", "sizeof", "byte"], "consent": false}
+{"id": "S08", "file": "audio/S08.webm", "reference": "Mảng là dãy phần tử cùng kiểu nằm liên tiếp, chỉ số bắt đầu từ không.", "terms": ["mảng", "phần tử", "chỉ số"], "consent": false}
+{"id": "S09", "file": "audio/S09.webm", "reference": "Truyền tham trị thì hàm chỉ nhận bản sao, muốn sửa biến gốc phải truyền con trỏ.", "terms": ["tham trị", "con trỏ"], "consent": false}
+{"id": "S10", "file": "audio/S10.webm", "reference": "Đệ quy phải có điều kiện dừng, nếu không sẽ tràn stack.", "terms": ["đệ quy", "điều kiện dừng", "stack"], "consent": false}
+{"id": "S11", "file": "audio/S11.webm", "reference": "Ngăn xếp hoạt động theo kiểu LIFO, thao tác push và pop ở đỉnh.", "terms": ["ngăn xếp", "LIFO", "push", "pop"], "consent": false}
+{"id": "S12", "file": "audio/S12.webm", "reference": "Hàng đợi là FIFO, thêm ở cuối và lấy ra ở đầu.", "terms": ["hàng đợi", "FIFO"], "consent": false}
+{"id": "S13", "file": "audio/S13.webm", "reference": "Cây nhị phân mỗi nút có tối đa hai con là con trái và con phải.", "terms": ["cây nhị phân", "con trái", "con phải"], "consent": false}
+{"id": "S14", "file": "audio/S14.webm", "reference": "Trong cây nhị phân tìm kiếm, duyệt trung thứ tự cho dãy tăng dần.", "terms": ["cây nhị phân tìm kiếm", "trung thứ tự"], "consent": false}
+{"id": "S15", "file": "audio/S15.webm", "reference": "Cây AVL giữ chênh lệch chiều cao hai cây con không quá một bằng các phép quay.", "terms": ["AVL", "chiều cao", "phép quay"], "consent": false}
+{"id": "S16", "file": "audio/S16.webm", "reference": "Biến cục bộ nằm trên stack còn vùng cấp phát động nằm trên heap.", "terms": ["biến cục bộ", "stack", "heap"], "consent": false}
+{"id": "S17", "file": "audio/S17.webm", "reference": "Con trỏ NULL không trỏ vào ô nhớ nào, giải tham chiếu nó sẽ gây lỗi.", "terms": ["con trỏ NULL", "ô nhớ", "giải tham chiếu"], "consent": false}
+{"id": "S18", "file": "audio/S18.webm", "reference": "Con trỏ tới con trỏ dùng hai dấu sao, ví dụ int sao sao pp.", "terms": ["con trỏ tới con trỏ"], "consent": false}
+{"id": "S19", "file": "audio/S19.webm", "reference": "Quên gọi free sau malloc sẽ gây rò rỉ bộ nhớ.", "terms": ["free", "malloc", "rò rỉ bộ nhớ"], "consent": false}
+{"id": "S20", "file": "audio/S20.webm", "reference": "Calloc khác malloc ở chỗ nó gán toàn bộ vùng nhớ về không.", "terms": ["calloc", "malloc"], "consent": false}
+{"id": "S21", "file": "audio/S21.webm", "reference": "Realloc thay đổi kích thước vùng nhớ đã cấp phát và có thể trả về địa chỉ mới.", "terms": ["realloc", "cấp phát", "địa chỉ"], "consent": false}
+{"id": "S22", "file": "audio/S22.webm", "reference": "Trong C cộng cộng dùng new để cấp phát và delete để giải phóng.", "terms": ["new", "delete"], "consent": false}
+{"id": "S23", "file": "audio/S23.webm", "reference": "Chèn vào đầu danh sách liên kết chỉ cần đổi con trỏ head.", "terms": ["danh sách liên kết", "head"], "consent": false}
+{"id": "S24", "file": "audio/S24.webm", "reference": "Tên mảng khi truyền vào hàm được hiểu là con trỏ tới phần tử đầu tiên.", "terms": ["mảng", "con trỏ", "phần tử"], "consent": false}
+{"id": "S25", "file": "audio/S25.webm", "reference": "Truy cập ngoài chỉ số mảng là lỗi tràn bộ đệm, C không tự kiểm tra.", "terms": ["chỉ số", "tràn bộ đệm"], "consent": false}
+{"id": "S26", "file": "audio/S26.webm", "reference": "Use after free là dùng con trỏ sau khi vùng nhớ đã được giải phóng.", "terms": ["use after free", "con trỏ", "giải phóng"], "consent": false}
+{"id": "S27", "file": "audio/S27.webm", "reference": "Cây nhị phân tìm kiếm có thể suy biến thành danh sách khi chèn dãy đã sắp xếp.", "terms": ["cây nhị phân tìm kiếm", "suy biến"], "consent": false}
+{"id": "S28", "file": "audio/S28.webm", "reference": "Ngăn xếp lời gọi hàm lưu khung của mỗi lần gọi đệ quy.", "terms": ["ngăn xếp", "đệ quy"], "consent": false}
+{"id": "S29", "file": "audio/S29.webm", "reference": "Kiểu dữ liệu quyết định số byte của biến và cách hiểu các bit.", "terms": ["kiểu dữ liệu", "byte", "bit"], "consent": false}
+{"id": "S30", "file": "audio/S30.webm", "reference": "Hai con trỏ cùng trỏ một ô nhớ thì sửa qua con trỏ này con trỏ kia cũng thấy.", "terms": ["con trỏ", "ô nhớ"], "consent": false}

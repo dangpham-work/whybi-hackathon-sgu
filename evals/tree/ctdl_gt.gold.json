@@ -1,0 +1,174 @@
+{
+  "_source": "Cây chuẩn CTDL&GT = cây mẫu seed/tree_ctdl_gt.json (Hình 2.2). Nháp AI – chờ GV xác nhận.",
+  "subject": "Cấu trúc dữ liệu và Giải thuật",
+  "syllabus": "seed/syllabi/01_ctdl_digital.pdf",
+  "aliases": {
+    "n1_bien_bo_nho": [
+      "Biến và kiểu dữ liệu",
+      "Biến & bộ nhớ"
+    ],
+    "n3_ham_tham_so": [
+      "Hàm",
+      "Truyền tham số"
+    ],
+    "n5_con_tro": [
+      "Pointer",
+      "Con trỏ và địa chỉ"
+    ],
+    "n6_cap_phat_dong": [
+      "Cấp phát bộ nhớ động",
+      "malloc/free"
+    ],
+    "n7_dslk": [
+      "Danh sách liên kết đơn",
+      "Linked list"
+    ],
+    "n8_ngan_xep_hang_doi": [
+      "Stack & Queue",
+      "Ngăn xếp và hàng đợi"
+    ],
+    "n10_bst": [
+      "Cây nhị phân tìm kiếm",
+      "BST"
+    ],
+    "n11_avl": [
+      "AVL",
+      "Cây cân bằng AVL"
+    ]
+  },
+  "nodes": [
+    {
+      "key": "n1_bien_bo_nho",
+      "code": "N1",
+      "title": "Biến, kiểu dữ liệu & bộ nhớ",
+      "chapterRef": "Chương 1"
+    },
+    {
+      "key": "n2_mang",
+      "code": "N2",
+      "title": "Mảng",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "n3_ham_tham_so",
+      "code": "N3",
+      "title": "Hàm & tham số",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "n4_de_quy",
+      "code": "N4",
+      "title": "Đệ quy",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "n5_con_tro",
+      "code": "N5",
+      "title": "Con trỏ",
+      "chapterRef": "Chương 3"
+    },
+    {
+      "key": "n6_cap_phat_dong",
+      "code": "N6",
+      "title": "Cấp phát động (malloc/free, new/delete)",
+      "chapterRef": "Chương 3"
+    },
+    {
+      "key": "n7_dslk",
+      "code": "N7",
+      "title": "Danh sách liên kết",
+      "chapterRef": "Chương 4"
+    },
+    {
+      "key": "n8_ngan_xep_hang_doi",
+      "code": "N8",
+      "title": "Ngăn xếp & Hàng đợi",
+      "chapterRef": "Chương 4"
+    },
+    {
+      "key": "n9_cay_nhi_phan",
+      "code": "N9",
+      "title": "Cây nhị phân",
+      "chapterRef": "Chương 5"
+    },
+    {
+      "key": "n10_bst",
+      "code": "N10",
+      "title": "Cây nhị phân tìm kiếm (BST)",
+      "chapterRef": "Chương 5"
+    },
+    {
+      "key": "n11_avl",
+      "code": "N11",
+      "title": "Cây AVL",
+      "chapterRef": "Chương 5"
+    }
+  ],
+  "edges": [
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n2_mang",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n3_ham_tham_so",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n1_bien_bo_nho",
+      "toKey": "n5_con_tro",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n3_ham_tham_so",
+      "toKey": "n4_de_quy",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n3_ham_tham_so",
+      "toKey": "n5_con_tro",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n5_con_tro",
+      "toKey": "n6_cap_phat_dong",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n6_cap_phat_dong",
+      "toKey": "n7_dslk",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n2_mang",
+      "toKey": "n8_ngan_xep_hang_doi",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n7_dslk",
+      "toKey": "n8_ngan_xep_hang_doi",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n7_dslk",
+      "toKey": "n9_cay_nhi_phan",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n4_de_quy",
+      "toKey": "n9_cay_nhi_phan",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n9_cay_nhi_phan",
+      "toKey": "n10_bst",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "n10_bst",
+      "toKey": "n11_avl",
+      "source": "LECTURER"
+    }
+  ]
+}
