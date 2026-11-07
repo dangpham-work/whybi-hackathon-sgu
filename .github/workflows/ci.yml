@@ -65,12 +65,11 @@ jobs:
       - run: npm run build
 
   # KT-03: dựng cả stack docker compose (LLM_MODE=fake) → test tích hợp (pytest + httpx) + E2E Playwright.
-  # Chạy song song với các job khác (không `needs`). Tạm `continue-on-error` để stack chậm / lỗi không chặn PR;
-  # bỏ dòng này và thêm vào required checks khi stack đã ổn định.
+  # Chạy song song với các job khác; lỗi stack, integration hoặc Playwright phải làm CI thất bại.
+  # Người quản trị cần thêm job e2e vào required checks của main để bắt buộc trước khi merge.
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    continue-on-error: true
     env:
       RUN_INTEGRATION: "1"
       INTEGRATION_API_URL: http://localhost:8000
