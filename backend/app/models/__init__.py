@@ -9,6 +9,8 @@ from app.models.peer import (
     MatchingRound,
     PeerMatch,
     PeerMatchItem,
+    UsageQuota,
+    UsageRecord,
 )
 from app.models.session import (
     CriterionScore,
@@ -73,4 +75,6 @@ __all__ = [
     "PeerMatchItem",
     "AIProviderConfig",
     "AuditLog",
+    "UsageQuota",
+    "UsageRecord",
 ]

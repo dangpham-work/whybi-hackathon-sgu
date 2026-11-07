@@ -39,4 +39,6 @@ def test_all_tables_registered():
     import app.models  # noqa: F401
     from app.db.base import Base
 
-    assert len(Base.metadata.tables) == 31, "30 bảng của ERD + node_review_windows (C2-15)"
+    assert len(Base.metadata.tables) == 33, (
+        "30 bảng ERD + node_review_windows (C2-15) + usage_quotas, usage_records (C2-18)"
+    )

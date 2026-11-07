@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -113,3 +114,37 @@ class AuditLog(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     payload: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at_col()
+
+
+class UsageQuota(UUIDPk, Base):
+    """Hạn mức của một lớp hoặc một SV (FR-AD-06). NULL = không giới hạn loại đó. `scope_id` là id lớp / id SV."""
+
+    __tablename__ = "usage_quotas"
+    __table_args__ = (
+        UniqueConstraint("scope", "scope_id"),
+        CheckConstraint("scope in ('CLASS', 'STUDENT')", name="scope_valid"),
+        CheckConstraint("token_limit is null or token_limit >= 0", name="token_limit_non_negative"),
+        CheckConstraint("audio_minutes_limit is null or audio_minutes_limit >= 0", name="audio_limit_non_negative"),
+    )
+    scope: Mapped[str] = mapped_column(String(8))
+    scope_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    token_limit: Mapped[int | None] = mapped_column(Integer)
+    audio_minutes_limit: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UsageRecord(UUIDPk, Base):
+    """Mức đã dùng của một phiên: token LLM và giây ghi âm. Cộng theo lớp / theo SV để so với `usage_quotas`."""
+
+    __tablename__ = "usage_records"
+    __table_args__ = (
+        CheckConstraint("tokens >= 0 and audio_seconds >= 0", name="usage_non_negative"),
+        Index("ix_usage_records_class", "class_id"),
+        Index("ix_usage_records_student", "student_id"),
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teaching_sessions.id", ondelete="CASCADE"), unique=True)
+    student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.user_id", ondelete="CASCADE"))
+    class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
+    tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    audio_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
