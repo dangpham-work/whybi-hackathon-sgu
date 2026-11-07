@@ -96,6 +96,7 @@ class HeatSample(StrEnum):
     INSUFFICIENT = "INSUFFICIENT"
     SUFFICIENT = "SUFFICIENT"
 
+
 class MatchStatus(StrEnum):
     PROPOSED = "PROPOSED"
     WAITING_OTHER = "WAITING_OTHER"
