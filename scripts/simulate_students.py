@@ -103,6 +103,13 @@ class Simulator:
             if allow_enrolled and response.status_code == 409 and code == "ALREADY_ENROLLED":
                 return None
             # Không in response body: có thể chứa dữ liệu nhạy cảm.
+            if (
+                allow_pending_heatmap
+                and response.status_code == 501
+                and code == "NOT_IMPLEMENTED"
+                and body.get("error", {}).get("details", {}).get("card") == "C2-13"
+            ):
+                return None
             raise SimulationError(f"{method} {path}: HTTP {response.status_code} {code}")
         return body
 
