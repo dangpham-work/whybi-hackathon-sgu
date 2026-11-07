@@ -8,28 +8,269 @@
       "key": "n1_bien_bo_nho",
       "title": "Biến, kiểu dữ liệu & bộ nhớ",
       "chapterRef": "Chương 1",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Biến là tên đặt cho một vùng nhớ trong bộ nhớ RAM để lưu trữ giá trị.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Kiểu dữ liệu quyết định kích thước vùng nhớ (số byte) và quy tắc diễn giải các bit.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Cùng một chuỗi bit trong bộ nhớ nhưng kiểu khác nhau sẽ cho giá trị và các phép toán khác nhau.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Biến cục bộ và toàn cục",
+          "Tràn số và phạm vi giá trị",
+          "Toán tử sizeof"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Kiểu dữ liệu không ảnh hưởng gì đến bộ nhớ, biến nào cũng chiếm như nhau chỉ khác tên gọi.",
+            "isCritical": true,
+            "probeQuestion": "Nếu kiểu dữ liệu không ảnh hưởng bộ nhớ thì tại sao char chiếm 1 byte còn int lại chiếm 4 byte?"
+          },
+          {
+            "id": "MC2",
+            "content": "Tràn số chỉ là cảnh báo biên dịch không làm sai lệch giá trị.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Vì sao cùng 4 byte nhưng đọc như số nguyên int lại khác đọc như số thực float?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Biến cục bộ trong hàm được lưu ở đâu trong RAM và mất đi khi nào?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "REMEMBER",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N2",
       "key": "n2_mang",
       "title": "Mảng",
       "chapterRef": "Chương 2",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Mảng là tập hợp các phần tử cùng kiểu dữ liệu nằm ở các ô nhớ liên tiếp nhau.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Truy cập phần tử qua chỉ số từ 0 đến n-1 với độ phức tạp O(1) nhờ công thức tính địa chỉ.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Kích thước mảng tĩnh cố định khi khai báo; chèn hoặc xóa phần tử ở giữa tốn O(n) do phải dịch chuyển.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Mảng nhiều chiều",
+          "Truy cập ngoài phạm vi mảng",
+          "Mối quan hệ giữa tên mảng và con trỏ"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Phần tử đầu tiên của mảng có chỉ số là 1.",
+            "isCritical": true,
+            "probeQuestion": "Nếu chỉ số bắt đầu từ 0 thì phần tử đầu tiên là a[0] hay a[1]?"
+          },
+          {
+            "id": "MC2",
+            "content": "Chèn phần tử vào giữa mảng nhanh O(1) vì chỉ cần gán a[i] = x.",
+            "isCritical": true,
+            "probeQuestion": "Nếu chỉ gán a[i] = x thì giá trị cũ ở vị trí i có bị ghi đè mất không?"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Tại sao truy cập phần tử mảng theo chỉ số lại đạt độ phức tạp O(1)?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Khi chèn một phần tử vào đầu mảng kích thước n thì cần làm những bước gì?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "UNDERSTAND",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          18,
+          19,
+          20,
+          21
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N3",
       "key": "n3_ham_tham_so",
       "title": "Hàm & tham số",
       "chapterRef": "Chương 2",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Hàm là khối lệnh độc lập có tên, nhận tham số và có thể trả về giá trị.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "C truyền tham số theo tham trị: hàm chỉ nhận bản sao nên sửa tham số không ảnh hưởng biến gốc.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Muốn hàm thay đổi giá trị của biến gốc thì phải truyền địa chỉ (con trỏ) của biến đó vào hàm.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Ngăn xếp lời gọi hàm (call stack)",
+          "Tham số hình thức và tham số thực sự",
+          "Trả nhiều giá trị qua struct hoặc con trỏ"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Truyền biến vào hàm và sửa trong hàm thì biến bên ngoài hàm cũng tự đổi theo.",
+            "isCritical": true,
+            "probeQuestion": "Tại sao hàm swap(int a, int b) thông thường không đổi được giá trị của hai biến bên ngoài?"
+          },
+          {
+            "id": "MC2",
+            "content": "Lệnh return có thể trả về trực tiếp nhiều biến độc lập cùng một lúc.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Khi gọi hàm swap(int a, int b) thì các bản sao tham số được lưu ở đâu và hủy khi nào?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Làm thế nào để viết hàm hoán vị hai số nguyên thực sự thay đổi hai biến ngoài hàm?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "UNDERSTAND",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          25,
+          26,
+          27,
+          28
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N4",
       "key": "n4_de_quy",
       "title": "Đệ quy",
       "chapterRef": "Chương 2",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Đệ quy là hàm tự gọi chính nó với bài toán con có kích thước nhỏ hơn.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Bắt buộc phải có điều kiện dừng (trường hợp cơ sở) để ngăn đệ quy vô hạn và tràn ngăn xếp.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Mỗi lời gọi đệ quy tạo một khung ngăn xếp mới trên stack và tiến dần về trường hợp cơ sở.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Đệ quy đuôi (tail recursion)",
+          "Chi phí thời gian và bộ nhớ của đệ quy",
+          "So sánh đệ quy và vòng lặp"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Đệ quy là vòng lặp viết ngắn hơn, không cần điều kiện dừng vì máy tự biết.",
+            "isCritical": true,
+            "probeQuestion": "Nếu hàm tự gọi chính nó mãi mà không có điều kiện dừng thì call stack sẽ bị hiện tượng gì?"
+          },
+          {
+            "id": "MC2",
+            "content": "Đệ quy luôn nhanh hơn vòng lặp vì mã nguồn ngắn hơn.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Tại sao thuật toán tính Fibonacci đệ quy thuần túy lại có độ phức tạp thời gian hàm mũ O(2^n)?",
+            "bloomLevel": "ANALYZE"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Điều kiện dừng của hàm đệ quy tính giai thừa n! là gì?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "APPLY",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          33,
+          34,
+          35,
+          36
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N5",
@@ -115,42 +356,411 @@
       "key": "n6_cap_phat_dong",
       "title": "Cấp phát động (malloc/free, new/delete)",
       "chapterRef": "Chương 3",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "malloc xin vùng nhớ trên heap với kích thước tính theo byte, trả về con trỏ tới vùng đó hoặc NULL nếu hết bộ nhớ.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Vùng nhớ heap tồn tại độc lập với hàm và bắt buộc phải giải phóng bằng free() khi dùng xong để tránh rò rỉ bộ nhớ.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Sau khi free() cần gán con trỏ về NULL để tránh lỗi con trỏ lơ lửng (dangling pointer) và use-after-free.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Hàm calloc và realloc",
+          "Toán tử new/delete trong C++",
+          "Phân biệt bộ nhớ heap và stack"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "malloc dùng để tạo biến mới, không cần free vì hết hàm hệ thống tự xóa.",
+            "isCritical": true,
+            "probeQuestion": "Vùng nhớ heap khác vùng nhớ stack như thế nào về vòng đời tồn tại?"
+          },
+          {
+            "id": "MC2",
+            "content": "malloc trả về vùng nhớ đã được gán 0 sẵn toàn bộ các byte nên đọc luôn cũng được.",
+            "isCritical": true,
+            "probeQuestion": "Hàm nào khởi tạo sẵn byte 0: malloc hay calloc?"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Hiện tượng rò rỉ bộ nhớ (memory leak) xảy ra trong trường hợp nào và hậu quả là gì?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Tại sao sau khi gọi free(p) ta vẫn có thể in giá trị p nhưng truy xuất *p lại là lỗi nghiêm trọng?",
+            "bloomLevel": "ANALYZE"
+          }
+        ],
+        "targetBloom": "APPLY",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          52,
+          53,
+          54,
+          55,
+          56
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N7",
       "key": "n7_dslk",
       "title": "Danh sách liên kết",
       "chapterRef": "Chương 4",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Danh sách liên kết gồm các nút nằm rải rác trên heap, mỗi nút chứa dữ liệu và con trỏ next trỏ tới nút kế tiếp (nút cuối trỏ NULL).",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Chèn và xóa nút tại vị trí đã biết chỉ cần thay đổi liên kết con trỏ với độ phức tạp O(1).",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Không thể truy cập ngẫu nhiên; tìm kiếm hoặc truy cập phần tử thứ i phải duyệt tuần tự từ đầu với chi phí O(n).",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Danh sách liên kết kép",
+          "Danh sách liên kết vòng",
+          "So sánh DSLK và mảng về bộ nhớ cache"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Danh sách liên kết giống mảng nhưng truy cập phần tử thứ i nhanh hơn.",
+            "isCritical": true,
+            "probeQuestion": "Làm thế nào để tới được nút thứ i trong danh sách liên kết đơn nếu không duyệt qua các nút trước nó?"
+          },
+          {
+            "id": "MC2",
+            "content": "Xóa một nút trong danh sách liên kết chỉ cần gọi free(node) là các liên kết tự nối lại.",
+            "isCritical": true,
+            "probeQuestion": "Nếu free nút hiện tại trước khi nối nút trước với nút sau thì liên kết có bị đứt gãy không?"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Các bước chính xác để chèn một nút mới vào giữa hai nút trong DSLK đơn?",
+            "bloomLevel": "APPLY"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Ưu điểm lớn nhất của DSLK so với mảng tĩnh là gì?",
+            "bloomLevel": "UNDERSTAND"
+          }
+        ],
+        "targetBloom": "APPLY",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          62,
+          63,
+          64,
+          65,
+          66
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N8",
       "key": "n8_ngan_xep_hang_doi",
       "title": "Ngăn xếp & Hàng đợi",
       "chapterRef": "Chương 4",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Ngăn xếp (Stack) là cấu trúc LIFO (vào sau ra trước), thao tác thêm và lấy chỉ thực hiện ở đỉnh (push và pop).",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Hàng đợi (Queue) là cấu trúc FIFO (vào trước ra trước), thêm ở cuối (enqueue) và lấy ở đầu (dequeue).",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Cả hai cấu trúc đều có thể cài đặt bằng mảng hoặc danh sách liên kết với các thao tác chính đạt O(1).",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Hàng đợi hai đầu (Deque)",
+          "Ứng dụng chuyển biểu thức trung tố sang hậu tố",
+          "Hàng đợi ưu tiên (Priority Queue)"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Ngăn xếp và hàng đợi giống nhau, đều lấy phần tử ở đầu ra trước.",
+            "isCritical": true,
+            "probeQuestion": "Tại sao ví dụ chồng đĩa là LIFO còn hàng người xếp hàng là FIFO?"
+          },
+          {
+            "id": "MC2",
+            "content": "Trong ngăn xếp có thể lấy ngẫu nhiên một phần tử ở đáy mà không cần lấy các phần tử ở đỉnh ra.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Khi gọi hàm đệ quy, máy tính sử dụng ngăn xếp hay hàng đợi để quản lý các lời gọi?",
+            "bloomLevel": "UNDERSTAND"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Thuật toán tìm kiếm theo chiều rộng (BFS) sử dụng cấu trúc dữ liệu nào?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "APPLY",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          72,
+          73,
+          74,
+          75
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N9",
       "key": "n9_cay_nhi_phan",
       "title": "Cây nhị phân",
       "chapterRef": "Chương 5",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "Cây nhị phân là cấu trúc phân cấp, mỗi nút có tối đa hai nút con là con trái và con phải.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Nút không có cha là gốc, nút không có con là lá; chiều cao là số cạnh dài nhất từ gốc tới lá.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Duyệt cây gồm tiền thứ tự (NLR), trung thứ tự (LNR), hậu thứ tự (LRN), thường viết bằng đệ quy.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Cây nhị phân đầy đủ và hoàn hảo",
+          "Duyệt theo mức (Breadth-first traversal)",
+          "Cây nhị phân biểu diễn biểu thức toán học"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Cây nhị phân là cây có đúng hai nút trên toàn cây.",
+            "isCritical": true,
+            "probeQuestion": "Nếu một cây có 10 nút nhưng mỗi nút chỉ có tối đa 2 con thì có phải cây nhị phân không?"
+          },
+          {
+            "id": "MC2",
+            "content": "Mọi cây nhị phân đều có tính chất con trái luôn nhỏ hơn cha và con phải luôn lớn hơn cha.",
+            "isCritical": true,
+            "probeQuestion": "Tính chất con trái nhỏ hơn con phải lớn hơn là của cây nhị phân nói chung hay cây nhị phân tìm kiếm BST?"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Một cây nhị phân có n nút thì chiều cao nhỏ nhất có thể đạt được là bao nhiêu?",
+            "bloomLevel": "ANALYZE"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Thứ tự duyệt trung thứ tự (In-order) trên cây nhị phân thăm nút gốc ở bước nào?",
+            "bloomLevel": "APPLY"
+          }
+        ],
+        "targetBloom": "UNDERSTAND",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          82,
+          83,
+          84,
+          85,
+          86
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N10",
       "key": "n10_bst",
       "title": "Cây nhị phân tìm kiếm (BST)",
       "chapterRef": "Chương 5",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "BST là cây nhị phân mà mọi khóa ở cây con trái nhỏ hơn nút gốc, mọi khóa ở cây con phải lớn hơn nút gốc.",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Duyệt trung thứ tự trên BST cho dãy tăng dần; tìm kiếm đi một nhánh mỗi bước với chi phí O(h).",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Khi chèn dãy đã sắp xếp, BST suy biến thành danh sách liên kết với chiều cao h = n và chi phí tìm kiếm O(n).",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Thao tác xóa nút có 2 con trong BST",
+          "Tìm phần tử nhỏ nhất / lớn nhất trên BST",
+          "Cây BST có khóa trùng nhau"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "BST tìm kiếm luôn luôn O(log n) trong mọi trường hợp.",
+            "isCritical": true,
+            "probeQuestion": "Nếu chèn lần lượt 1, 2, 3, 4, 5 vào BST rỗng thì cây có hình dạng gì và tìm kiếm tốn bao nhiêu phép so sánh?"
+          },
+          {
+            "id": "MC2",
+            "content": "Cây nhị phân tìm kiếm chỉ cần con trái trực tiếp nhỏ hơn cha và con phải trực tiếp lớn hơn cha là đủ.",
+            "isCritical": true,
+            "probeQuestion": "Nếu một nút ở sâu trong cây con trái lớn hơn nút gốc của toàn cây thì cây đó có phải là BST hợp lệ không?"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Khi xóa một nút có đủ 2 con trong BST, ta thay thế bằng nút nào để giữ tính chất BST?",
+            "bloomLevel": "APPLY"
+          },
+          {
+            "id": "SC2",
+            "scenario": "Vì sao duyệt trung thứ tự (In-order) trên BST luôn cho ra dãy khóa có thứ tự tăng dần?",
+            "bloomLevel": "ANALYZE"
+          }
+        ],
+        "targetBloom": "APPLY",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          92,
+          93,
+          94,
+          95,
+          96
+        ],
+        "approved": true
+      }
     },
     {
       "code": "N11",
       "key": "n11_avl",
       "title": "Cây AVL",
       "chapterRef": "Chương 5",
-      "bloomLevel": "UNDERSTAND"
+      "bloomLevel": "UNDERSTAND",
+      "rubric": {
+        "keyPoints": [
+          {
+            "id": "KP1",
+            "content": "AVL là BST tự cân bằng: ở mọi nút, chiều cao hai cây con chênh nhau không quá 1 (hệ số cân bằng -1, 0, 1).",
+            "isRequired": true
+          },
+          {
+            "id": "KP2",
+            "content": "Chiều cao cây luôn được duy trì ở mức O(log n), nhờ vậy thao tác tìm kiếm, chèn, xóa luôn O(log n) không bị suy biến.",
+            "isRequired": true
+          },
+          {
+            "id": "KP3",
+            "content": "Sau khi chèn hoặc xóa làm lệch cân bằng, cây sử dụng các phép quay đơn (LL, RR) hoặc quay kép (LR, RL) để cân bằng lại.",
+            "isRequired": true
+          }
+        ],
+        "optionalPoints": [
+          "Cách tính hệ số cân bằng (balance factor)",
+          "Cây đỏ đen (Red-Black Tree)",
+          "Chi phí tái cân bằng sau thao tác xóa so với chèn"
+        ],
+        "misconceptions": [
+          {
+            "id": "MC1",
+            "content": "Cây AVL là cây có số nút bên trái bằng số nút bên phải.",
+            "isCritical": true,
+            "probeQuestion": "Hệ số cân bằng của cây AVL đo theo chiều cao hay đo theo số lượng nút?"
+          },
+          {
+            "id": "MC2",
+            "content": "AVL quay cây sau mỗi lần chèn để cây đẹp hơn mà không ảnh hưởng hiệu năng.",
+            "isCritical": false
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "SC1",
+            "scenario": "Khi chèn vào cây con phải của cây con trái gây mất cân bằng, ta thực hiện phép quay nào?",
+            "bloomLevel": "APPLY"
+          },
+          {
+            "id": "SC2",
+            "scenario": "So sánh hiệu năng tìm kiếm trường hợp xấu nhất giữa BST thông thường và cây AVL?",
+            "bloomLevel": "ANALYZE"
+          }
+        ],
+        "targetBloom": "ANALYZE",
+        "passThreshold": 70,
+        "minChallenges": 3,
+        "minPassedChallenges": 2,
+        "sourcePages": [
+          102,
+          103,
+          104,
+          105,
+          106
+        ],
+        "approved": true
+      }
     }
   ],
   "edges": [

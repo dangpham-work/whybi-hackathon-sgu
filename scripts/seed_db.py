@@ -42,7 +42,9 @@ CRITERIA = [
 # ---------- Mô hình đọc seed/ (snake_case như file JSON) ----------
 
 # Không dùng EmailStr: email-validator chặn đuôi `.test` (tên miền dành riêng) mà tài khoản demo dùng.
-Email = Annotated[str, Field(pattern=r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$", max_length=150)]
+Email = Annotated[
+    str, Field(pattern=r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$", max_length=150)
+]
 
 
 class _Seed(BaseModel):
@@ -113,7 +115,11 @@ def _read(path: Path) -> dict:
 
 def load_seed(seed_dir: Path = SEED) -> SeedBundle:
     """Đọc và parse seed/*.json; sai schema → pydantic.ValidationError."""
-    tree_raw = {k: v for k, v in _read(seed_dir / "tree_ctdl_gt.json").items() if not k.startswith("_")}
+    tree_raw = {
+        k: v
+        for k, v in _read(seed_dir / "tree_ctdl_gt.json").items()
+        if not k.startswith("_")
+    }
     return SeedBundle(
         users=SeedUsers.model_validate(_read(seed_dir / "users.json")),
         klass=SeedClass.model_validate(_read(seed_dir / "class.json")),
@@ -233,7 +239,9 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
     for sv in users.students:
         user, new = get_or_create_user(sv.email, sv.full_name, "STUDENT")
         if new:
-            db.add(Student(user_id=user.id, student_code=sv.student_code, cohort=sv.cohort))
+            db.add(
+                Student(user_id=user.id, student_code=sv.student_code, cohort=sv.cohort)
+            )
         student_ids.append(user.id)
     db.flush()
 
@@ -244,7 +252,9 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
         course = Course(code=c.code, name=c.name, credits=c.credits)
         db.add(course)
         db.flush()
-    section = db.scalar(select(ClassSection).where(ClassSection.join_code == k.join_code))
+    section = db.scalar(
+        select(ClassSection).where(ClassSection.join_code == k.join_code)
+    )
     if section is None:
         section = ClassSection(
             id=class_id,
@@ -261,10 +271,16 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
         db.flush()
         created["classes"] += 1
     elif section.id != class_id:
-        raise ValueError("Lớp seed cũ có UUID khác hợp đồng API; cần xử lý dữ liệu cũ trước khi nạp lại")
+        raise ValueError(
+            "Lớp seed cũ có UUID khác hợp đồng API; cần xử lý dữ liệu cũ trước khi nạp lại"
+        )
 
     if bundle.klass.enroll_all_students:
-        enrolled = set(db.scalars(select(Enrollment.student_id).where(Enrollment.class_id == section.id)))
+        enrolled = set(
+            db.scalars(
+                select(Enrollment.student_id).where(Enrollment.class_id == section.id)
+            )
+        )
         for sid in student_ids:
             if sid not in enrolled:
                 db.add(
@@ -387,7 +403,9 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # console Windows
     parser = argparse.ArgumentParser(description="Nạp dữ liệu mẫu seed/ (KT-02)")
-    parser.add_argument("--check", action="store_true", help="chỉ đọc và kiểm seed/, không ghi CSDL")
+    parser.add_argument(
+        "--check", action="store_true", help="chỉ đọc và kiểm seed/, không ghi CSDL"
+    )
     args = parser.parse_args(argv)
 
     bundle = load_seed()
