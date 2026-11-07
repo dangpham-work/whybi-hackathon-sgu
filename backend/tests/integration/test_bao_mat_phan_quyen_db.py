@@ -349,22 +349,32 @@ def test_gv_phu_trach_xem_duoc_ban_do_nhiet_co_ten(lop, cay):
 # --- NFR-09, BR-13: ghi âm chỉ khi SV đồng ý ----------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="chờ C1-12: POST /sessions/{id}/audio chưa làm (501); chưa có hợp đồng / cột lưu cờ đồng ý ghi âm",
-)
-def test_tai_ghi_am_khi_chua_dong_y_bi_tu_choi(lop, cay):
+@pytest.mark.parametrize("consent", [None, "false", "true"])
+def test_ghi_am_chi_duoc_luu_khi_chu_phien_dong_y(lop, cay, consent):
+    from app.ai.providers.stt import FakeSTTProvider
+    from app.api.sessions import get_speech_service
+    from app.services.speech import MemoryAudioStore, SpeechService
+
+    store = MemoryAudioStore()
+    app.dependency_overrides[get_speech_service] = lambda: SpeechService(stt=FakeSTTProvider(), store=store)
     sid = lop.phien(lop.sv_a, cay, input_mode="VOICE")
-    r = lop.api.post(
+    lop.db.get(TeachingSession, sid).status = "EXPLAINING"
+    lop.db.flush()
+    response = lop.api.post(
         f"/api/v1/sessions/{sid}/audio",
         headers=lop.sv_a.headers,
-        files={"file": ("loi-giang.webm", b"\x1a\x45\xdf\xa3fake-webm", "audio/webm")},
+        files={"file": ("recording.webm", b"\x1a\x45\xdf\xa3" + b"\0" * 64, "audio/webm")},
+        data={} if consent is None else {"consent": consent},
     )
-    assert 400 <= r.status_code < 500 and r.status_code != 422
-    assert "CONSENT" in _ma(r), "mã lỗi đề xuất: RECORDING_CONSENT_REQUIRED"
+    assert response.status_code == 200, response.text
+    if consent == "true":
+        assert len(store.objects) == 1
+        assert response.json()["audioRef"].startswith("s3://")
+    else:
+        assert store.objects == {}
+        assert response.json()["audioRef"].startswith("unsaved:")
 
 
-@pytest.mark.xfail(strict=True, reason="chờ C1-12: SV không được tải ghi âm vào phiên của SV khác")
 def test_khong_tai_ghi_am_vao_phien_cua_sv_khac(lop, cay):
     sid = lop.phien(lop.sv_a, cay, input_mode="VOICE")
     r = lop.api.post(
