@@ -53,3 +53,13 @@
 - CI PR #135 lỗi chung backend/E2E do main port realtime.py (C1-09) import user_from_token nhưng deps.py chưa có hàm này.
 - Lấy đúng deps.py từ whybi-ai@75145a4: HTTP và WebSocket dùng chung verified_claims và xử lý token không phải chuỗi bằng INVALID_TOKEN. Không kéo phần thu hồi theo user của C2-19 chưa có.
 - Theo Quyền: không test local và không chờ/chạy lại CI thủ công; sửa từ nguồn rồi push cùng PR. Chưa tuyên bố bản sửa đã pass CI.
+
+## KT-07 – bộ chạy Guard và báo cáo CI
+
+- C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
+- CI chạy 58 kịch bản với Guard thật và FakeProvider, tạo artifact kt07-guard-report. --ci-smoke chỉ kiểm >=50 ca không lỗi; chất lượng vẫn có thể chưa đạt và được ghi rõ trong báo cáo.
+- Repo không có Actions secrets để chạy model thật. Chưa đo Đạt sai qua phiên; --judge hiện chấm trực tiếp, không đại diện toàn bộ C1-07. Dữ liệu còn cần rà độc lập. Giữ PR draft, chưa đóng #46 khi chưa đủ bằng chứng.
+- Không chạy test hoặc evaluation local theo yêu cầu. Long duyệt thay đổi workflow; chỉ chạy lại CI nếu có lỗi.
+
+
+- Cập nhật: tiếp tục kiểm GitHub CI đến khi pass theo yêu cầu mới; không chạy test local.
