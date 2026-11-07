@@ -260,4 +260,3 @@ test("MX2 / TC08: jailbreak bị gắn cờ, hỏi lại và không đổi đi�
   expect(result.flags).toContain("JAILBREAK");
   await info.attach("guard-result.json", { body: JSON.stringify({ blocked, result }, null, 2), contentType: "application/json" });
 });
-
