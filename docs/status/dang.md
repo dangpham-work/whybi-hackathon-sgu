@@ -42,3 +42,5 @@
 - C1-04: đã port phân tích coverage và chọn 4 chiến lược phản biện, giới hạn 3–5 câu; Guard kiểm câu hỏi và câu dự phòng. Helper transcript dùng chung đặt trong ai/prompts. Local: 278 passed, 12 skipped; chờ CI và Long duyệt PR.
 
 - C1-05: port Judge chấm 5 tiêu chí, BR-03, chấm nhiều lần và phản hồi từ whybi-ai@40ae7a7; chờ CI và Long duyệt.
+
+- C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.

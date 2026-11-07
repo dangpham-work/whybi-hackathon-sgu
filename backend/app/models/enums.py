@@ -103,6 +103,7 @@ class FlagType(StrEnum):
     OFF_TOPIC = "OFF_TOPIC"
     LOW_STT_CONFIDENCE = "LOW_STT_CONFIDENCE"
     ANSWER_LEAK = "ANSWER_LEAK"
+    GUARD_UNCHECKED = "GUARD_UNCHECKED"  # LLM Guard không khả dụng, cần GV xem lại
 
 
 class BloomLevel(StrEnum):
