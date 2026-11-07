@@ -33,7 +33,7 @@ interface NodePayload {
  * heatmap.cell → đổi một ô lưới · heatmap.node → đổi màu / số liệu một nút · heatmap.alert → thêm/ thay cảnh báo.
  * Cảnh báo của nút không còn ĐỎ thì bỏ (như ghi chú ở services/heatmap.py). Không biết sự kiện → giữ nguyên.
  */
-export function applyHeatmapEvent(s: Snapshot, e: WsEventLike): Snapshot {
+export function applyHeatmapEvent(s: Snapshot, e: WsEventLike, anonymize = false): Snapshot {
   if (e.event === "heatmap.cell") {
     const c = e.payload as CellPayload;
     const key = c.nodeKey ?? c.nodeId;
@@ -43,8 +43,9 @@ export function applyHeatmapEvent(s: Snapshot, e: WsEventLike): Snapshot {
       found = true;
       return { ...row, statesByKey: { ...row.statesByKey, [key]: c.state } };
     });
+    // chế độ trình chiếu: tên / MSSV trong tin realtime không được lọt ra màn hình (FR-HM-09)
     if (!found)
-      grid.push({ studentId: c.studentId, studentName: c.studentName, studentCode: c.studentCode ?? "", states: {}, progress: 0, statesByKey: { [key]: c.state }, masteredCount: 0 });
+      grid.push({ studentId: c.studentId, studentName: anonymize ? "" : c.studentName, studentCode: anonymize ? "" : (c.studentCode ?? ""), states: {}, progress: 0, statesByKey: { [key]: c.state }, masteredCount: 0 });
     return { ...s, grid };
   }
   if (e.event === "heatmap.node") {

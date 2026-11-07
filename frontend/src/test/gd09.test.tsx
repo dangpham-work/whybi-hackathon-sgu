@@ -139,3 +139,44 @@ describe("GV-04 Trình sửa cây và rubric (GD-09)", () => {
     await waitFor(() => expect((screen.getByRole("button", { name: /Thêm nút/ }) as HTMLButtonElement).disabled).toBe(false));
   });
 });
+
+describe("GV-04 lịch sử, so sánh, khôi phục (GD-14)", () => {
+  const V = (id: string, no: number, status: string) => ({ ...TREE(status), id, versionNo: no });
+  const hist = { ...me, "GET /classes/c1/tree": ok(TREE()), "GET /classes/c1/tree-versions": ok([V("v2", 2, "DRAFT"), V("v1", 1, "PUBLISHED")]) };
+
+  it("so sánh hai phiên bản theo tên nút", async () => {
+    const m = mockApi({
+      ...hist,
+      "GET /tree-versions/v1/compare/v2": ok({ fromVersionNo: 1, toVersionNo: 2, nodesAdded: ["n2"], nodesRemoved: [], nodesChanged: ["n1"], edgesAdded: [{ fromKey: "n1", toKey: "n2" }], edgesRemoved: [] }),
+    });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
+    fireEvent.click(await screen.findByLabelText("Chọn v2 để so sánh"));
+    fireEvent.click(screen.getByLabelText("Chọn v1 để so sánh"));
+    fireEvent.click(screen.getByRole("button", { name: /So sánh 2 phiên bản/ }));
+    const res = await screen.findByRole("region", { name: "Kết quả so sánh" });
+    expect(res.textContent).toMatch(/v1 → v2/);
+    expect(res.textContent).toMatch(/Nút thêm \(1\): Con trỏ/);
+    expect(res.textContent).toMatch(/Nút đổi \(1\): Biến/);
+    expect(res.textContent).toMatch(/Cạnh thêm \(1\): Biến → Con trỏ/);
+    expect(m.called("GET /tree-versions/v1/compare/v2")).toHaveLength(1);
+  });
+
+  it("khôi phục bản cũ thành bản nháp mới và chuyển sang sửa", async () => {
+    const m = mockApi({ ...hist, "POST /tree-versions/v1/restore": ok({ ...V("v3", 3, "DRAFT") }, 201) });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Khôi phục v1" }));
+    await waitFor(() => expect(m.called("POST /tree-versions/v1/restore")).toHaveLength(1));
+    expect(await screen.findByText(/Đã khôi phục thành bản nháp v3/)).toBeTruthy();
+    expect(screen.getByText(/v3 · Bản nháp/)).toBeTruthy();
+  });
+
+  it("chỉ so sánh được khi chọn đúng 2 bản", async () => {
+    mockApi(hist);
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
+    fireEvent.click(await screen.findByLabelText("Chọn v1 để so sánh"));
+    expect((screen.getByRole("button", { name: /So sánh 2 phiên bản/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

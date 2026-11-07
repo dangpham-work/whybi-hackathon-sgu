@@ -98,3 +98,12 @@
   - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
   - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
 - Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.
+
+## GD-14 và GD-16 – GV-10, SV-08, lọc/ẩn tên/trình chiếu/xuất báo cáo GV-05, lịch sử phiên bản GV-04 (2026-10-24)
+
+- Xong: GV-10 cấu hình ngưỡng (ngưỡng Đạt, xanh / vàng theo %, cỡ mẫu, số câu phản biện; kiểm trước khi gửi cùng luật 422 của backend);
+  SV-08 lịch sử phiên (tổng hợp, lọc Đạt / Chưa đạt, mở phiên xem hội thoại và nghe lại ghi âm). Test: `src/test/gd14.test.tsx`.
+  Đổi test router thành kiểm thẳng `ScreenPlaceholder` để không phụ thuộc màn nào còn thiếu.
+- GV-05 tìm theo tên / MSSV (gửi `q`), "Ẩn tên khi chiếu" (gửi `anonymize=true`, tên không tới trình duyệt; tin `heatmap.cell` cũng bị làm trống tên), chế độ trình chiếu toàn màn hình, nút Xuất CSV / PDF (`GET /classes/{id}/report`, tải bằng token, lấy tên tệp từ `Content-Disposition`);
+  GV-04 lịch sử phiên bản, so sánh hai bản theo tên nút, khôi phục thành bản nháp mới. Test: `src/test/gd14b.test.tsx`, `src/test/gd09.test.tsx`.
+- Cần từ Long: `GET /me/sessions` không kèm tên nút nên danh sách SV-08 chưa hiện "N5 Con trỏ" (chỉ có sau khi mở phiên); xin thêm `nodeTitle` vào `SessionResult`.
