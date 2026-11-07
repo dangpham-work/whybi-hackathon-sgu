@@ -26,7 +26,6 @@ from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, LecturerOrStudent, Student
-from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.common import ApiModel, ErrorResponse
 from app.models.schemas.heatmap import ProfileSession
