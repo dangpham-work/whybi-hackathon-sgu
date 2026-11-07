@@ -38,11 +38,13 @@ from app.models.schemas.session import DEFAULT_CRITERION_WEIGHTS
 from app.models.schemas.tree import (
     ChallengeScenarioSchema,
     Edge,
+    EdgeRef,
     KeyPointSchema,
     MisconceptionSchema,
     Node,
     NodePatch,
     Rubric,
+    TreeDiff,
     TreeVersion,
 )
 from app.models.users import ClassSection, Enrollment
@@ -262,6 +264,32 @@ class SkillTreeService:
 
     # ------------------------------------------------------------------ đọc
 
+    def published_node_keys(self, class_id: UUID, node_ids: list[UUID] | None = None) -> dict[UUID, str]:
+        """id nút → key của bản đang phát hành, theo thứ tự key – lời gọi nội bộ (MasteryService.columns C2-11).
+
+        `node_ids` lọc nút; id không thuộc bản đang phát hành bị bỏ qua. Lớp chưa phát hành ⇒ {}."""
+        self._class(class_id)
+        published = select(orm.SkillTree.published_version_id).where(orm.SkillTree.class_id == class_id)
+        q = select(orm.ConceptNode.id, orm.ConceptNode.key).where(
+            orm.ConceptNode.version_id == published.scalar_subquery()
+        )
+        if node_ids is not None:
+            q = q.where(orm.ConceptNode.id.in_(node_ids))
+        return {nid: key for nid, key in self.db.execute(q.order_by(orm.ConceptNode.key))}
+
+    def published_class_ids(self) -> list[UUID]:
+        """Lớp đã phát hành cây – lời gọi nội bộ (đối soát heatmap C2-11), không kiểm quyền."""
+        return list(
+            self.db.scalars(select(orm.SkillTree.class_id).where(orm.SkillTree.published_version_id.is_not(None)))
+        )
+
+    def node_keys(self, node_ids: list[UUID]) -> dict[UUID, str]:
+        """id nút → key (mọi phiên bản) – lời gọi nội bộ (MatchingService), không kiểm quyền."""
+        if not node_ids:
+            return {}
+        rows = self.db.execute(select(orm.ConceptNode.id, orm.ConceptNode.key).where(orm.ConceptNode.id.in_(node_ids)))
+        return {nid: key for nid, key in rows}
+
     def statuses_for(self, class_ids: list[UUID]) -> dict[UUID, str]:
         """Trạng thái cây theo lớp cho danh sách lớp (C2-08).
         Đã phát hành ⇒ PUBLISHED; chưa ⇒ trạng thái phiên bản mới nhất; chưa có cây ⇒ không có khóa."""
@@ -290,6 +318,17 @@ class SkillTreeService:
             raise AppError(404, "VERSION_NOT_FOUND", "Không tìm thấy phiên bản cây")
         tree = self.db.get(orm.SkillTree, v.tree_id)
         return self._to_schema(v, tree.class_id)
+
+    def get_node_for_session(self, node_id: UUID) -> tuple[UUID, Node]:
+        """(class_id, Node kèm rubric) của nút – lời gọi nội bộ (SessionOrchestrator, #102), không kiểm quyền."""
+        n = self.db.get(orm.ConceptNode, node_id)
+        if n is None:
+            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
+        tv = self.version_schema(n.version_id)
+        node = next((x for x in tv.nodes if x.id == node_id), None)
+        if node is None:
+            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
+        return tv.class_id, node
 
     def _seed_tree(self) -> TreeVersion:
         return load_seed_tree().model_copy(deep=True)
@@ -416,6 +455,63 @@ class SkillTreeService:
             )
         self.db.commit()
         return self._to_schema(v, class_id)
+
+    # ------------------------------------------------------------------ lịch sử, so sánh, khôi phục (C2-16)
+
+    def list_versions(self, class_id: UUID, user: "CurrentUser") -> list[TreeVersion]:
+        """Mọi phiên bản của lớp, mới nhất trước (FR-SK-10). Lớp chưa có cây ⇒ danh sách rỗng."""
+        self._require_owner(self._class(class_id), user)
+        tree = self.db.scalar(select(orm.SkillTree).where(orm.SkillTree.class_id == class_id))
+        if tree is None:
+            return []
+        rows = self.db.scalars(
+            select(orm.TreeVersion)
+            .where(orm.TreeVersion.tree_id == tree.id)
+            .order_by(orm.TreeVersion.version_no.desc())
+        )
+        return [self._to_schema(v, class_id) for v in rows]
+
+    def _owned_schema(self, version_id: UUID, user: "CurrentUser") -> TreeVersion:
+        v = self.db.get(orm.TreeVersion, version_id)
+        if v is None:
+            raise AppError(404, "VERSION_NOT_FOUND", "Không tìm thấy phiên bản cây")
+        class_id = self.db.get(orm.SkillTree, v.tree_id).class_id
+        self._require_owner(self._class(class_id), user)
+        return self._to_schema(v, class_id)
+
+    def restore_version(self, version_id: UUID, user: "CurrentUser") -> TreeVersion:
+        """Sao phiên bản cũ thành bản nháp mới (FR-SK-10). Bản cũ giữ nguyên; rubric phải duyệt lại như mọi cây nhập."""
+        old = self._owned_schema(version_id, user)
+        old.change_note = f"Khôi phục từ phiên bản {old.version_no}"
+        return self.create_version(old.class_id, user, old)
+
+    def compare_versions(self, a_id: UUID, b_id: UUID, user: "CurrentUser") -> TreeDiff:
+        """Khác biệt từ phiên bản a sang b, so theo key nút (bỏ qua id vì mỗi phiên bản có id riêng)."""
+        a, b = self._owned_schema(a_id, user), self._owned_schema(b_id, user)
+        if a.class_id != b.class_id:
+            raise AppError(422, "VERSIONS_DIFFERENT_CLASS", "Hai phiên bản thuộc hai lớp khác nhau")
+
+        def body(n: Node) -> dict:
+            return n.model_dump(mode="json", exclude={"id"})
+
+        na, nb = {n.key: n for n in a.nodes}, {n.key: n for n in b.nodes}
+        ea = {(e.from_key, e.to_key) for e in a.edges}
+        eb = {(e.from_key, e.to_key) for e in b.edges}
+
+        def refs(pairs: set[tuple[str, str]]) -> list[EdgeRef]:
+            return [
+                EdgeRef(from_key=f, to_key=t) for f, t in sorted(pairs, key=lambda p: (_natural(p[0]), _natural(p[1])))
+            ]
+
+        return TreeDiff(
+            from_version_no=a.version_no,
+            to_version_no=b.version_no,
+            nodes_added=sorted(nb.keys() - na.keys(), key=_natural),
+            nodes_removed=sorted(na.keys() - nb.keys(), key=_natural),
+            nodes_changed=sorted((k for k in na.keys() & nb.keys() if body(na[k]) != body(nb[k])), key=_natural),
+            edges_added=refs(eb - ea),
+            edges_removed=refs(ea - eb),
+        )
 
     def _new_node(self, version_id: UUID, n: Node) -> orm.ConceptNode:
         row = orm.ConceptNode(
@@ -595,6 +691,3 @@ class SkillTreeService:
 
         MasteryService(self.db).init_or_migrate(tree.class_id, v.id)
         return self._to_schema(v, tree.class_id)
-
-    def build_draft_tree(self, document_id):
-        raise NotImplementedError("C1-10")

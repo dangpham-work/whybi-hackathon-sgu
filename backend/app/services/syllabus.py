@@ -122,6 +122,15 @@ def default_job_queue() -> JobQueue:
     return InMemoryJobQueue() if get_settings().app_env == "test" else CeleryJobQueue()
 
 
+def _owned_class(db: Session, class_id: UUID, user: "CurrentUser") -> ClassSection:
+    cls = db.get(ClassSection, class_id)
+    if cls is None:
+        raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
+    if user.role != Role.LECTURER or cls.lecturer_id != user.id:
+        raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
+    return cls
+
+
 @dataclass(frozen=True)
 class UploadResult:
     job_id: str
@@ -139,16 +148,8 @@ class SyllabusService:
         self.queue = queue
         self.max_bytes = max_bytes
 
-    def _owned_class(self, class_id: UUID, user: "CurrentUser") -> ClassSection:
-        cls = self.db.get(ClassSection, class_id)
-        if cls is None:
-            raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
-        if user.role != Role.LECTURER or cls.lecturer_id != user.id:
-            raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
-        return cls
-
     def upload(self, class_id: UUID, filename: str | None, stream: BinaryIO, user: "CurrentUser") -> UploadResult:
-        self._owned_class(class_id, user)
+        _owned_class(self.db, class_id, user)
         data = stream.read(self.max_bytes + 1)  # đọc tối đa giới hạn + 1 byte là đủ biết quá cỡ
         ext = validate_syllabus(filename, data, self.max_bytes)
 
@@ -175,7 +176,8 @@ class SyllabusService:
             self._discard(url)
             raise
 
-        job_id = str(uuid4())
+        # jobId = documentId: kênh job:{jobId} kiểm quyền được qua bản ghi tài liệu, không cần bảng / khóa Redis riêng.
+        job_id = str(doc_id)
         try:
             self.queue.enqueue_syllabus(doc_id, job_id)
         except (KombuError, OSError) as exc:
@@ -193,3 +195,70 @@ class SyllabusService:
             self.storage.remove(url)
         except StorageUnavailable:
             log.exception("không xóa được tệp mồ côi %s", url)
+
+
+# --- Xử lý nền (C1-09, Đăng) ---------------------------------------------------------------------
+# Worker `workers/documents.py` đọc / cập nhật syllabus_documents qua lớp này, không truy vấn bảng trực tiếp.
+
+
+def pages_key(class_id: UUID, document_id: UUID) -> str:
+    """Khóa kho đối tượng của văn bản đã bóc theo trang (JSON) – C1-10 đọc lại để trích khái niệm."""
+    return f"syllabi/{class_id}/{document_id}.pages.json"
+
+
+@dataclass(frozen=True)
+class DocumentRef:
+    id: UUID
+    class_id: UUID
+    file_url: str
+    file_type: str
+
+
+class SyllabusProcessingRepo:
+    """UPLOADED → PARSING → PARSED (kèm page_count) | FAILED (kèm error_message). Mỗi bước commit ngay
+    để GV tải lại trang vẫn thấy trạng thái mới nhất."""
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def get(self, document_id: UUID) -> DocumentRef | None:
+        doc = self.db.get(SyllabusDocument, document_id)
+        if doc is None:
+            return None
+        return DocumentRef(id=doc.id, class_id=doc.class_id, file_url=doc.file_url, file_type=doc.file_type)
+
+    def _update(self, document_id: UUID, **values: object) -> bool:
+        # Khóa và đọc lại để job giao lại / lỗi tới muộn không ghi đè PARSED,
+        # kể cả khi phiên đang giữ bản ghi PARSING cũ trong identity map.
+        doc = self.db.get(SyllabusDocument, document_id, with_for_update=True, populate_existing=True)
+        if doc is None:
+            raise LookupError(f"không có syllabus_documents {document_id}")
+        if doc.status == DocumentStatus.PARSED:
+            self.db.commit()
+            return False
+        for k, v in values.items():
+            setattr(doc, k, v)
+        self.db.commit()
+        return True
+
+    def mark_parsing(self, document_id: UUID) -> bool:
+        return self._update(document_id, status=DocumentStatus.PARSING, error_message=None)
+
+    def mark_parsed(self, document_id: UUID, page_count: int) -> None:
+        self._update(document_id, status=DocumentStatus.PARSED, page_count=page_count, error_message=None)
+
+    def mark_failed(self, document_id: UUID, message: str) -> None:
+        self.db.rollback()  # lỗi trước đó có thể là lỗi CSDL – phiên phải sạch mới ghi được FAILED
+        self._update(document_id, status=DocumentStatus.FAILED, error_message=message)
+
+
+def require_job_owner(db: Session, job_id: str, user: "CurrentUser") -> None:
+    """Chỉ GV phụ trách lớp của tài liệu được nghe job:{jobId} (jobId = documentId) – cổng WebSocket gọi khi
+    subscribe. Ném 404 JOB_NOT_FOUND / 403 NOT_CLASS_OWNER."""
+    try:
+        doc = db.get(SyllabusDocument, UUID(job_id))
+    except ValueError:
+        doc = None
+    if doc is None:
+        raise AppError(404, "JOB_NOT_FOUND", "Không tìm thấy job", {"jobId": job_id})
+    _owned_class(db, doc.class_id, user)
