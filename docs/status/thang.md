@@ -98,3 +98,12 @@
   - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
   - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
 - Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.
+
+## GD-15 – Màn quản trị và thông báo (2026-10-24)
+
+- Xong: AD-01 tài khoản (tìm, lọc, tạo, khóa/mở, đặt lại mật khẩu hiện một lần, nhập CSV có báo cáo), AD-02 môn học, AD-03 cấu hình AI (model chính / dự phòng),
+  AD-04 hạn mức, AD-05 cờ vi phạm + nhật ký thao tác; chuông thông báo (`NotificationBell`) trong 3 layout: danh sách, nhận mới qua kênh `user:{id}`, đánh dấu đã đọc.
+  Test: `src/test/gd15.test.tsx`. Thêm `lib/criteria.ts` (trùng bản ở PR GD-13) và sinh lại `api-types.ts`.
+- Cần từ Đăng / Long:
+  - Đăng (C1-02): chưa có `GET /admin/ai-config` nên AD-03 bắt đầu từ giá trị mặc định thay vì cấu hình đang chạy; xin thêm GET.
+  - Long (C2-18): `quotas` nhận `scopeId` (UUID) nên QTV phải dán id lớp / SV; xin API tìm lớp / SV theo tên để chọn thay vì nhập id. Không có API sửa thông tin môn ngoài PUT, chưa có xóa môn.

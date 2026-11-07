@@ -1,6 +1,7 @@
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
+import { NotificationBell } from "../components/NotificationBell";
 import { NAV } from "../lib/nav";
 import { SideNav, useCurrentScreen, useShellUser } from "./shell";
 
@@ -29,7 +30,8 @@ export function AdminLayout() {
           <button className="rounded-md border border-line-soft p-2 lg:hidden" aria-label="Mở menu" onClick={() => setDrawer(true)}>
             <Menu aria-hidden size={18} />
           </button>
-          <p className="truncate text-body-m font-semibold">{screen?.title ?? "Quản trị"}</p>
+          <p className="min-w-0 flex-1 truncate text-body-m font-semibold">{screen?.title ?? "Quản trị"}</p>
+          <NotificationBell />
         </header>
         <main className="flex-1 p-4 lg:p-7">
           <Outlet />
