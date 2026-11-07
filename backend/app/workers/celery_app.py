@@ -12,7 +12,7 @@ celery = Celery(
     "whybi",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.documents", "app.workers.aggregation", "app.workers.matching"],
+    include=["app.workers.documents", "app.workers.aggregation", "app.workers.matching", "app.workers.sessions"],
 )
 app = celery  # để `celery -A app.workers.celery_app` tìm thấy
 
@@ -27,6 +27,7 @@ celery.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     beat_schedule={
+        "reconcile-sessions": {"task": "app.workers.sessions.reconcile_completed", "schedule": 120.0},
         # FR-PM-02: ghép cặp định kỳ – C2-14
         "matching-daily": {"task": "app.workers.matching.scheduled_rounds", "schedule": crontab(hour=6, minute=0)},
         # BR-09: gợi ý quá 48 giờ / xác nhận quá 7 ngày – C2-14

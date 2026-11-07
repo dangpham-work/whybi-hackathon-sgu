@@ -5,6 +5,9 @@
 - Xong:
   - C2-08: lớp học phần, mã tham gia 8 ký tự, SV tham gia lớp (gọi `MasteryService.ensure_student`), tải giáo trình
     PDF/DOCX ≤ 20 MB lên kho S3 (tự tạo bucket `S3_BUCKET`), tạo `syllabus_documents` + job Celery, trả `jobId`. Không có migration.
+  - C2-16: phiên bản cây (FR-SK-10). `GET /classes/{id}/tree-versions` (mới nhất trước), `POST /tree-versions/{v}/restore`
+    (sao thành DRAFT mới, bản cũ giữ nguyên, rubric duyệt lại), `GET /tree-versions/{a}/compare/{b}` → `TreeDiff`
+    (nút thêm / bỏ / đổi theo key, cạnh thêm / bỏ). Endpoint compare là bổ sung ngoài Bảng 5.10 – Thắng (GD-14) dùng cho màn so sánh.
   - C2-12: truy vết điểm nghẽn gốc (6.5.3) + cảnh báo "Nên giảng lại X". Ví dụ Hình 6.9 (Y = N6, |F| = 9,
     r(N5|N6) = 7/9) ra đúng gốc N5 Con trỏ – test hàm thuần và test CSDL thật (lớp 30 SV, cây mẫu).
   - C2-11: tổng hợp bản đồ nhiệt (hàng đợi `aggregation`) – tỉ lệ Đạt / đã thử, cỡ mẫu tối thiểu, màu Bảng 6.6,

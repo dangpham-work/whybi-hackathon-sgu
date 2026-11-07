@@ -117,3 +117,20 @@ class CycleError(ApiModel):
     """Trả kèm 409 CYCLE_DETECTED (FR-SK-07, TC03): đường đi của chu trình theo key."""
 
     path: list[str]
+
+
+class EdgeRef(ApiModel):
+    from_key: str
+    to_key: str
+
+
+class TreeDiff(ApiModel):
+    """So sánh hai phiên bản cây (FR-SK-10) theo key nút – key ổn định giữa các phiên bản."""
+
+    from_version_no: int
+    to_version_no: int
+    nodes_added: list[str]
+    nodes_removed: list[str]
+    nodes_changed: list[str]  # cùng key nhưng khác tiêu đề, mô tả, Bloom, vị trí hoặc rubric
+    edges_added: list[EdgeRef]
+    edges_removed: list[EdgeRef]
