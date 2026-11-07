@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     # Giọng nói – mục 6.4
     stt_provider: str = "cloud"
-    stt_whisper_url: str = "http://stt:9100"
+    stt_whisper_url: str = "http://stt:8000"  # cổng trong container; host dùng STT_PORT
     stt_min_confidence: float = 0.80
     tts_provider: str = "cloud"
     audio_retention_days: int = 30

@@ -259,4 +259,5 @@ Thumbs.db
 
 # Claude Code – cấu hình cá nhân (cấu hình chung là .claude/settings.json)
 .claude/settings.local.json
+.claude/worktrees/
 CLAUDE.local.md
