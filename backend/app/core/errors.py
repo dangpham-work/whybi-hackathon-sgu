@@ -3,9 +3,11 @@
 { "error": { "code": "NODE_LOCKED", "message": "…", "details": {…} } }
 """
 
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -33,6 +35,11 @@ def _body(code: str, message: str, details: dict[str, Any] | None = None) -> dic
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
 
+def _plain_errors(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """Bỏ `ctx` (có thể chứa đối tượng Exception từ validator tùy biến) để JSON hóa được."""
+    return jsonable_encoder([{k: v for k, v in e.items() if k != "ctx"} for e in errors])
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
@@ -47,5 +54,5 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
             status_code=422,
-            content=_body("VALIDATION_ERROR", "Dữ liệu không hợp lệ", {"errors": exc.errors()}),
+            content=_body("VALIDATION_ERROR", "Dữ liệu không hợp lệ", {"errors": _plain_errors(exc.errors())}),
         )
