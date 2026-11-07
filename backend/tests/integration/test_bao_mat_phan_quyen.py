@@ -508,7 +508,6 @@ def test_thoi_han_luu_ghi_am_mac_dinh_30_ngay():
     assert get_settings().audio_retention_days == 30
 
 
-@pytest.mark.xfail(strict=True, reason="chờ C2-13: WebSocket /ws chưa xác thực token, chưa kiểm quyền kênh")
 def test_websocket_khong_token_khong_dang_ky_duoc_kenh_ban_do_nhiet(api):
     """Kênh class:{id}:heatmap chứa tên SV ⇒ subscribe không có token hợp lệ phải bị từ chối."""
     with api.websocket_connect("/api/v1/ws") as ws:

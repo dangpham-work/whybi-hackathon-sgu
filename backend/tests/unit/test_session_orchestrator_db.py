@@ -275,8 +275,12 @@ def test_llm_failure_rolls_back_turn_and_allows_retry(published, completed, monk
     sid = start(w, tree).json()["sessionId"]
     if stage == "judge":
         reply = turn(w, sid, "Lời giảng.", "EXPLANATION").json()
-        while reply["questionsAsked"] < 4:
-            reply = turn(w, sid, "Trả lời.").json()
+        assert 3 <= reply["questionsTotal"] <= 5
+        while reply["questionsAsked"] < reply["questionsTotal"]:
+            response = turn(w, sid, "Trả lời.")
+            assert response.status_code == 200, response.text
+            reply = response.json()
+        assert reply["status"] == "CHALLENGING", reply
     session = w.db.get(TeachingSession, UUID(sid))
     status_before = session.status
     turns_before = w.db.query(SessionTurn).filter_by(session_id=session.id).count()
@@ -329,8 +333,12 @@ def test_publish_failure_after_commit_is_logged_or_propagated(published, complet
     w, tree = published
     sid = start(w, tree).json()["sessionId"]
     reply = turn(w, sid, "Lời giảng.", "EXPLANATION").json()
-    while reply["questionsAsked"] < 4:
-        reply = turn(w, sid, "Trả lời.").json()
+    assert 3 <= reply["questionsTotal"] <= 5
+    while reply["questionsAsked"] < reply["questionsTotal"]:
+        response = turn(w, sid, "Trả lời.")
+        assert response.status_code == 200, response.text
+        reply = response.json()
+    assert reply["status"] == "CHALLENGING", reply
 
     def fail_publish(*args):
         raise failure
@@ -547,8 +555,12 @@ def test_concurrent_turns_serialize_on_postgres_row_lock(concurrent_world, compl
     sid = UUID(start(w, tree).json()["sessionId"])
     if finishing:
         reply = turn(w, sid, "Lời giảng.", "EXPLANATION").json()
-        while reply["questionsAsked"] < 4:
-            reply = turn(w, sid, "Trả lời.").json()
+        assert 3 <= reply["questionsTotal"] <= 5
+        while reply["questionsAsked"] < reply["questionsTotal"]:
+            response = turn(w, sid, "Trả lời.")
+            assert response.status_code == 200, response.text
+            reply = response.json()
+        assert reply["status"] == "CHALLENGING", reply
     w.db.rollback()  # không giữ giao dịch đọc của fixture khi hai kết nối riêng bắt đầu
     first_inside, release, second_started = Event(), Event(), Event()
     second_pid = []
