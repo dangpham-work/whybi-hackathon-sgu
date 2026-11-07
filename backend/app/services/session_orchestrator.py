@@ -224,6 +224,11 @@ class SessionOrchestrator:
 
     def start_session(self, student_id: UUID, body: SessionStart) -> SessionCreated:
         class_id, node = self._node(body.node_id)
+        if body.peer_match_item_id is not None:
+            # Import trong hàm: matching.py dùng SessionResult/SkillTreeService, tránh vòng import khi nạp app
+            from app.services.matching import MatchingService
+
+            MatchingService(self.db).check_followup_item(student_id, body.node_id, body.peer_match_item_id)
         attempt = self.db.scalar(
             select(func.count())
             .select_from(TeachingSession)
@@ -447,6 +452,7 @@ class SessionOrchestrator:
             unlocked_nodes=[],
             flags=flags,
             is_peer_followup=s.is_peer_followup,
+            peer_match_item_id=s.peer_match_item_id,
             detected_misconceptions=[m.id for m in outcome.result.misconceptions],
             failed_conditions=outcome.pass_check.failed_conditions,
             attempt_no=s.attempt_no,

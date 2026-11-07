@@ -119,6 +119,17 @@ def _rubric_sig(r: Rubric | None) -> dict | None:
     return None if r is None else r.model_dump(mode="json", exclude={"approved"})
 
 
+@dataclass
+class MatchingSnapshot:
+    """Ảnh chụp CHỈ ĐỌC ma trận cả lớp theo bản đang phát hành (ghép cặp C2-14 dùng)."""
+
+    version_id: UUID
+    id_of: dict[str, UUID]  # key nút → id ở bản đang phát hành
+    mastered: dict[UUID, set[str]]  # SV → key đã Đạt (tính cả NEEDS_REVERIFY như khi xét tiên quyết)
+    frontier: dict[UUID, set[str]]  # SV → Biên: chưa Đạt, mọi tiên quyết đã Đạt
+    pass_rate: dict[str, float]  # key → tỉ lệ SV ghi danh đã Đạt
+
+
 class MasteryService:
     def pending_results(self, session_ids: Iterable[UUID]) -> set[UUID]:
         """Các phiên vẫn có ô IN_PROGRESS, dùng đối soát sự kiện hoàn tất bị mất."""
@@ -336,6 +347,30 @@ class MasteryService:
             return check
         finally:
             savepoint.rollback()
+
+    def matching_snapshot(self, class_id: UUID) -> MatchingSnapshot:
+        """Đọc ma trận mọi SV ghi danh – không khóa, không tạo ô, không commit. Ô chưa có coi như chưa Đạt."""
+        t = self._tree(class_id)
+        students = list(self.db.scalars(select(Enrollment.student_id).where(Enrollment.class_id == class_id)))
+        done: dict[UUID, set[str]] = {s: set() for s in students}
+        if students:
+            rows = self.db.execute(
+                select(MasteryRecord.student_id, MasteryRecord.node_id, MasteryRecord.state).where(
+                    MasteryRecord.student_id.in_(students), MasteryRecord.node_id.in_(list(t.key_of))
+                )
+            )
+            for sid, nid, state in rows:
+                if state in DONE:
+                    done[sid].add(t.key_of[nid])
+        g = build_graph(t.schema)
+        n = len(students)
+        return MatchingSnapshot(
+            version_id=t.schema.id,
+            id_of=dict(t.id_of),
+            mastered=done,
+            frontier={s: frontier(g, d) for s, d in done.items()},
+            pass_rate={k: (sum(k in d for d in done.values()) / n if n else 0.0) for k in t.id_of},
+        )
 
     def my_map(self, class_id: UUID, student_id: UUID) -> MyMap:
         t = self._tree(class_id)
