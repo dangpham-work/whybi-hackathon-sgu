@@ -182,13 +182,34 @@ def test_upload_pdf_returns_job_id(world, infra):
     assert r.status_code == 202, r.text
     body = r.json()
     job_id, doc_id = body["jobId"], UUID(body["documentId"])
-    assert job_id and body["channel"] == f"job:{job_id}"
+    assert job_id == str(doc_id)
+    assert body["channel"] == f"job:{job_id}"
     assert queue.jobs == [(doc_id, job_id)]
     key = f"syllabi/{world.class_id}/{doc_id}.pdf"
     assert storage.objects[key] == PDF
     [doc] = docs(world)
     assert doc.id == doc_id and doc.status == "UPLOADED" and doc.file_type == "pdf"
     assert doc.file_url == f"s3://whybi/{key}" and doc.uploaded_by == world.gv
+
+
+def test_upload_owner_can_listen_returned_job_channel(world, infra):
+    from app.api.deps import CurrentUser
+    from app.api.realtime import authorize
+    from app.core.errors import AppError
+    from app.models.enums import Role
+    from app.services.syllabus import require_job_owner
+
+    r = upload(world, "giao-trinh.pdf", PDF)
+    assert r.status_code == 202, r.text
+    channel = r.json()["channel"]
+
+    def job_check(job_id, user):
+        require_job_owner(world.db, job_id, user)
+
+    authorize(CurrentUser(id=world.gv, role=Role.LECTURER), channel, None, job_check)
+    with pytest.raises(AppError) as exc:
+        authorize(CurrentUser(id=world.gv_other, role=Role.LECTURER), channel, None, job_check)
+    assert (exc.value.status, exc.value.code) == (403, "NOT_CLASS_OWNER")
 
 
 def test_upload_docx_ok(world, infra):
