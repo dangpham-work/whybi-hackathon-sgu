@@ -15,10 +15,10 @@ test("SMOKE-02 API qua nginx trả lỗi đúng định dạng", async ({ reques
   expect(body.error).toMatchObject({ code: "UNAUTHORIZED" });
 });
 
-test("SMOKE-03 mục lục màn hình hiển thị", async ({ page }) => {
+test("SMOKE-03 trang gốc chuyển hướng sang đăng nhập", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Whybi AI" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /GV-05 · Dashboard bản đồ nhiệt/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
 });
 
 test("SMOKE-04 trang đăng nhập có ô email, mật khẩu và nút", async ({ page }) => {

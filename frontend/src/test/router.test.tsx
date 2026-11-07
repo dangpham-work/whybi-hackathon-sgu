@@ -29,6 +29,11 @@ describe("router tự nạp (GD-01)", () => {
     expect(await screen.findByRole("button", { name: "Đăng nhập" })).toBeTruthy();
   });
 
+  it("đường dẫn gốc / yêu cầu đăng nhập (chuyển sang /login khi chưa có phiên)", async () => {
+    open("/");
+    expect(await screen.findByRole("button", { name: "Đăng nhập" })).toBeTruthy();
+  });
+
   it("đường dẫn lạ hiện trang không tìm thấy", async () => {
     open("/khong-co-trang-nay");
     expect(await screen.findByRole("heading", { name: /Không tìm thấy trang/ })).toBeTruthy();
