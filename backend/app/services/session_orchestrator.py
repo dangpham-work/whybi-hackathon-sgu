@@ -28,6 +28,7 @@ from app.ai.agents.guard import GuardAgent
 from app.ai.agents.judge import JudgeAgent
 from app.ai.agents.tutee import MAX_QUESTIONS, MIN_QUESTIONS, CoverageAnalysis, SessionContext, TuteeAgent
 from app.ai.gateway import LLMGateway, get_gateway
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models.enums import (
     FlagType,
@@ -166,6 +167,23 @@ class SessionOrchestrator:
         self.judge = JudgeAgent(self.gateway, runs=judge_runs)
         self.max_questions = max(MIN_QUESTIONS, min(MAX_QUESTIONS, max_questions))  # FR-TB-08: 3–5 câu
 
+    @staticmethod
+    def _audio_url(s: TeachingSession, turn: SessionTurn) -> str | None:
+        if not s.tts_enabled:
+            return None
+        return f"{get_settings().api_prefix}/sessions/{s.id}/turns/{turn.turn_no}/tts"
+
+    def _current_question(self, s: TeachingSession, h: _History) -> Question | None:
+        q = h.current_question()
+        if q is not None:
+            turn = next(
+                t
+                for t in reversed(h.turns)
+                if t.speaker == Speaker.TUTEE and t.turn_type in (TurnType.OPENING, TurnType.QUESTION)
+            )
+            q.audio_url = self._audio_url(s, turn)
+        return q
+
     # ------------------------------------------------------------------ nạp dữ liệu
 
     def _node(self, node_id: UUID) -> tuple[UUID, Node]:
@@ -271,7 +289,8 @@ class SessionOrchestrator:
         try:
             opening = self.tutee.opening_line(node, session_id=str(s.id))
             h = _History([])
-            self._add_tutee(s, h, opening, TurnType.OPENING)
+            opening_turn = self._add_tutee(s, h, opening, TurnType.OPENING)
+            opening.audio_url = self._audio_url(s, opening_turn)
             s.status = SessionStatus.EXPLAINING
             self.db.commit()
         except Exception:
@@ -370,7 +389,7 @@ class SessionOrchestrator:
         self.db.commit()
         return TurnReply(
             status=SessionStatus(s.status),
-            question=h.current_question(),
+            question=self._current_question(s, h),
             notice=notice,
             questions_asked=asked,
             questions_total=max(asked, self.max_questions),
@@ -423,7 +442,8 @@ class SessionOrchestrator:
         )
         question = self.tutee.next_question(ctx)
         if question is not None:
-            self._add_tutee(s, h, question, TurnType.QUESTION)
+            question_turn = self._add_tutee(s, h, question, TurnType.QUESTION)
+            question.audio_url = self._audio_url(s, question_turn)
             self.db.commit()
             self._emit_question(s.id, question)
             asked = len(h.asked())
@@ -520,6 +540,34 @@ class SessionOrchestrator:
                 result.total_score,
             )
         return result
+
+    # ------------------------------------------------------------------ GET /sessions/{id}/turns/{n}/tts (C1-14)
+
+    def question_text_for_tts(self, student_id: UUID, session_id: UUID, turn_no: int) -> str:
+        """Only the session owner can play Tutee opening/question turns with TTS enabled."""
+        s = self._session(session_id, student_id)
+        if not s.tts_enabled:
+            raise AppError(404, "TTS_NOT_ENABLED", "TTS is disabled for this session")
+        t = self.db.scalar(
+            select(SessionTurn).where(
+                SessionTurn.session_id == s.id,
+                SessionTurn.turn_no == turn_no,
+                SessionTurn.speaker == Speaker.TUTEE,
+                SessionTurn.turn_type.in_([TurnType.OPENING, TurnType.QUESTION]),
+            )
+        )
+        if t is None:
+            raise AppError(404, "TURN_NOT_FOUND", "No question at this turn", {"turnNo": turn_no})
+        return t.content or ""
+
+    # ------------------------------------------------------------------ POST /sessions/{id}/audio (C1-12)
+
+    def audio_node(self, student_id: UUID, session_id: UUID) -> Node:
+        """Glossary source for an active session owned by the requesting student."""
+        s = self._session(session_id, student_id)
+        if s.status not in ACTIVE:
+            raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
+        return self._node(s.node_id)[1]
 
     # ------------------------------------------------------------------ GET /sessions/{id}/result
 
