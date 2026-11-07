@@ -45,15 +45,27 @@
 
 - C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.
 
-## Cập nhật 2026-11-07 – xong phần C1, sửa CI main đỏ (#145)
+## C1-18 / #145 – embedding fake sau port
 
-- Xong: toàn bộ thẻ C1 (C1-01 … C1-18) đã port và merge; issue #1–#18 đã đóng. Đăng không còn chặn vòng nào.
-- CI `main` đỏ từ #122: test của C1-09/10/11/12/13/15 cần bản mới của file thuộc thẻ làm tay trước khi port
-  (chi tiết #145). Tạm bỏ qua 14 module test của thẻ C1 bằng `collect_ignore` trong `backend/tests/unit/conftest.py`
-  và `backend/tests/ai/conftest.py` (ghi rõ từng module chờ thẻ / file nào).
-  **Ai port tới thẻ ghi trong chú thích thì xóa dòng tương ứng** để test chạy lại.
-- Cần từ người khác:
-  - Long: chọn cách đồng bộ file lệch nguồn (#145); migration C2-17 (`class_sections.challenge_count`) –
-    code C1-10/11 trên main đã dùng cột này nên dựng cây / sinh rubric có thể lỗi trên bản deploy.
-  - Quyền: thử tải giáo trình trên bản deploy để xác nhận lỗi `challenge_count`.
-  - Mọi người có PR đang mở: sau khi PR sửa CI merge thì `git pull --rebase origin main` rồi đẩy lại để CI chạy lại.
+- Đã khôi phục embedding băm 768 chiều, xác định và chuẩn hóa cho FakeProvider; helper _hash_embedding đáp ứng test RAG/cây đã port.
+- Hồi quy trước sửa: test_fake_embeddings_are_normalized_and_deterministic đỏ vì vector toàn 0. Sau sửa: test_fake_gateway.py + test_tree_builder.py có 18 passed; Ruff check/format xanh.
+- Toàn bộ tests/ai: 275 passed, 3 failed trong test_demo_mode.py do phần nối fallback C1-13 còn thiếu ở Tutee/Judge. Không quy số liệu fake thành đánh giá AI thật.
+- #145 chưa xong: còn phần nối C1-09/STT/TTS/timer và phụ thuộc C2. Nhánh này không thay schema, migration hay code của thành viên khác; không merge.
+
+## C1-13 – nối lại demo dự phòng khi LLM mất mạng
+
+- Khôi phục đúng các điểm gọi fallback đã có trong app.ai.demo: mở đầu/câu hỏi/coverage Tutee và một lượt chấm Judge, chỉ khi DEMO_MODE=1 và LLM_UNAVAILABLE.
+- Test hồi quy trước sửa: 3 lỗi trong test_demo_mode.py. Sau sửa toàn bộ tests/ai có 286 passed; thêm 8 ca bảo đảm không nuốt lỗi ngân sách token/cấu hình.
+- Giữ nguyên Guard, cách bọc transcript, hợp đồng, model và migration. LLM_MODE=fake không phải số liệu đánh giá model thật.
+- Phụ thuộc PR embedding trên fix/145-c1-embedding; chưa merge hoặc đóng thêm issue.
+- Review độc lập phát hiện fallback câu hỏi từ rubric có thể xác nhận đáp án/giảng hộ khi mất LLM; đã thêm 2 ca tái hiện đỏ và áp role_violation trước trả fallback. Toàn bộ tests/ai sau sửa: 288 passed; Ruff xanh.
+
+## Bàn giao phần C1 – các PR chờ Đăng/Long review
+
+- #147: giáo trình và jobId/quyền kênh tiến độ; khôi phục test preprocess đã sửa.
+- #148: API STT và consent. #149 xếp trên #148: TTS private và audioUrl khi bật. Thắng có thể review phần nối SV-05; Quyền chuẩn bị kiểm thử giọng nói sau khi #148 và GD-08 được merge.
+- #150: embedding fake và demo fallback; khôi phục test_demo_mode.py (288 test AI xanh). Đã tiếp nhận main #146, không thay danh sách skip ngoài những module có bản sửa và kiểm chứng tương ứng.
+- C1-15 (#15) còn cần Long chốt ClassSection.challenge_count, ClassService.get_settings, answer_time_limit_s=120 và answer_grace_s=10. Không tự sửa model/migration/config C2.
+- Cây/rubric còn cần Long nối SkillTreeService.get_node_for_session/node_for_edit và endpoint regenerate_rubric; giữ các test phụ thuộc này tạm bỏ qua như #146.
+- STT thật cần số liệu p95 từ ghi âm thực; server chưa kiểm được thời lượng audio nén (WAV đã có). Không ghi số liệu fake thành kết quả thực nghiệm.
+- Không merge, auto-merge, đóng issue hoặc sửa main trong phiên này. Các PR để draft cho tới khi đủ kiểm chứng; #145 vẫn còn phần cần phối hợp.

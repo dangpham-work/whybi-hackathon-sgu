@@ -15,9 +15,11 @@ from typing import Any
 
 from pydantic import ConfigDict, Field
 
+from app.ai import demo
 from app.ai.agents.guard import GuardAgent, confirms_answer, fold, leaked_point
 from app.ai.gateway import LLMGateway
 from app.ai.prompts import format_transcript, render_prompt, wrap_student_text
+from app.core.errors import AppError
 from app.models.enums import QuestionStrategy
 from app.models.schemas.common import ApiModel
 from app.models.schemas.session import Question
@@ -128,14 +130,20 @@ class TuteeAgent:
             return Question(text=out.question.strip())
 
         key_points = [k.content for k in node.rubric.key_points] if node.rubric else []
-        safe = self.guard.ensure_safe_question(
-            generate,
-            key_points,
-            node_title=node.title,
-            fallback=Question(text=opening_template(node)),
-            session_id=session_id,
-            extra_check=lambda text: role_violation(text, node.title),
-        )
+        fallback = Question(text=opening_template(node))
+        try:
+            safe = self.guard.ensure_safe_question(
+                generate,
+                key_points,
+                node_title=node.title,
+                fallback=fallback,
+                session_id=session_id,
+                extra_check=lambda text: role_violation(text, node.title),
+            )
+        except AppError as exc:
+            if not demo.active(exc):
+                raise
+            return fallback  # C1-13: LLM mất kết nối ⇒ câu mở đầu mẫu
         return safe.question
 
     def analyze_coverage(
@@ -153,7 +161,15 @@ class TuteeAgent:
             {"role": "system", "content": system},
             {"role": "user", "content": wrap_student_text(format_transcript(transcript))},
         ]
-        raw = self.gateway.call_json(CoverageAnalysis, messages, model=self.model, temperature=0, session_id=session_id)
+        try:
+            raw = self.gateway.call_json(
+                CoverageAnalysis, messages, model=self.model, temperature=0, session_id=session_id
+            )
+        except AppError as exc:
+            if not demo.active(exc):
+                raise
+            # C1-13: LLM mất kết nối ⇒ đối chiếu từ khóa của lời SV với từng ý chính
+            raw = CoverageAnalysis(covered_points=demo.covered_points(format_transcript(transcript), rubric))
         return raw.normalised(rubric)
 
     def next_question(self, ctx: SessionContext) -> Question | None:
@@ -192,14 +208,20 @@ class TuteeAgent:
             )
             return Question(text=out.question.strip(), strategy=strategy, target_point_id=target)
 
-        safe = self.guard.ensure_safe_question(
-            generate,
-            [k.content for k in rubric.key_points],
-            node_title=node.title,
-            fallback=fallback_question(node, strategy, target),
-            session_id=ctx.session_id,
-            extra_check=lambda text: role_violation(text, node.title),
-        )
+        fallback = fallback_question(node, strategy, target)
+        try:
+            safe = self.guard.ensure_safe_question(
+                generate,
+                [k.content for k in rubric.key_points],
+                node_title=node.title,
+                fallback=fallback,
+                session_id=ctx.session_id,
+                extra_check=lambda text: role_violation(text, node.title),
+            )
+        except AppError as exc:
+            if not demo.active(exc):
+                raise
+            return fallback  # C1-13: LLM mất kết nối ⇒ câu từ ngân hàng tình huống của rubric
         return safe.question
 
 
@@ -315,7 +337,10 @@ def fallback_question(node: Node, strategy: QuestionStrategy, target: str | None
             text = f"Mình thắc mắc thế này: {sc[0].lower()}{sc[1:]}"
     elif strategy == QuestionStrategy.TRANSFER:
         text = f'Thế "{title}" giúp được gì khi mình gặp một bài toán thực tế? Bạn cho mình một ví dụ được không?'
-    if text and leaked_point(text, [k.content for k in rubric.key_points], ignore=title) is not None:
+    if text and (
+        role_violation(text, title) is not None
+        or leaked_point(text, [k.content for k in rubric.key_points], ignore=title) is not None
+    ):
         text = None  # câu trong ngân hàng (do người soạn rubric viết) lỡ chứa ý chính ⇒ dùng câu chung
     if not text:
         text = f'Mình vẫn chưa hình dung hết về "{title}". Còn điều gì quan trọng mà bạn chưa kể cho mình không?'
