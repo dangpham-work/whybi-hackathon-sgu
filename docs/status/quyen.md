@@ -42,3 +42,9 @@
 - Bootstrap chỉ tự seed stack Docker localhost với APP_ENV=dev|test, LLM_MODE=fake; khóa Postgres tránh seed đồng thời. Bản deploy test ngoài CI phải cung cấp KT06_COURSE_ID của môn đã seed.
 - Dữ liệu/lớp được tạo riêng cho mỗi ca; trace, screenshot và kết quả JSON trong artifact playwright-report. Chưa có bằng chứng trên VM thật. Không chạy test local; chờ GitHub CI và Long duyệt.
 - Lỗi tải lại SV-04 đã có issue #79; không đóng hoặc coi đã sửa trong KT-06.
+## KT-08 – bảo mật và phân quyền
+
+- C2-07 đã merge. Chuyển bộ test phù hợp API hiện tại từ whybi-ai@4d48966: JWT thật, Argon2id, ma trận vai trò viết tay và Postgres kiểm dữ liệu theo lớp/người.
+- C1-07 đã có: bỏ xfail cho kiểm quyền kết quả phiên và gửi lượt. Các endpoint C2-13/C2-17/C2-20/C1-12 chưa có vẫn xfail(strict=True) với lý do cụ thể, tự báo XPASS khi triển khai xong.
+- Sửa my_map kiểm ghi danh trước khi đọc cây, để SV ngoài lớp nhận 403 ngay cả khi cây chưa phát hành; cần Long rà thay đổi services/mastery.py.
+- Không test local. Theo Quyền, tạo PR thường; đóng #47 khi tất cả GitHub checks pass, không coi đây là xác nhận CD/VM.

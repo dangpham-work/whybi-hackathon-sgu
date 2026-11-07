@@ -309,7 +309,6 @@ class MasteryService:
             savepoint.rollback()
 
     def my_map(self, class_id: UUID, student_id: UUID) -> MyMap:
-        t = self._tree(class_id)
         self._require_enrolled(class_id, student_id)
         t = self._tree(class_id)
         changes = self._sync(t, [student_id])
