@@ -88,3 +88,13 @@
 - Sinh lại `src/lib/api-types.ts` từ OpenAPI hiện tại của backend (bản cũ thiếu các trường C2-13); không có lỗi kiểu ở màn cũ.
 - Cần từ Long (C2-13): `NodeDetail.topMisconceptions` là `list[dict]` – màn đang đọc `content` / `count`; xin chốt tên trường. Payload `heatmap.cell|node` không có trong OpenAPI nên frontend tự khai báo kiểu (khớp `schemas/mastery.py`).
 - Chưa làm: tab "Điểm nghẽn", "Ghép cặp", danh sách "Đang diễn ra", nút "Nhắc SV thử lại", "Xuất danh sách" (cần API); ẩn tên khi chiếu, lọc, xuất báo cáo thuộc GD-14 / GD-16.
+
+## GD-13 – GV-07, GV-08 (2026-10-24)
+
+- Xong: GV-07 hồ sơ SV (tiến độ, số phiên, điểm trung bình, cờ, trạng thái từng nút kèm tên nút từ cây, lịch sử phiên, quan niệm sai); GV-08 transcript từng lượt,
+  nghe lại ghi âm (tải bằng token vì `<audio src>` không gửi được Authorization; 404 `AUDIO_NOT_AVAILABLE` báo "không còn"), 5 tiêu chí, cờ vi phạm.
+  Test: `src/test/gd13.test.tsx`. Sinh lại `api-types.ts` (cùng bản với PR GD-10).
+- Cần từ Long (C2-17):
+  - GV-08 chỉ có `sessionId` trên đường dẫn nhưng transcript chỉ lấy được qua hồ sơ SV, nên link từ GV-07 mang theo `?classId=&studentId=`. Xin `GET /sessions/{id}/transcript` (hoặc `GET /classes/{id}/sessions/{sid}`) cho GV để mở thẳng từ nơi khác.
+  - Hồ sơ SV chưa có ngày tham gia lớp, nên header chưa hiện "Tham gia dd/mm".
+- Chưa làm: "Nhắc thử lại", "Xuất hồ sơ", "Gợi ý ghép cặp", "Gửi nhắc nhở" (GV-07); "Tải ghi âm", "Chấp nhận kết quả", "Gắn cờ phiên", sóng âm tổng (GV-08) – cần API tương ứng.
