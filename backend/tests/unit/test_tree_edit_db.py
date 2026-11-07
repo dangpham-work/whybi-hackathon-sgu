@@ -75,6 +75,7 @@ def world():
     tx = conn.begin()
     db = Session(bind=conn, join_transaction_mode="create_savepoint")
     w = World(db)
+    w.db = db
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[deps.get_current_user] = lambda: deps.CurrentUser(id=w.current, role=w.roles[w.current])
     w.api = TestClient(app)
