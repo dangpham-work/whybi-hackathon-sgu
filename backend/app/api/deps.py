@@ -74,10 +74,19 @@ def get_current_user(
 ) -> CurrentUser:
     if creds is None:
         raise AppError(401, "UNAUTHORIZED", "Thiếu token đăng nhập")
-    dev_user = _dev_user(creds.credentials)
+    return user_from_token(creds.credentials, revocations)
+
+
+def user_from_token(token: str | None, revocations: Revocations) -> CurrentUser:
+    """Giải mã token access (hoặc token dev). Dùng chung cho HTTP và WebSocket (C2-13 – token theo lệnh subscribe)."""
+    if not token:
+        raise AppError(401, "UNAUTHORIZED", "Thiếu token đăng nhập")
+    if not isinstance(token, str):  # lệnh subscribe WebSocket là JSON tự do: token có thể là mảng / object
+        raise AppError(401, "INVALID_TOKEN", "Token không hợp lệ")
+    dev_user = _dev_user(token)
     if dev_user is not None:
         return dev_user
-    claims = verified_claims(creds.credentials, "access", revocations)
+    claims = verified_claims(token, "access", revocations)
     try:
         role = Role(claims["role"])
         user_id = UUID(claims["sub"])

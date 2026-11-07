@@ -48,3 +48,8 @@
 - C1-07 đã có: bỏ xfail cho kiểm quyền kết quả phiên và gửi lượt. Các endpoint C2-13/C2-17/C2-20/C1-12 chưa có vẫn xfail(strict=True) với lý do cụ thể, tự báo XPASS khi triển khai xong.
 - Sửa my_map kiểm ghi danh trước khi đọc cây, để SV ngoài lớp nhận 403 ngay cả khi cây chưa phát hành; cần Long rà thay đổi services/mastery.py.
 - Không test local. Theo Quyền, tạo PR thường; đóng #47 khi tất cả GitHub checks pass, không coi đây là xác nhận CD/VM.
+### KT-08 – bổ sung phụ thuộc xác thực WebSocket
+
+- CI PR #135 lỗi chung backend/E2E do main port realtime.py (C1-09) import user_from_token nhưng deps.py chưa có hàm này.
+- Lấy đúng deps.py từ whybi-ai@75145a4: HTTP và WebSocket dùng chung verified_claims và xử lý token không phải chuỗi bằng INVALID_TOKEN. Không kéo phần thu hồi theo user của C2-19 chưa có.
+- Theo Quyền: không test local và không chờ/chạy lại CI thủ công; sửa từ nguồn rồi push cùng PR. Chưa tuyên bố bản sửa đã pass CI.
