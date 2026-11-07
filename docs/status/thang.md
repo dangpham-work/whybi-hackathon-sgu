@@ -7,6 +7,9 @@
   - GD-03 – component `SkillTree` (React Flow + dagre), dùng chung cho GV-04, GV-05, SV-02 (PR #81)
   - GD-02 – kiểu sinh từ OpenAPI (đã có schema C1-01, C2-02), lớp gọi API có kiểu, WebSocket client, trạng thái tải / lỗi dùng chung (PR #85)
   - GD-04 – AUTH-01 Đăng nhập, AUTH-02 Quên mật khẩu, ME-01 Hồ sơ, SV-01 Danh sách lớp + nhập mã 8 ký tự. Dựng theo scaffold C2-07 / C2-08, test dùng mock.
+  - GD-07 – SV-04 Phiên giảng lại (`pages/student/SV04.tsx`, xếp chồng trên C1-07 #94): hội thoại, ô gõ đo dán / tốc độ gõ,
+    `Recorder` (MediaRecorder ≤ 3 phút lời giảng / 90 s câu trả lời, tự dừng, hỏi đồng ý BR-13 trước khi xin micro, xử lý bị chặn micro)
+    và `Waveform` (AnalyserNode). Test `src/test/sv04.test.tsx`, `src/test/typing-meter.test.ts`.
 - Phát sự kiện / hợp đồng đã chốt:
   - Phiên đăng nhập ở `frontend/src/lib/auth.ts`:
     - `auth.login()` gọi `POST /auth/login`, dùng `accessToken` làm Bearer, rồi `GET /me`. Vai lấy từ `/me`, không giải mã JWT.
@@ -27,8 +30,21 @@
     - `RealtimeClient` gửi `{action: "subscribe" | "unsubscribe", channel, token}`, nhận `{channel, event, payload}`. Tin không có `channel` thì phát cho mọi người nghe.
     - Tự nối lại sau 1 → 10 s và phát sự kiện `reconnected`. Có `close()`, `onStatus()` và hook `useChannel()`.
   - Gọi API khi chưa có C2-07: đặt `VITE_DEV_TOKEN=dev-lecturer` trong `frontend/.env.local` (chỉ có tác dụng ở `npm run dev`).
+  - SV-04 (GD-07):
+    - Vào màn: `navigate("/sv/sessions/" + sessionId, { state: { opening, nodeTitle, inputMode } })` (kiểu `SessionLocationState`) – SV-03 (GD-06) gọi `POST /sessions` rồi chuyển sang.
+    - Lượt chữ gửi `Turn{turnType, inputMode:"TEXT", text, pasteRatio, typingCps, responseTimeMs, transcriptEdited:false}`;
+      `pasteRatio` = ký tự dán / (dán + gõ), `typingCps` = ký tự gõ / giây gõ thật (khoảng nghỉ cắt ở 2 s) – `lib/typing-meter.ts`.
+    - Lượt giọng: `POST /sessions/{id}/audio` (multipart `file`, webm/opus) → `Transcript` → `Turn{inputMode:"VOICE", text, audioRef, sttConfidence}`.
+    - `turnType`: EXPLANATION khi phiên `EXPLAINING`, ANSWER khi `CHALLENGING` (khớp orchestrator). Câu hỏi nhận từ `TurnReply.question` và `session.question` trên kênh `session:{id}`, bỏ trùng.
+    - Đồng ý ghi âm giữ trong phiên màn (hỏi 1 lần mỗi phiên), không lưu trình duyệt.
+    - Thêm `FRIENDLY`: `SESSION_NOT_FOUND`, `SESSION_NOT_ACTIVE`, `TOKEN_BUDGET_EXCEEDED`.
+    - Lưu ý chạy test: Vitest 5 lưu cache module ở `node_modules/.vitest-cache`; thêm màn mới mà router vẫn ra trang giữ chỗ thì xóa thư mục này.
 - Đang làm: —
 - Cần từ người khác:
+  - Đăng (C1-12): `POST /sessions/{id}/audio` hiện trả 501 – SV-04 hiện "đang phát triển (thẻ C1-12)" và gợi ý gõ chữ; lượt giọng chỉ chạy thật khi C1-12 xong.
+  - Đăng (C1-07/C1-08): orchestrator chưa lưu `typingCps` (chỉ `pasteRatio`) – frontend đã gửi; C1-08 nhận dùng.
+  - Đăng (C1-07): cần `GET /sessions/{id}` (trạng thái, câu hỏi hiện tại, tiến độ, tên nút) để SV-04 tải lại trang không mất hội thoại.
+  - Đăng: `Transcript.needsConfirmation` → SV-05 xác nhận bản chép lời (GD-08); GD-07 tạm gửi thẳng bản chép lời.
   - Long (C2-02): giữ `Node.positionX/positionY` và `Edge.source` như `schemas/tree.py` hiện tại; SkillTree dựa vào các trường này.
   - Long (C2-13): bản đồ nhiệt nên trả màu theo `key` của nút (hoặc kèm `key`) để truyền thẳng vào `heat`. WebSocket gửi `{channel, event, payload}` và nhận thêm `action: "unsubscribe"`.
   - Mọi người viết backend: lỗi luôn qua `AppError` với `code` ổn định. Frontend hiện câu theo `code`, không hiện `message` của máy chủ.
