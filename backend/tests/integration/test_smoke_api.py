@@ -37,7 +37,6 @@ def test_body_sai_tra_422_validation_error(api):
     assert res.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-@pytest.mark.xfail(reason="C2-07: EmailStr trong api/auth.py chặn đuôi .test của tài khoản demo → 422", strict=False)
 def test_dang_nhap_tai_khoan_demo_khong_bi_422(api):
     # seed/users.json + docs/demo-script.md dùng gv@whybi.test; email phải qua được bước kiểm schema
     res = api.post("/auth/login", json={"email": "gv@whybi.test", "password": "Whybi@2026"})
