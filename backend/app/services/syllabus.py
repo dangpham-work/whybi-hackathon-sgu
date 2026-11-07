@@ -176,7 +176,7 @@ class SyllabusService:
             self._discard(url)
             raise
 
-        # jobId = documentId: kênh job:{jobId} kiểm quyền được qua bản ghi tài liệu, không cần bảng / khóa Redis riêng.
+        # jobId = documentId để realtime kiểm quyền qua bản ghi tài liệu.
         job_id = str(doc_id)
         try:
             self.queue.enqueue_syllabus(doc_id, job_id)
