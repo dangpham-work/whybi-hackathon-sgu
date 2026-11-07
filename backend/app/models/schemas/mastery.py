@@ -116,11 +116,23 @@ class HeatmapNode(ApiModel):
 
 
 class HeatmapAlert(ApiModel):
-    """class:{id}:heatmap → heatmap.alert ("Nên giảng lại X")"""
+    """class:{id}:heatmap → heatmap.alert ("Nên giảng lại X"); cũng là kết quả HeatmapService.trace_root_causes.
+
+    C2-12 (mục 6.5.3): `nodeId` là nút ĐỎ Y, `rootCauseNodeId` là nút X nên giảng lại trước
+    (= Y khi `isSelf`: không tổ tiên nào có r(X|Y) ≥ θ). Trường thêm ở C2-12 đều tùy chọn (tương thích ngược).
+    """
 
     node_id: UUID
     root_cause_node_id: UUID
-    message: str
+    message: str  # vd. "Nên giảng lại N5 Con trỏ"
+    node_key: str | None = None  # C2-12: key của Y
+    root_cause_node_key: str | None = None  # C2-12: key của X – frontend gắn ◎ GỐC theo key
+    root_cause_title: str | None = None  # C2-12
+    is_self: bool = False  # C2-12: Y tự là điểm nghẽn
+    score: float | None = None  # C2-12: r × (1 + 0,1 × khoảng cách) – cũng ghi class_node_stats.root_cause_score
+    conditional_fail_rate: float | None = None  # C2-12: r(X|Y) ∈ [0, 1]
+    failed_count: int | None = None  # C2-12: |F| – số SV đã thử Y nhưng Chưa đạt
+    distance: int | None = None  # C2-12: số cạnh X → Y (0 khi isSelf)
 
 
 class JobProgress(ApiModel):

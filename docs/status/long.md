@@ -5,6 +5,8 @@
 - Xong:
   - C2-08: lớp học phần, mã tham gia 8 ký tự, SV tham gia lớp (gọi `MasteryService.ensure_student`), tải giáo trình
     PDF/DOCX ≤ 20 MB lên kho S3 (tự tạo bucket `S3_BUCKET`), tạo `syllabus_documents` + job Celery, trả `jobId`. Không có migration.
+  - C2-12: truy vết điểm nghẽn gốc (6.5.3) + cảnh báo "Nên giảng lại X". Ví dụ Hình 6.9 (Y = N6, |F| = 9,
+    r(N5|N6) = 7/9) ra đúng gốc N5 Con trỏ – test hàm thuần và test CSDL thật (lớp 30 SV, cây mẫu).
   - C2-11: tổng hợp bản đồ nhiệt (hàng đợi `aggregation`) – tỉ lệ Đạt / đã thử, cỡ mẫu tối thiểu, màu Bảng 6.6,
     tách "chưa thử" / "chưa đủ mẫu" khỏi "chưa đạt". Lớp giả lập 30 SV ra đúng màu (gồm biên 70 %, 40 %, cỡ mẫu 5).
   - C2-07: đăng nhập / làm mới / đăng xuất / quên + đặt lại mật khẩu / GET + PATCH /me; Argon2id; JWT access 30 phút;
@@ -38,6 +40,15 @@
     - Tệp lưu ở `s3://{S3_BUCKET}/syllabi/{classId}/{documentId}.{pdf|docx}` (`syllabus_documents.file_url`);
       đọc lại bằng `app.services.storage.default_storage().get(url)`.
     - Job: `celery.send_task("app.workers.documents.process_syllabus", args=[documentId, jobId], task_id=jobId)` → hàng đợi `documents`.
+  - **Điểm nghẽn gốc** (C2-12):
+    - `app/algorithms/rootcause.py`: `analyze(g, y, F, not_mastered, θ=0,6, D=3, min_sample)` → `RootCause | None`
+      (None khi |F| < cỡ mẫu); score = r × (1 + 0,1 × khoảng cách), hòa điểm chọn nút xa hơn rồi theo key; không ứng viên ⇒ Y tự là gốc.
+    - `HeatmapService.trace_root_causes(class_id)` → `list[HeatmapAlert]`; ghi `class_node_stats.root_cause_node_id / root_cause_score`
+      cho mọi nút (hết đỏ ⇒ NULL). Hàng đợi `aggregation` và phát hành cây gọi sau mỗi lần tính lại, cùng giao dịch.
+    - `HeatmapAlert` (payload `heatmap.alert`) thêm trường tùy chọn: `nodeKey`, `rootCauseNodeKey`, `rootCauseTitle`, `isSelf`,
+      `score`, `conditionalFailRate`, `failedCount`, `distance`. `message` dạng "Nên giảng lại N5 Con trỏ".
+    - "Chưa Đạt X" = không MASTERED / NEEDS_REVERIFY (cùng định nghĩa bản đồ nhiệt); SV chưa có ô ⇒ chưa Đạt.
+    - `MasteryService.class_matrix(class_id)` (chỉ đọc): cây đang phát hành + ô theo key × SV.
   - **Bản đồ nhiệt** (C2-11):
     - Màu (`app/algorithms/heatmap.py`): đã thử < `min_sample` (5) ⇒ GREY; p ≥ 0,7 ⇒ GREEN; p ≥ 0,4 ⇒ YELLOW; còn lại RED.
       p = Đạt / đã thử (so bằng phân số, 21/30 là GREEN). Đạt = MASTERED hoặc NEEDS_REVERIFY; IN_PROGRESS xét theo `prev_state`.
@@ -97,6 +108,8 @@
 - Đang làm: —
 - Cần từ người khác:
   - Thắng (GD-10): tô SkillTree `heat` theo `nodeKey` của `HeatmapNode`; hiện `label` cạnh màu (GREY có hai nghĩa: chưa thử / chưa đủ mẫu).
+  - Thắng (GD-10): chạy `npm run gen:api` (HeatmapAlert có trường mới); nút có `rootCauseNodeKey` hiện ◎ GỐC kèm chữ `message` ("Nên giảng lại …").
+  - Quyền (KT-11): TC12 truy vết gốc – xem `backend/tests/unit/test_rootcause_db.py` (dựng ví dụ Hình 6.9 trên cây mẫu).
   - Đăng (C1-10): `TreeVersion` giờ từ chối cạnh trỏ tới key không có và cạnh tự trỏ. Nếu sinh cây nháp bằng `call_json`,
     dùng schema nháp riêng (không validator) hoặc lọc cạnh lỗi trước, rồi mới dựng `TreeVersion` và gọi `sanitize` (C2-09).
   - Thắng: chạy `npm run gen:api` để lấy kiểu `TreeVersion` (có thêm `expectedPoints`). Gọi API bằng token `dev-lecturer`.

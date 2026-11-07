@@ -12,7 +12,7 @@ Bên gọi:
     kết quả chấm đi qua sự kiện `session.completed` → `apply_result(SessionResult)` (`register_handlers`).
 - Tham gia lớp sau khi đã phát hành (C2-08) → `ensure_student(class_id, student_id)` (my_map cũng tự tạo ô còn thiếu).
 - GET /classes/{id}/my-map → `my_map(class_id, student_id)`.
-- HeatmapService (C2-11) → `columns(class_id, node_ids)` (chỉ đọc).
+- HeatmapService (C2-11) → `columns(class_id, node_ids)` (chỉ đọc); (C2-12) → `class_matrix(class_id)` (chỉ đọc).
 
 Quy ước:
 - Mỗi (SV, key nút) có đúng một dòng; phát hành phiên bản mới thì CHUYỂN dòng sang nút cùng key ở phiên bản mới
@@ -73,6 +73,17 @@ class NodeColumn:
     node_key: str
     enrolled: int
     cells: list[Cell]
+
+
+@dataclass(frozen=True)
+class ClassMatrix:
+    """Ma trận M[SV, nút] của bản đang phát hành – đầu vào truy vết điểm nghẽn gốc (C2-12). Chỉ đọc.
+
+    `cells[key][student_id]`; SV đang ghi danh chưa có ô ở nút nào thì không có mục (coi như chưa thử, chưa Đạt)."""
+
+    tree: TreeVersion
+    students: list[UUID]
+    cells: dict[str, dict[UUID, Cell]]
 
 
 @dataclass
@@ -231,7 +242,9 @@ class MasteryService:
             raise AppError(409, "VERSION_NOT_PUBLISHED", "Phiên bản chưa phải bản đang phát hành của lớp")
         changes = self._sync(t, students)
         # node_id đổi dù trạng thái giữ nguyên; lớp rỗng cũng cần đủ thống kê nút mới.
-        HeatmapService(self.db).recompute_class(class_id)
+        heat = HeatmapService(self.db)
+        heat.recompute_class(class_id)
+        heat.trace_root_causes(class_id)  # C2-12: nút mới có id mới – ghi lại gốc ngay, không chờ đối soát
         return self._commit(changes)
 
     def ensure_student(self, class_id: UUID, student_id: UUID) -> list[MasteryChanged]:
@@ -359,6 +372,28 @@ class MasteryService:
         for node_id, state, attempts, prev in self.db.execute(q):
             cells[node_id].append(Cell(S(state), attempts or 0, S(prev) if prev else None))
         return [NodeColumn(n, key_of[n], enrolled_count, cells[n]) for n in wanted]
+
+    def class_matrix(self, class_id: UUID) -> ClassMatrix:
+        """Cả ma trận của SV đang ghi danh theo bản đang phát hành – cho HeatmapService truy vết gốc (C2-12).
+        Chỉ đọc, không khóa. 404 CLASS_NOT_FOUND / TREE_NOT_PUBLISHED như `_tree`."""
+        t = self._tree(class_id)
+        enrolled = select(Enrollment.student_id).where(Enrollment.class_id == class_id)
+        students = list(self.db.scalars(enrolled.order_by(Enrollment.student_id)))
+        cells: dict[str, dict[UUID, Cell]] = {k: {} for k in t.id_of}
+        q = select(
+            MasteryRecord.student_id,
+            MasteryRecord.node_id,
+            MasteryRecord.state,
+            MasteryRecord.attempts,
+            MasteryRecord.prev_state,
+        ).where(
+            MasteryRecord.class_id == class_id,
+            MasteryRecord.node_id.in_(list(t.key_of)),
+            MasteryRecord.student_id.in_(enrolled),
+        )
+        for student_id, node_id, state, attempts, prev in self.db.execute(q):
+            cells[t.key_of[node_id]][student_id] = Cell(S(state), attempts or 0, S(prev) if prev else None)
+        return ClassMatrix(tree=t.schema, students=students, cells=cells)
 
     # ------------------------------------------------------------------ phiên (Bảng 4.8)
 
