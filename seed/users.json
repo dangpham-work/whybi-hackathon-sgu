@@ -1,0 +1,199 @@
+{
+  "password_note": "Mật khẩu mặc định cho mọi tài khoản mẫu: Whybi@2026 (chỉ dùng cho môi trường dev/demo)",
+  "lecturers": [
+    {
+      "email": "gv@whybi.test",
+      "full_name": "TS. Nguyễn Văn Bình",
+      "faculty": "Khoa CNTT",
+      "academic_title": "TS."
+    }
+  ],
+  "admins": [
+    {
+      "email": "admin@whybi.test",
+      "full_name": "Quản trị Whybi"
+    }
+  ],
+  "students": [
+    {
+      "email": "sv01@whybi.test",
+      "full_name": "Nguyễn Văn An",
+      "student_code": "3122410001",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv02@whybi.test",
+      "full_name": "Trần Minh Châu",
+      "student_code": "3122410002",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv03@whybi.test",
+      "full_name": "Lê Thu Hà",
+      "student_code": "3122410003",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv04@whybi.test",
+      "full_name": "Phạm Quốc Dũng",
+      "student_code": "3122410004",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv05@whybi.test",
+      "full_name": "Võ Minh Khang",
+      "student_code": "3122410005",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv06@whybi.test",
+      "full_name": "Ngô Tuấn Kiệt",
+      "student_code": "3122410006",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv07@whybi.test",
+      "full_name": "Lý Thanh Tâm",
+      "student_code": "3122410007",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv08@whybi.test",
+      "full_name": "Hồ Ngọc Ánh",
+      "student_code": "3122410008",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv09@whybi.test",
+      "full_name": "Bùi Gia Bảo",
+      "student_code": "3122410009",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv10@whybi.test",
+      "full_name": "Đặng Thảo Chi",
+      "student_code": "3122410010",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv11@whybi.test",
+      "full_name": "Đỗ Hải Đăng",
+      "student_code": "3122410011",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv12@whybi.test",
+      "full_name": "Huỳnh Mỹ Duyên",
+      "student_code": "3122410012",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv13@whybi.test",
+      "full_name": "Phan Thành Đạt",
+      "student_code": "3122410013",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv14@whybi.test",
+      "full_name": "Vũ Hoàng Giang",
+      "student_code": "3122410014",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv15@whybi.test",
+      "full_name": "Trương Bảo Hân",
+      "student_code": "3122410015",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv16@whybi.test",
+      "full_name": "Mai Đức Huy",
+      "student_code": "3122410016",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv17@whybi.test",
+      "full_name": "Đinh Khánh Linh",
+      "student_code": "3122410017",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv18@whybi.test",
+      "full_name": "Tạ Quang Minh",
+      "student_code": "3122410018",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv19@whybi.test",
+      "full_name": "Lâm Thảo My",
+      "student_code": "3122410019",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv20@whybi.test",
+      "full_name": "Châu Gia Nghi",
+      "student_code": "3122410020",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv21@whybi.test",
+      "full_name": "Quách Trọng Nhân",
+      "student_code": "3122410021",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv22@whybi.test",
+      "full_name": "Lương Yến Nhi",
+      "student_code": "3122410022",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv23@whybi.test",
+      "full_name": "Kiều Minh Phát",
+      "student_code": "3122410023",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv24@whybi.test",
+      "full_name": "Tôn Nữ Phương",
+      "student_code": "3122410024",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv25@whybi.test",
+      "full_name": "Diệp Anh Quân",
+      "student_code": "3122410025",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv26@whybi.test",
+      "full_name": "Ông Ngọc Quỳnh",
+      "student_code": "3122410026",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv27@whybi.test",
+      "full_name": "Triệu Đức Tài",
+      "student_code": "3122410027",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv28@whybi.test",
+      "full_name": "La Thanh Thảo",
+      "student_code": "3122410028",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv29@whybi.test",
+      "full_name": "Mạc Văn Toàn",
+      "student_code": "3122410029",
+      "cohort": "K22"
+    },
+    {
+      "email": "sv30@whybi.test",
+      "full_name": "Hứa Bảo Vy",
+      "student_code": "3122410030",
+      "cohort": "K22"
+    }
+  ]
+}
