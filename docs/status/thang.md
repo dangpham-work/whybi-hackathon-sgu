@@ -2,12 +2,44 @@
 
 > Cập nhật sau mỗi thẻ (kế hoạch §4.2). Mọi người – và mọi phiên AI – đọc hết `docs/status/` trước khi sửa code.
 
-- Xong: GD-01 – khung giao diện 3 vai (GV sidebar + breadcrumb, SV thanh tab dưới, QTV sidebar), ngăn kéo menu dưới 1024px, trang 404; route tự nạp có `handle.screen`
+- Xong:
+  - GD-01 – khung giao diện 3 vai (PR #79)
+  - GD-03 – component `SkillTree` (React Flow + dagre), dùng chung cho GV-04, GV-05, SV-02 (PR #81)
+  - GD-02 – kiểu sinh từ OpenAPI (đã có schema C1-01, C2-02), lớp gọi API có kiểu, WebSocket client, trạng thái tải / lỗi dùng chung (PR #85)
+  - GD-04 – AUTH-01 Đăng nhập, AUTH-02 Quên mật khẩu, ME-01 Hồ sơ, SV-01 Danh sách lớp + nhập mã 8 ký tự. Dựng theo scaffold C2-07 / C2-08, test dùng mock.
 - Phát sự kiện / hợp đồng đã chốt:
-  - Menu theo vai ở `frontend/src/lib/nav.ts` (`NAV.LECTURER/STUDENT/ADMIN`) – thêm mục menu thì sửa ở đây.
-  - `frontend/src/router.tsx` export `routes` (test / e2e dựng bằng `createMemoryRouter`); màn mới vẫn chỉ cần tạo `src/pages/<vai>/<MÃ>.tsx`.
-  - Layout lấy màn đang mở qua `useCurrentScreen()` (`src/layouts/shell.tsx`).
-- Đang làm: GD-03
+  - Phiên đăng nhập ở `frontend/src/lib/auth.ts`:
+    - `auth.login()` gọi `POST /auth/login`, dùng `accessToken` làm Bearer, rồi `GET /me`. Vai lấy từ `/me`, không giải mã JWT.
+    - `auth.logout()` luôn xóa phiên phía trình duyệt, kể cả khi máy chủ lỗi.
+    - Có thêm `useCurrentUser()`, `homeFor(role)` (GV → `/gv/classes`, SV → `/sv/classes`, QTV → `/admin/users`) và `?next=` sau đăng nhập.
+  - Layout ba vai hiện tên và vai từ `/me`; chưa đăng nhập thì hiện "Khách".
+  - `<AsyncView>` gặp 401 thì hiện link "Đăng nhập lại" kèm `?next=` để quay về đúng trang. `?next=` lọc qua `safeNext()` để chặn open redirect.
+  - Refresh token chỉ giữ trong bộ nhớ, không ghi localStorage. Đề xuất C2-07 đặt refresh token bằng cookie httpOnly.
+  - `TREE_STATUS` và `NO_TREE` trong `lib/status.ts`: huy hiệu trạng thái cây có màu, biểu tượng và chữ.
+  - `SkillTree` (`frontend/src/components/SkillTree.tsx`): props `mode` (`edit` | `heatmap` | `learner`), `nodes` / `edges` (kiểu `Node` / `Edge` sinh từ OpenAPI), `mastery` / `heat` theo `key` của nút, `details`, `rootCauseKey`, `selectedKey`, `onNodeClick`, `onNodeMove`, `onConnect`.
+  - Tự sắp xếp bằng `layoutTree()` (`frontend/src/lib/tree-layout.ts`, dùng dagre). Nếu mọi nút đã có `positionX/Y` thì dùng vị trí đã lưu.
+  - `frontend/src/lib/api.ts`:
+    - `apiCall(method, path, { path, query, body, signal })` lấy kiểu tham số, body và kết quả từ `api-types.ts`. Sai đường dẫn hoặc sai body thì `tsc` báo lỗi.
+    - `ApiError { status, code, message (câu dễ hiểu), serverMessage, details, notImplemented }`.
+    - `friendlyMessage(status, code)` tra theo mã lỗi, rồi theo mã HTTP, cuối cùng là câu chung. Máy chủ thêm mã lỗi mới thì báo Thắng để thêm vào `FRIENDLY`.
+  - `useApi()` + `<AsyncView>`: hiện tải, lỗi (có nút Thử lại), trống, và "đang phát triển" khi gặp 501.
+  - `frontend/src/lib/ws.ts`:
+    - `RealtimeClient` gửi `{action: "subscribe" | "unsubscribe", channel, token}`, nhận `{channel, event, payload}`. Tin không có `channel` thì phát cho mọi người nghe.
+    - Tự nối lại sau 1 → 10 s và phát sự kiện `reconnected`. Có `close()`, `onStatus()` và hook `useChannel()`.
+  - Gọi API khi chưa có C2-07: đặt `VITE_DEV_TOKEN=dev-lecturer` trong `frontend/.env.local` (chỉ có tác dụng ở `npm run dev`).
+- Đang làm: —
 - Cần từ người khác:
-  - GD-04 / Long (C2-07): API phiên đăng nhập để thay người dùng mẫu trong layout (hiện lấy tên từ `seed/users.json`).
-  - Quyền (e2e): menu có `aria-label="Điều hướng chính"`, breadcrumb `aria-label="Đường dẫn"` – dùng làm bộ chọn.
+  - Long (C2-02): giữ `Node.positionX/positionY` và `Edge.source` như `schemas/tree.py` hiện tại; SkillTree dựa vào các trường này.
+  - Long (C2-13): bản đồ nhiệt nên trả màu theo `key` của nút (hoặc kèm `key`) để truyền thẳng vào `heat`. WebSocket gửi `{channel, event, payload}` và nhận thêm `action: "unsubscribe"`.
+  - Mọi người viết backend: lỗi luôn qua `AppError` với `code` ổn định. Frontend hiện câu theo `code`, không hiện `message` của máy chủ.
+  - Long (C2-07), các giả định GD-04 đang dựa vào:
+    - sai email hoặc mật khẩu trả **401**; khóa tạm trả **423**;
+    - `PATCH /me` cần body (vd. `{fullName, avatarUrl}`), OpenAPI hiện chưa có nên ME-01 chưa sửa được hồ sơ;
+    - tự gọi `/auth/refresh` khi token 30 phút hết hạn chưa làm, sẽ làm khi C2-07 chốt cách gửi refresh token;
+    - `forgot-password` hiện nhận `email` ở **query**; nếu chuyển sang body thì báo Thắng.
+    - Lỗi `EmailStr` chặn đuôi `.test` (Quyền đã báo) làm tài khoản demo `@whybi.test` đăng nhập bị 422.
+  - Long (C2-08), các giả định GD-04 đang dựa vào:
+    - `POST /classes/join` sai mã trả 404, đã ở trong lớp trả 409, sai định dạng trả 422;
+    - trả `ClassOut` có `id` để chuyển sang SV-02;
+    - `GET /classes` cho SV trả các lớp đã tham gia.
+    - Figma SV-01 có tiến độ "4/7 nút", nhưng `ClassOut` chưa có trường này; GD-06 sẽ lấy từ `my-map` (C2-10).

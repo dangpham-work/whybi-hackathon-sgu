@@ -1,118 +1,144 @@
-import { ApiError, FRIENDLY, UNAUTHORIZED_EVENT, api, errorMessage, getToken, http, isAbort, setToken } from "../lib/api";
+import { api, apiCall, ApiError, friendlyMessage, setToken, type Schema } from "../lib/api";
 
-function jsonResponse(status: number, body: unknown) {
-  return new Response(body === undefined ? null : JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+const fail = (status: number, code: string, message = "server says", details = {}) => json(status, { error: { code, message, details } });
 
-describe("lớp gọi API (GD-02)", () => {
-  const fetchMock = vi.fn();
+let fetchMock: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  setToken(null);
+});
+afterEach(() => vi.unstubAllGlobals());
 
-  beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
-    setToken(null);
-  });
+const lastCall = () => {
+  const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+  return { url, init, headers: new Headers(init.headers) };
+};
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
-
-  it("gọi đúng /api/v1, gắn token và gửi JSON", async () => {
-    setToken("abc");
-    fetchMock.mockResolvedValue(jsonResponse(201, { id: "c1" }));
-    const out = await http.post<{ id: string }>("/classes", { name: "CTDL" });
-    expect(out).toEqual({ id: "c1" });
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/v1/classes");
-    expect(init.method).toBe("POST");
-    expect(init.body).toBe(JSON.stringify({ name: "CTDL" }));
-    const headers = init.headers as Headers;
-    expect(headers.get("Authorization")).toBe("Bearer abc");
+describe("api() – gọi API cấp thấp (GD-02)", () => {
+  it("gắn tiền tố /api/v1, token và Content-Type JSON", async () => {
+    setToken("tok-1");
+    fetchMock.mockResolvedValue(json(200, { ok: 1 }));
+    expect(await api("/me", { method: "PATCH", body: JSON.stringify({ a: 1 }) })).toEqual({ ok: 1 });
+    const { url, headers } = lastCall();
+    expect(url).toBe("/api/v1/me");
+    expect(headers.get("Authorization")).toBe("Bearer tok-1");
     expect(headers.get("Content-Type")).toBe("application/json");
   });
 
-  it("FormData gửi nguyên, không đặt Content-Type", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(202, { jobId: "j1" }));
-    const fd = new FormData();
-    fd.append("file", new Blob(["x"]), "a.pdf");
-    await http.post("/classes/1/syllabi", fd);
-    const init = fetchMock.mock.calls[0][1];
-    expect(init.body).toBe(fd);
-    expect((init.headers as Headers).has("Content-Type")).toBe(false);
+  it("không ép Content-Type khi gửi FormData (để trình duyệt tự đặt boundary)", async () => {
+    fetchMock.mockResolvedValue(json(200, {}));
+    await api("/sessions/x/audio", { method: "POST", body: new FormData() });
+    expect(lastCall().headers.has("Content-Type")).toBe(false);
   });
 
-  it("204 trả undefined", async () => {
-    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
-    await expect(http.del("/edges/1")).resolves.toBeUndefined();
+  it("204 hoặc thân rỗng trả undefined", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    expect(await api("/auth/logout", { method: "POST" })).toBeUndefined();
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 200 }));
+    expect(await api("/auth/logout", { method: "POST" })).toBeUndefined();
+  });
+});
+
+describe("lỗi API hiện thông báo dễ hiểu (Xong khi GD-02)", () => {
+  it("mã lỗi đã biết → câu tiếng Việt trong FRIENDLY, giữ code / status / details", async () => {
+    fetchMock.mockResolvedValue(fail(409, "CYCLE_DETECTED", "cycle", { path: ["a", "b", "a"] }));
+    const e = await api("/x").catch((err: unknown) => err);
+    expect(e).toBeInstanceOf(ApiError);
+    expect(e).toMatchObject({ status: 409, code: "CYCLE_DETECTED", details: { path: ["a", "b", "a"] }, serverMessage: "cycle" });
+    expect((e as ApiError).message).toBe("Cạnh này tạo chu trình trong cây kỹ năng.");
   });
 
-  it("lỗi có mã nghiệp vụ hiện thông báo dễ hiểu và giữ details", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(409, { error: { code: "CYCLE_DETECTED", message: "cycle", details: { path: ["a", "b", "a"] } } }),
-    );
-    const err = (await api("/tree-versions/1/edges", { method: "POST", body: {} }).catch((e: unknown) => e)) as ApiError;
-    expect(err).toBeInstanceOf(ApiError);
-    expect(err.status).toBe(409);
-    expect(err.code).toBe("CYCLE_DETECTED");
-    expect(err.message).toBe(FRIENDLY.CYCLE_DETECTED);
-    expect(err.details).toEqual({ path: ["a", "b", "a"] });
+  it("501 NOT_IMPLEMENTED → 'đang phát triển' kèm mã thẻ, đánh dấu notImplemented", async () => {
+    fetchMock.mockResolvedValue(fail(501, "NOT_IMPLEMENTED", "Chưa cài đặt – xem thẻ C2-07", { card: "C2-07" }));
+    const e = (await api("/me").catch((err: unknown) => err)) as ApiError;
+    expect(e.notImplemented).toBe(true);
+    expect(e.message).toBe("Chức năng đang được phát triển (thẻ C2-07).");
   });
 
-  it("mã lạ thì dùng message của backend", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(400, { error: { code: "CLASS_FULL", message: "Lớp đã đủ 60 SV" } }));
-    await expect(http.get("/x")).rejects.toMatchObject({ code: "CLASS_FULL", message: "Lớp đã đủ 60 SV" });
-  });
-
-  it("không có thân lỗi chuẩn (vd. nginx 502) vẫn có câu dễ hiểu", async () => {
-    fetchMock.mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
-    await expect(http.get("/x")).rejects.toMatchObject({ status: 502, code: "SERVER_ERROR", message: FRIENDLY.SERVER_ERROR });
-  });
-
-  it("401 xóa token và phát sự kiện để về trang đăng nhập", async () => {
-    setToken("old");
-    const listener = vi.fn();
-    window.addEventListener(UNAUTHORIZED_EVENT, listener);
-    fetchMock.mockResolvedValue(jsonResponse(401, { error: { code: "UNAUTHORIZED", message: "x" } }));
-    await expect(http.get("/auth/me")).rejects.toMatchObject({ message: FRIENDLY.UNAUTHORIZED });
-    expect(getToken()).toBeNull();
-    expect(listener).toHaveBeenCalledOnce();
-    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
-  });
-
-  it("mất mạng thành NETWORK_ERROR", async () => {
+  it("mất mạng → NETWORK_ERROR, không lộ lỗi kỹ thuật", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    await expect(http.get("/x")).rejects.toMatchObject({ status: 0, code: "NETWORK_ERROR", message: FRIENDLY.NETWORK_ERROR });
+    const e = (await api("/me").catch((err: unknown) => err)) as ApiError;
+    expect(e).toMatchObject({ status: 0, code: "NETWORK_ERROR" });
+    expect(e.message).toBe("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
   });
 
-  it("quá thời gian chờ thành TIMEOUT", async () => {
-    vi.useFakeTimers();
-    fetchMock.mockImplementation(
-      (_url: string, init: RequestInit) =>
-        new Promise((_res, rej) => init.signal!.addEventListener("abort", () => rej(new DOMException("aborted", "AbortError")))),
-    );
-    const p = http.get("/slow", { timeoutMs: 1000 }).catch((e) => e);
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(await p).toMatchObject({ code: "TIMEOUT", message: FRIENDLY.TIMEOUT });
+  it("thân lỗi không phải JSON (vd. nginx 502) → thông báo theo mã HTTP", async () => {
+    fetchMock.mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
+    const e = (await api("/me").catch((err: unknown) => err)) as ApiError;
+    expect(e).toMatchObject({ status: 502, code: "HTTP_ERROR" });
+    expect(e.message).toBe("Máy chủ đang bận hoặc gặp sự cố. Vui lòng thử lại sau ít phút.");
   });
 
-  it("bên gọi tự hủy thì ném lại AbortError (không hiện lỗi)", async () => {
-    fetchMock.mockImplementation(
-      (_url: string, init: RequestInit) =>
-        new Promise((_res, rej) => init.signal!.addEventListener("abort", () => rej(new DOMException("aborted", "AbortError")))),
-    );
-    const ctrl = new AbortController();
-    const p = http.get("/x", { signal: ctrl.signal }).catch((e) => e);
-    ctrl.abort();
-    expect(isAbort(await p)).toBe(true);
+  it("hủy yêu cầu (AbortController) ném lại AbortError, không đổi thành lỗi mạng", async () => {
+    fetchMock.mockRejectedValue(new DOMException("aborted", "AbortError"));
+    await expect(api("/me")).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("errorMessage luôn trả câu dễ hiểu", () => {
-    expect(errorMessage(new ApiError(403, "FORBIDDEN", FRIENDLY.FORBIDDEN))).toBe(FRIENDLY.FORBIDDEN);
-    expect(errorMessage(new Error("TypeError: x is undefined"))).toBe(FRIENDLY.HTTP_ERROR);
-    expect(errorMessage("lạ")).toBe(FRIENDLY.HTTP_ERROR);
+  it.each([
+    [401, "UNAUTHORIZED", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại."],
+    [403, "FORBIDDEN", "Bạn không có quyền xem nội dung này."],
+    [404, "CLASS_NOT_FOUND", "Không tìm thấy lớp học (có thể đã bị xóa hoặc bạn chưa tham gia)."],
+    [404, "SOMETHING_NEW", "Không tìm thấy nội dung bạn cần."],
+    [422, "VALIDATION_ERROR", "Dữ liệu gửi lên chưa hợp lệ, vui lòng kiểm tra lại."],
+    [429, "RATE_LIMITED", "Bạn thao tác quá nhanh, chờ một chút rồi thử lại."],
+    [500, "WEIRD", "Máy chủ đang bận hoặc gặp sự cố. Vui lòng thử lại sau ít phút."],
+    [418, "TEAPOT", "Có lỗi xảy ra, vui lòng thử lại."],
+  ])("friendlyMessage(%i, %s)", (status, code, text) => {
+    expect(friendlyMessage(status, code)).toBe(text);
+  });
+});
+
+describe("apiCall() – gọi API có kiểu từ OpenAPI", () => {
+  it("điền tham số đường dẫn và query", async () => {
+    fetchMock.mockResolvedValue(json(200, { nodes: [], edges: [] }));
+    const tree = await apiCall("get", "/classes/{class_id}/tree", { path: { class_id: "c 1" }, query: { draft: true } });
+    expect(lastCall().url).toBe("/api/v1/classes/c%201/tree?draft=true");
+    expectTypeOf(tree).toEqualTypeOf<Schema<"TreeVersion">>();
+  });
+
+  it("gửi body JSON đúng schema và trả kiểu phản hồi", async () => {
+    fetchMock.mockResolvedValue(json(200, { sessionId: "s1" }));
+    const created = await apiCall("post", "/sessions", { body: { nodeId: "n1", inputMode: "TEXT", ttsEnabled: false } });
+    const { init } = lastCall();
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ nodeId: "n1", inputMode: "TEXT", ttsEnabled: false });
+    expectTypeOf(created).toEqualTypeOf<Schema<"SessionCreated">>();
+  });
+
+  it("endpoint không cần tham số thì bỏ trống được", async () => {
+    fetchMock.mockResolvedValue(json(200, { id: "u" }));
+    const me = await apiCall("get", "/me");
+    expectTypeOf(me).toEqualTypeOf<Schema<"Me">>();
+  });
+
+  it("upload multipart nhận FormData; 204 trả void", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { text: "xin chào" }));
+    const form = new FormData();
+    const t = await apiCall("post", "/sessions/{session_id}/audio", { path: { session_id: "s1" }, body: form });
+    expect(lastCall().init.body).toBe(form);
+    expectTypeOf(t).toEqualTypeOf<Schema<"Transcript">>();
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const r = await apiCall("delete", "/edges/{edge_id}", { path: { edge_id: "e1" } });
+    expect(lastCall().init.method).toBe("DELETE");
+    expectTypeOf(r).toEqualTypeOf<void>();
+  });
+
+  it("sai đường dẫn / thiếu tham số / sai body bị tsc chặn", () => {
+    // Chỉ kiểm kiểu – không chạy.
+    const typeOnly = () => {
+      // @ts-expect-error đường dẫn không có trong OpenAPI
+      void apiCall("get", "/khong-co");
+      // @ts-expect-error thiếu path.class_id
+      void apiCall("get", "/classes/{class_id}/tree");
+      // @ts-expect-error inputMode sai giá trị enum
+      void apiCall("post", "/sessions", { body: { nodeId: "n1", inputMode: "FAX", ttsEnabled: false } });
+      // @ts-expect-error /sessions không có GET
+      void apiCall("get", "/sessions");
+    };
+    expect(typeof typeOnly).toBe("function");
   });
 });

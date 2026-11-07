@@ -4,59 +4,19 @@
  * Backend đổi schema ⇒ build frontend báo lỗi kiểu ngay (mục 3.3 kế hoạch).
  *
  * Dùng:
- *   const cls = await http.get<Schema<"ClassOut">>(`/classes/${id}`);
- *   try { … } catch (e) { toast(errorMessage(e)); }
+ *   const tree = await apiCall("get", "/classes/{class_id}/tree", { path: { class_id } });   // kiểu TreeVersion
+ *   const s = await apiCall("post", "/sessions", { body: { nodeId, inputMode: "TEXT", ttsEnabled: false } });
+ * Trong component: useApi() (lib/useApi.ts) + <AsyncView> (components/AsyncView.tsx) lo trạng thái tải / lỗi.
  */
-import type { components } from "./api-types";
+import type { components, paths } from "./api-types";
 
 export const API_BASE = "/api/v1";
 
-/** Kiểu schema sinh từ OpenAPI, vd. `Schema<"ClassOut">`. */
-export type Schema<K extends keyof components["schemas"]> = components["schemas"][K];
+export type Schemas = components["schemas"];
+/** Kiểu một schema backend, vd. Schema<"TreeVersion">, Schema<"SessionResult">. */
+export type Schema<K extends keyof Schemas> = Schemas[K];
 
-/** Định dạng lỗi thống nhất của backend (mục 5.4.1). */
-export type ErrorBody = { error?: { code?: string; message?: string; details?: Record<string, unknown> } };
-
-/** Lỗi khi gọi API. `message` luôn là câu dễ hiểu để hiện cho người dùng. */
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-    public details: Record<string, unknown> = {},
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-// ---- token đăng nhập (localStorage có thể không dùng được: chế độ riêng tư, SSR, test) ----
-const TOKEN_KEY = "whybi.token";
-
-function storage(): Storage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
-
-let token: string | null = storage()?.getItem(TOKEN_KEY) ?? null;
-
-export const getToken = () => token;
-
-export const setToken = (t: string | null) => {
-  token = t;
-  try {
-    if (t) storage()?.setItem(TOKEN_KEY, t);
-    else storage()?.removeItem(TOKEN_KEY);
-  } catch {
-    /* bỏ qua: không lưu được thì vẫn giữ token trong bộ nhớ */
-  }
-};
-
-/** Sự kiện phát trên window khi backend trả 401 – layout nghe để chuyển về trang đăng nhập. */
-export const UNAUTHORIZED_EVENT = "whybi:unauthorized";
+// ---------------------------------------------------------------- lỗi
 
 /** Thông báo dễ hiểu cho người dùng theo mã lỗi (GD-02 "lỗi API hiện thông báo dễ hiểu"). */
 export const FRIENDLY: Record<string, string> = {
@@ -66,104 +26,179 @@ export const FRIENDLY: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem nội dung này.",
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.",
   NOT_IMPLEMENTED: "Chức năng đang được phát triển.",
-  NOT_FOUND: "Không tìm thấy nội dung yêu cầu.",
-  VALIDATION_ERROR: "Dữ liệu nhập chưa hợp lệ, vui lòng kiểm tra lại.",
-  RATE_LIMITED: "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.",
-  SERVER_ERROR: "Máy chủ đang gặp sự cố, vui lòng thử lại sau.",
+  CLASS_NOT_FOUND: "Không tìm thấy lớp học (có thể đã bị xóa hoặc bạn chưa tham gia).",
+  NOT_FOUND: "Không tìm thấy nội dung bạn cần.",
+  VALIDATION_ERROR: "Dữ liệu gửi lên chưa hợp lệ, vui lòng kiểm tra lại.",
+  RATE_LIMITED: "Bạn thao tác quá nhanh, chờ một chút rồi thử lại.",
+  QUOTA_EXCEEDED: "Bạn đã dùng hết lượt hôm nay. Hãy quay lại vào ngày mai.",
   NETWORK_ERROR: "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
-  TIMEOUT: "Máy chủ phản hồi quá lâu, vui lòng thử lại.",
-  HTTP_ERROR: "Có lỗi xảy ra, vui lòng thử lại.",
 };
 
-/** Mã lỗi suy từ mã HTTP khi backend không trả thân lỗi chuẩn (vd. nginx 502). */
-function codeFromStatus(status: number): string {
-  if (status === 401) return "UNAUTHORIZED";
-  if (status === 403) return "FORBIDDEN";
-  if (status === 404) return "NOT_FOUND";
-  if (status === 422) return "VALIDATION_ERROR";
-  if (status === 429) return "RATE_LIMITED";
-  if (status === 501) return "NOT_IMPLEMENTED";
-  if (status >= 500) return "SERVER_ERROR";
-  return "HTTP_ERROR";
+const BY_STATUS: [test: (s: number) => boolean, text: string][] = [
+  [(s) => s === 401, FRIENDLY.UNAUTHORIZED],
+  [(s) => s === 403, FRIENDLY.FORBIDDEN],
+  [(s) => s === 404, FRIENDLY.NOT_FOUND],
+  [(s) => s === 422, FRIENDLY.VALIDATION_ERROR],
+  [(s) => s === 429, FRIENDLY.RATE_LIMITED],
+  [(s) => s >= 500, "Máy chủ đang bận hoặc gặp sự cố. Vui lòng thử lại sau ít phút."],
+];
+export const GENERIC_ERROR = "Có lỗi xảy ra, vui lòng thử lại.";
+
+/**
+ * Câu hiển thị cho người dùng: theo mã lỗi → theo mã HTTP → câu chung.
+ * Không bao giờ hiện thẳng `message` của máy chủ (có thể là tiếng Anh / chi tiết kỹ thuật) – giữ ở `serverMessage`.
+ */
+export function friendlyMessage(status: number, code: string, details: Record<string, unknown> = {}): string {
+  if (code === "NOT_IMPLEMENTED" && typeof details.card === "string") return `Chức năng đang được phát triển (thẻ ${details.card}).`;
+  return FRIENDLY[code] ?? BY_STATUS.find(([t]) => t(status))?.[1] ?? GENERIC_ERROR;
 }
 
-/** Câu dễ hiểu từ một lỗi bất kỳ – dùng ở mọi chỗ hiện lỗi cho người dùng. */
-export function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) return e.message;
-  return FRIENDLY.HTTP_ERROR;
+/** Định dạng lỗi thống nhất của backend (mục 5.4.1): { error: { code, message, details } }. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    public serverMessage?: string,
+    public details: Record<string, unknown> = {},
+  ) {
+    super(friendlyMessage(status, code, details));
+    this.name = "ApiError";
+  }
+  /** Endpoint trả 501 – màn hiện "đang phát triển", không giả lập ngầm (frontend/AGENTS.md). */
+  get notImplemented() {
+    return this.status === 501 || this.code === "NOT_IMPLEMENTED";
+  }
 }
 
-export type ApiInit = Omit<RequestInit, "body"> & {
-  /** Đối tượng sẽ được JSON.stringify, hoặc FormData / chuỗi gửi nguyên. */
-  body?: unknown;
-  /** Hết thời gian chờ (ms). Mặc định 15 giây; 0 = không giới hạn. */
-  timeoutMs?: number;
+/** Câu dễ hiểu cho mọi loại lỗi (ApiError hoặc lỗi lạ). */
+export const errorText = (e: unknown) => (e instanceof ApiError ? e.message : GENERIC_ERROR);
+
+// ---------------------------------------------------------------- token
+
+const TOKEN_KEY = "whybi.token";
+const storage = {
+  get: () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set: (t: string | null) => {
+    try {
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      else localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      /* trình duyệt chặn lưu trữ – giữ token trong bộ nhớ */
+    }
+  },
 };
 
-const DEFAULT_TIMEOUT = 15_000;
+/**
+ * Token tạm khi chưa có đăng nhập thật (C2-07): đặt VITE_DEV_TOKEN=dev-lecturer | dev-student | dev-admin
+ * trong frontend/.env.local. Chỉ dùng ở `npm run dev`; bản build không bao giờ nhận.
+ */
+const DEV_TOKEN = import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? null) : null;
 
-function encodeBody(body: unknown, headers: Headers): BodyInit | undefined {
-  if (body === undefined || body === null) return undefined;
-  if (body instanceof FormData || body instanceof Blob || typeof body === "string") return body;
-  headers.set("Content-Type", "application/json");
-  return JSON.stringify(body);
-}
+let token: string | null = storage.get() ?? DEV_TOKEN;
+export const getToken = () => token;
+export const setToken = (t: string | null) => {
+  token = t;
+  storage.set(t);
+};
 
-async function readError(res: Response): Promise<ApiError> {
-  const body = (await res.json().catch(() => ({}))) as ErrorBody;
-  const e = body?.error ?? {};
-  const code = e.code ?? codeFromStatus(res.status);
-  const message = FRIENDLY[code] ?? e.message ?? FRIENDLY[codeFromStatus(res.status)];
-  return new ApiError(res.status, code, message, e.details ?? {});
-}
+// ---------------------------------------------------------------- gọi cấp thấp
 
-export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
-  const { body, timeoutMs = DEFAULT_TIMEOUT, signal: outer, ...rest } = init;
-  const headers = new Headers(rest.headers);
-  headers.set("Accept", "application/json");
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const ctrl = new AbortController();
-  let timedOut = false;
-  const timer = timeoutMs > 0 ? setTimeout(() => ((timedOut = true), ctrl.abort()), timeoutMs) : undefined;
-  const onOuterAbort = () => ctrl.abort();
-  if (outer?.aborted) ctrl.abort();
-  outer?.addEventListener("abort", onOuterAbort);
+  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, { ...rest, headers, body: encodeBody(body, headers), signal: ctrl.signal });
-  } catch (err) {
-    // Bên gọi tự hủy (rời trang) – ném lại nguyên lỗi để hook bỏ qua.
-    if (outer?.aborted) throw err;
-    throw timedOut ? new ApiError(0, "TIMEOUT", FRIENDLY.TIMEOUT) : new ApiError(0, "NETWORK_ERROR", FRIENDLY.NETWORK_ERROR);
-  } finally {
-    clearTimeout(timer);
-    outer?.removeEventListener("abort", onOuterAbort);
+    res = await fetch(API_BASE + path, { ...init, headers });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new ApiError(0, "NETWORK_ERROR", e instanceof Error ? e.message : String(e));
+  }
+
+  const text = res.status === 204 ? "" : await res.text();
+  let body: unknown;
+  try {
+    body = text ? JSON.parse(text) : undefined;
+  } catch {
+    body = undefined; // thân không phải JSON (vd. trang lỗi của nginx)
   }
 
   if (!res.ok) {
-    const err = await readError(res);
-    if (res.status === 401) {
-      setToken(null);
-      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
-    }
-    throw err;
+    const e = (body as { error?: { code?: string; message?: string; details?: Record<string, unknown> } } | undefined)?.error ?? {};
+    throw new ApiError(res.status, e.code ?? "HTTP_ERROR", e.message ?? res.statusText, e.details ?? {});
   }
-  if (res.status === 204) return undefined as T;
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  return body as T;
 }
 
-/** Viết tắt theo phương thức HTTP. */
-export const http = {
-  get: <T>(path: string, init?: ApiInit) => api<T>(path, { ...init, method: "GET" }),
-  post: <T>(path: string, body?: unknown, init?: ApiInit) => api<T>(path, { ...init, method: "POST", body }),
-  put: <T>(path: string, body?: unknown, init?: ApiInit) => api<T>(path, { ...init, method: "PUT", body }),
-  patch: <T>(path: string, body?: unknown, init?: ApiInit) => api<T>(path, { ...init, method: "PATCH", body }),
-  del: <T = void>(path: string, init?: ApiInit) => api<T>(path, { ...init, method: "DELETE" }),
-};
+// ---------------------------------------------------------------- gọi có kiểu theo OpenAPI
 
-/** Lỗi do bên gọi tự hủy (AbortController) – không cần hiện cho người dùng. */
-export const isAbort = (e: unknown) =>
-  typeof e === "object" && e !== null && (e as { name?: unknown }).name === "AbortError";
+type Method = "get" | "post" | "put" | "patch" | "delete";
+type Prefix = "/api/v1";
+type FullPath = Extract<keyof paths, `${Prefix}/${string}`>;
+type Op<M extends Method, P extends string> = NonNullable<paths[Extract<FullPath, `${Prefix}${P}`>][M]>;
+
+/** Đường dẫn (bỏ /api/v1) có phương thức M, vd. ApiPath<"get"> gồm "/classes/{class_id}/tree". */
+export type ApiPath<M extends Method> = {
+  [K in FullPath]: [paths[K][M]] extends [undefined] ? never : K extends `${Prefix}${infer R}` ? R : never;
+}[FullPath];
+
+type Content<X> = X extends { content: infer C } ? C : never;
+type JsonOf<X> = Content<X> extends { "application/json": infer J } ? J : void;
+/** Kiểu dữ liệu trả về khi thành công (200 / 201; 204 → void). */
+export type ApiResponse<M extends Method, P extends ApiPath<M>> =
+  Op<M, P> extends { responses: infer R } ? (R extends { 200: infer X } ? JsonOf<X> : R extends { 201: infer X } ? JsonOf<X> : void) : never;
+
+type BodyOf<O> = O extends { requestBody: infer B }
+  ? Content<B> extends { "application/json": infer J }
+    ? { body: J }
+    : Content<B> extends { "multipart/form-data": unknown }
+      ? { body: FormData }
+      : { body?: never }
+  : O extends { requestBody?: infer B }
+    ? [B] extends [undefined]
+      ? { body?: never }
+      : Content<NonNullable<B>> extends { "application/json": infer J }
+        ? { body?: J }
+        : { body?: never }
+    : { body?: never };
+type PathParams<O> = O extends { parameters: { path: infer P } } ? ([P] extends [undefined] ? { path?: never } : { path: P }) : { path?: never };
+type QueryParams<O> = O extends { parameters: { query?: infer Q } } ? ([NonNullable<Q>] extends [never] ? { query?: never } : { query?: Q }) : { query?: never };
+
+export type ApiOptions<M extends Method, P extends ApiPath<M>> = PathParams<Op<M, P>> &
+  QueryParams<Op<M, P>> &
+  BodyOf<Op<M, P>> & { signal?: AbortSignal; headers?: HeadersInit };
+
+type OptArgs<M extends Method, P extends ApiPath<M>> = {} extends ApiOptions<M, P> ? [opts?: ApiOptions<M, P>] : [opts: ApiOptions<M, P>];
+
+/** Ghép "/classes/{class_id}/tree" + { class_id } + query → URL. */
+export function buildPath(template: string, path?: Record<string, unknown>, query?: Record<string, unknown>): string {
+  const url = template.replace(/\{(\w+)\}/g, (_, k: string) => {
+    const v = path?.[k];
+    if (v === undefined || v === null) throw new Error(`Thiếu tham số đường dẫn "${k}" cho ${template}`);
+    return encodeURIComponent(String(v));
+  });
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query ?? {})) {
+    if (v === undefined || v === null) continue;
+    for (const item of Array.isArray(v) ? v : [v]) qs.append(k, String(item));
+  }
+  const s = qs.toString();
+  return s ? `${url}?${s}` : url;
+}
+
+type RawOptions = { path?: Record<string, unknown>; query?: Record<string, unknown>; body?: unknown; signal?: AbortSignal; headers?: HeadersInit };
+
+/** Gọi một endpoint trong OpenAPI với kiểu đầy đủ cho tham số, body và kết quả. */
+export function apiCall<M extends Method, P extends ApiPath<M>>(method: M, path: P, ...args: OptArgs<M, P>): Promise<ApiResponse<M, P>> {
+  // Kiểu đã được kiểm ở chữ ký; bên trong chỉ cần dạng chung (tránh TS tính lại union lớn).
+  const o: RawOptions = ((args as unknown[])[0] ?? {}) as RawOptions;
+  const body = o.body === undefined ? undefined : o.body instanceof FormData ? o.body : JSON.stringify(o.body);
+  return api<ApiResponse<M, P>>(buildPath(path, o.path, o.query), { method: method.toUpperCase(), body, signal: o.signal, headers: o.headers });
+}
