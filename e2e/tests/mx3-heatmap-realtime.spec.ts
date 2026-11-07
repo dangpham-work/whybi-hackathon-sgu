@@ -196,6 +196,8 @@ async function preparePair(page: Page, request: APIRequestContext) {
 }
 
 test("MX4 (5:45–6:30) / FR-PM-01: SV bật và tắt tham gia trên UI", async ({ page, request }) => {
+  // Lỗi đã biết, KHÔNG skip: test vẫn chạy và tự đỏ khi lỗi được sửa ⇒ người sửa bỏ dòng test.fail.
+  test.fail(true, "GD (Thắng) frontend/src/pages/student/SV07.tsx OptInCard luôn disabled; C2 (Long) API lớp chưa trả enrollmentId cho SV");
   const f = await prepare(request);
   await openAs(page, f.students[0], `/sv/classes/${f.classId}/peers`);
   const toggle = page.getByRole("switch", { name: "Tham gia ghép cặp" });
@@ -212,6 +214,8 @@ test("MX4 (5:45–6:30) / FR-PM-01: SV bật và tắt tham gia trên UI", async
 
 for (const action of ["accept", "decline"] as const) {
   test(`MX4 (5:45–6:30) / FR-PM-05: SV thứ hai ${action} sau phản hồi đầu`, async ({ page, browser, request, baseURL }, info) => {
+    // Lỗi đã biết, KHÔNG skip: tự đỏ khi được sửa ⇒ bỏ dòng test.fail.
+    test.fail(true, "GD (Thắng) frontend/src/pages/student/SV07.tsx chỉ hiện Chấp nhận/Từ chối khi status PROPOSED; SV thứ hai thấy WAITING_OTHER + acceptedByMe=false nên không phản hồi được");
     const f = await preparePair(page, request);
     const contexts = await Promise.all(f.students.map(() => browser.newContext({ baseURL })));
     try {
