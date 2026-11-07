@@ -637,6 +637,24 @@ class SkillTreeService:
         self._touch(v)
         self.db.commit()
 
+    def node_for_edit(self, node_id: UUID, user: "CurrentUser") -> tuple[UUID, Node]:
+        """(class_id, Node) của nút trong bản nháp mà GV chủ lớp được sửa. Kiểm quyền / trạng thái nhưng KHÔNG khóa
+        dòng: bên gọi (sinh lại rubric, C1-11) còn chờ LLM hàng giây."""
+        n = self.db.get(orm.ConceptNode, node_id)
+        if n is None:
+            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút")
+        v = self.db.get(orm.TreeVersion, n.version_id)
+        tree = self.db.get(orm.SkillTree, v.tree_id)
+        self._require_owner(self._class(tree.class_id), user)
+        if v.status not in EDITABLE:
+            raise AppError(
+                409,
+                "VERSION_NOT_EDITABLE",
+                "Phiên bản đã phát hành / lưu trữ – tạo bản nháp mới để sửa",
+                {"status": v.status},
+            )
+        return self.get_node_for_session(node_id)
+
     def put_rubric(self, node_id: UUID, body: Rubric, user: "CurrentUser") -> Rubric:
         """Sửa / duyệt rubric (FR-SK-08). `approved=true` ghi người duyệt và thời điểm."""
         n, v = self._node(node_id, user)
