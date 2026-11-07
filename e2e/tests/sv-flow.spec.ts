@@ -11,6 +11,8 @@ type TurnReply = Schema<"TurnReply"> & { flags: Schema<"FlagType">[] };
 type SessionResult = Schema<"SessionResult"> & {
   failedConditions: ("SCORE" | "REQUIRED_POINTS" | "CHALLENGES" | "CRITICAL_MISCONCEPTION")[];
 };
+// MyMap is not yet present in the generated frontend types; mirror only the backend fields asserted here.
+type MyMapProgress = { progress: { nodeKey: string; state: Schema<"MasteryState"> }[] };
 type Headers = { Authorization: string };
 type Fixture = { classId: string; joinCode: string; rootId: string; childId: string; student: Headers };
 const run = promisify(execFile);
@@ -130,7 +132,7 @@ async function submit(page: Page, first: boolean) {
 }
 
 async function map(request: APIRequestContext, f: Fixture) {
-  return json<Schema<"MyMap">>(await request.get(`/api/v1/classes/${f.classId}/my-map`, { headers: f.student }));
+  return json<MyMapProgress>(await request.get(`/api/v1/classes/${f.classId}/my-map`, { headers: f.student }));
 }
 
 async function finishApi(request: APIRequestContext, f: Fixture, sid: string) {
