@@ -1,0 +1,21 @@
+# Lớp phủ bật HTTPS trên VM demo (C2-04). Chủ: Long.
+#
+# Cài một lần trên VM (cần tên miền đã trỏ về IP của VM, cổng 80 và 443 mở):
+#   1. sudo certbot certonly --standalone -d <DOMAIN>      # khi chưa chạy stack, cổng 80 còn trống
+#   2. Thêm vào ~/whybi-ai/.env:
+#        DOMAIN=<DOMAIN>
+#        COMPOSE_FILE=docker-compose.yml:docker-compose.tls.yml
+#      (compose tự đọc COMPOSE_FILE từ .env nên lệnh deploy không phải đổi)
+#   3. Gia hạn chứng chỉ: certbot tự đặt timer, thêm hook để nginx nhả cổng 80 rồi đọc chứng chỉ mới:
+#        sudo certbot renew --pre-hook "docker compose -f ~/whybi-ai/docker-compose.yml -f ~/whybi-ai/docker-compose.tls.yml stop nginx" \
+#                           --post-hook "docker compose -f ~/whybi-ai/docker-compose.yml -f ~/whybi-ai/docker-compose.tls.yml start nginx"
+#      ponytail: --standalone dừng nginx vài giây mỗi ~60 ngày; chuyển sang webroot nếu cần không gián đoạn.
+services:
+  nginx:
+    ports:
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?đặt DOMAIN trong .env khi bật HTTPS}
+    volumes:
+      - ./nginx/nginx.tls.conf:/etc/nginx/templates/default.conf.template:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
