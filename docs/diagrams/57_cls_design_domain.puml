@@ -1,0 +1,66 @@
+' Hình 5.11. Biểu đồ lớp thiết kế (3) – Thành thạo, sự kiện và bản đồ nhiệt
+@startuml cls_design_domain
+!include common.iuml
+skinparam nodesep 25
+skinparam ranksep 45
+title Biểu đồ lớp thiết kế (3) – Thành thạo, sự kiện và bản đồ nhiệt
+class SessionOrchestrator <<Facade>>
+class SkillTreeService {
+  + buildDraftTree(docId) : TreeVersion
+  + addEdge(v, from, to)
+  + publish(v)
+}
+class MasteryService {
+  - repo : MasteryRepository
+  - bus : EventBus
+  + canStart(sv, node) : Boolean
+  + applyResult(sv, node, verdict, score)
+  + initOrMigrate(classId, version)
+  - unlockDependents(sv, node)
+}
+class MasteryStateMachine <<State>> {
+  - allowed : Map<State, Event[*]>
+  + transition(rec, event) : MasteryState
+}
+SessionOrchestrator --> MasteryService
+SkillTreeService --> MasteryService
+MasteryService --> MasteryStateMachine
+interface EventBus <<Observer>> {
+  + publish(topic, payload)
+  + subscribe(topic, handler)
+}
+class RedisEventBus
+EventBus <|.. RedisEventBus
+MasteryService --> EventBus
+interface EventHandler {
+  + on(event)
+}
+class HeatmapAggregator {
+  + on(event)
+  - recompute(classId, nodeId) : ClassNodeStat
+  - classify(stat, thresholds) : HeatColor
+  - push(classId, delta)
+}
+class NotificationDispatcher {
+  + on(event)
+}
+class MatchingTrigger {
+  + on(event)
+}
+EventHandler <|.. HeatmapAggregator
+EventHandler <|.. NotificationDispatcher
+EventHandler <|.. MatchingTrigger
+EventBus o-- "0..*" EventHandler
+class RootCauseAnalyzer {
+  - theta : Float = 0.6
+  - maxDepth : Integer = 3
+  + analyze(classId, nodeId) : RootCause
+  - conditionalFailRate(x, y) : Float
+}
+class RealtimeGateway {
+  + subscribe(channel, user)
+  + broadcast(channel, payload)
+}
+HeatmapAggregator --> RootCauseAnalyzer
+HeatmapAggregator --> RealtimeGateway
+@enduml

@@ -1,0 +1,35 @@
+' Hình 2.1. Ánh xạ cơ sở sư phạm vào các mắt xích của hệ thống
+@startuml h2_1
+!include common.iuml
+left to right direction
+skinparam nodesep 18
+skinparam ranksep 120
+title Ánh xạ cơ sở sư phạm vào các mắt xích của hệ thống
+package "CƠ SỞ SƯ PHẠM" {
+  rectangle "Ảo giác hiểu biết sâu\n(Illusion of Explanatory Depth)" as T1
+  rectangle "Kỹ thuật Feynman /\nHọc bằng cách dạy (Protégé effect)" as T2
+  rectangle "Phương pháp hỏi Socrates" as T3
+  rectangle "Học tập làm chủ (Mastery Learning)\n& thang Bloom" as T4
+  rectangle "Lý thuyết không gian tri thức /\nquan hệ tiên quyết" as T5
+  rectangle "Đánh giá quá trình\n(Formative Assessment)" as T6
+  rectangle "Học đồng đẳng (Peer Tutoring)\n& Vùng phát triển gần (ZPD)" as T7
+  rectangle "Trò chơi hóa\n(Gamification – cây kỹ năng)" as T8
+}
+package "MẮT XÍCH CỦA HỆ THỐNG" {
+  rectangle "MX1 – Cây kỹ năng" as M1 #E3F2FD
+  rectangle "MX2 – SV giảng lại cho AI" as M2 #E8F5E9
+  rectangle "MX3 – Bản đồ nhiệt lớp học" as M3 #FFF8E1
+  rectangle "MX4 – Ghép cặp bù trừ" as M4 #FCE4EC
+}
+T1 --> M2 : lý do phải\nkiểm chứng
+T2 --> M2 : SV đóng vai thầy
+T3 --> M2 : AI hỏi vặn
+T4 --> M2 : ngưỡng "Đạt"\ntheo mức Bloom
+T4 --> M1 : học theo bậc
+T5 --> M1 : đồ thị DAG
+T5 --> M3 : truy vết\nđiểm nghẽn gốc
+T6 --> M3 : phản hồi trong\ngiờ học
+T7 --> M4 : ghép theo\nnút "vừa tầm"
+T2 --> M4 : dạy lại cho bạn
+T8 --> M1 : bản đồ\ndạng game
+@enduml

@@ -1,0 +1,42 @@
+' Hình 4.7. Use Case phân rã – Ghép cặp bạn cùng tiến
+@startuml uc_peer
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 12
+skinparam ranksep 60
+skinparam UsecaseFontSize 11
+title Use Case phân rã – Ghép cặp bạn cùng tiến
+actor "Giảng viên" as GV
+actor "Bộ hẹn giờ\n«thời gian»" as TM
+actor "Sinh viên" as SV
+rectangle "Phân hệ Ghép cặp bạn cùng tiến" {
+  usecase "UC15 Chạy vòng ghép cặp" as UC15
+  usecase "Tính độ bù trừ & giải\nghép cặp trọng số cực đại" as UC15a
+  usecase "Gửi gợi ý ghép cặp" as UC15b
+  usecase "Điều chỉnh cặp thủ công" as UC15c
+  usecase "Xem danh sách cặp &\nhiệu quả ghép cặp" as UC15d
+  usecase "UC21 Thiết lập tham gia ghép cặp\n(bật / tắt)" as UC21
+  usecase "UC22 Phản hồi gợi ý ghép cặp" as UC22
+  usecase "Xem thông tin bạn & nội dung\ndạy / học" as UC22a
+  usecase "Chấp nhận gợi ý" as UC22b
+  usecase "Từ chối gợi ý" as UC22c
+  usecase "Đánh dấu đã học cùng" as UC22d
+  usecase "UC23 Xác nhận lại sau học cặp" as UC23
+  usecase "UC19 Thực hiện phiên giảng lại" as UC19
+}
+GV --> UC15
+TM --> UC15
+GV --> UC15d
+SV --> UC21
+SV --> UC22
+SV --> UC23
+UC15 ..> UC15a : <<include>>
+UC15 ..> UC15b : <<include>>
+UC15c .up.> UC15 : <<extend>>
+UC22 ..> UC22a : <<include>>
+UC22b .up.> UC22 : <<extend>>
+UC22c .up.> UC22 : <<extend>>
+UC22d .up.> UC22 : <<extend>>
+UC23 ..> UC19 : <<include>>
+@enduml

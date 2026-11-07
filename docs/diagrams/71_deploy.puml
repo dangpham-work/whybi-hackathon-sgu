@@ -1,0 +1,47 @@
+' Hình 5.25. Biểu đồ triển khai (Deployment Diagram)
+@startuml deploy
+!include common.iuml
+left to right direction
+skinparam nodesep 25
+skinparam ranksep 60
+title Biểu đồ triển khai (Deployment Diagram)
+node "Thiết bị người dùng\n(PC / laptop / điện thoại)" as DEV {
+  node "Trình duyệt" as BR {
+    artifact "React SPA" as SPA
+    artifact "MediaRecorder\n(micro)" as MIC
+  }
+}
+node "Máy chủ ứng dụng <<VM cloud, Ubuntu 22.04,\n4 vCPU, 8 GB RAM, Docker Compose>>" as VM {
+  node "nginx\n<<container>>" as NG
+  node "api <<container>>\nuvicorn × 4" as APIC {
+    artifact "FastAPI app\n(REST + WS)" as APP
+  }
+  node "worker <<container × N>>\nCelery" as WKC
+  node "beat\n<<container>>" as BEAT
+  database "postgres:16\n+ pgvector" as PGC
+  database "redis:7" as RDC
+  database "minio" as MNC
+}
+node "Máy GPU (tùy chọn)" as GPU {
+  artifact "faster-whisper\nserver" as FW
+}
+cloud "Dịch vụ đám mây" as CLD {
+  node "LLM API" as LLMN
+  node "STT / TTS API" as STTN
+  node "Email / Push" as MAILN
+}
+BR --> NG : HTTPS 443\n/ WSS
+NG --> APIC : HTTP 8000\n(proxy, WS upgrade)
+APIC --> PGC : TCP 5432
+APIC --> RDC : TCP 6379
+APIC --> MNC : S3 API 9000
+WKC --> PGC : TCP 5432
+WKC --> RDC : TCP 6379
+WKC --> MNC : S3 API
+BEAT --> RDC : TCP 6379
+APIC --> LLMN : HTTPS
+WKC --> LLMN : HTTPS
+APIC --> STTN : HTTPS
+APIC ..> FW : HTTP\n(nếu tự host)
+APIC --> MAILN : HTTPS
+@enduml

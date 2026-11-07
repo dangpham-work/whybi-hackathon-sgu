@@ -1,0 +1,21 @@
+' Hình 5.22. Wireframe SV-07 – Gợi ý bạn cùng tiến
+@startsalt wf_peer
+skinparam dpi 200
+title SV-07 – Gợi ý bạn cùng tiến
+{+
+  {* <b>[TÊN HỆ THỐNG]</b> | Lớp: CTDL&GT – Nhóm 02 | Bản đồ học tập | <b>Bạn cùng tiến</b> | Lịch sử }
+  { Tham gia ghép cặp: | (X) Bật | () Tắt }
+  ==
+  {^"Gợi ý mới – còn 41 giờ để phản hồi"
+    <b>👤 Nguyễn Minh An</b> (cùng lớp)
+    <b>Bạn sẽ dạy An:</b> <back:#C8E6C9> N4 Đệ quy </back>  (bạn đã Đạt, An đang Chưa đạt)
+    <b>An sẽ dạy bạn:</b> <back:#EF9A9A> N5 Con trỏ </back>  (An đã Đạt, bạn đang Chưa đạt)
+    Mức bù trừ: ★★★★☆ – N5 đang là điểm nghẽn của lớp
+    { [✓ Chấp nhận] | [✕ Từ chối] }
+  }
+  {^"Tiến trình cặp đã chấp nhận"
+    ① Chấp nhận ✓ → ② Học cùng nhau ✓ → ③ Đánh dấu "Đã học cùng" ✓ → ④ Xác nhận lại với AI ○
+    { [▶ Giảng lại N5 cho AI để xác nhận] }
+  }
+}
+@endsalt

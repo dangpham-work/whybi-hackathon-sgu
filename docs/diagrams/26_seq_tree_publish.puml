@@ -1,0 +1,51 @@
+' Hình 4.17. Biểu đồ tuần tự – Chỉnh sửa, duyệt và phát hành cây (UC07–UC09)
+@startuml seq_tree_publish
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Chỉnh sửa, duyệt và phát hành cây (UC07–UC09)
+actor "Giảng viên" as GV
+participant "Trình sửa cây" as UI
+participant "SkillTree\nService" as TS
+participant "Dag\nValidator" as DV
+participant "Mastery\nService" as MS
+participant "Notification\nService" as NS
+database "PostgreSQL" as DB
+== Thêm cạnh tiên quyết ==
+GV -> UI : Kéo thả\n"Con trỏ" → "DSLK"
+UI -> TS : POST /versions/{v}/edges
+TS -> DV : wouldCreateCycle()
+alt có chu trình
+  DV --> TS : true + đường đi
+  TS --> UI : 409 CYCLE_DETECTED
+  UI --> GV : Tô đỏ chu trình
+else hợp lệ
+  DV --> TS : false
+  TS -> DB : INSERT edge\n(source = LECTURER)
+  TS --> UI : 201 Created
+end
+== Duyệt rubric ==
+GV -> UI : Sửa và nhấn "Duyệt"
+UI -> TS : PUT /nodes/{id}/rubric
+TS -> DB : rubric → APPROVED
+== Phát hành ==
+GV -> UI : Nhấn "Phát hành"
+UI -> TS : POST /versions/{v}/publish
+TS -> DV : validateAll(v)
+TS -> DB : kiểm tra rubric\nđã duyệt
+alt chưa hợp lệ
+  TS --> UI : 422 {errors}
+  UI --> GV : Đánh dấu nút lỗi
+else hợp lệ
+  TS -> DB : v → PUBLISHED,\nbản cũ → ARCHIVED
+  TS -> MS : initOrMigrate(class, v)
+  loop từng SV
+    MS -> DB : khởi tạo / di chuyển\nmastery_record
+  end
+  TS -> NS : notifyClass()
+  NS -> DB : INSERT notification
+  TS --> UI : 200 OK
+  UI --> GV : "Đã phát hành"
+end
+@enduml

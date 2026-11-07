@@ -1,0 +1,67 @@
+' Hình 5.9. Biểu đồ lớp thiết kế (1) – Adapter cho nhà cung cấp AI và dịch vụ giọng nói
+@startuml cls_design_ai
+!include common.iuml
+skinparam nodesep 25
+skinparam ranksep 45
+title Biểu đồ lớp thiết kế (1) – Adapter cho nhà cung cấp AI và dịch vụ giọng nói
+interface LLMProvider <<Adapter>> {
+  + complete(prompt : Prompt, schema : JSONSchema) : LLMResult
+  + embed(texts : String[*]) : Vector[*]
+}
+class GeminiProvider {
+  - apiKey : Secret
+  - model : String
+}
+class OpenAICompatProvider {
+  - baseUrl : String
+  - model : String
+}
+class LLMGateway {
+  - provider : LLMProvider
+  - cache : Cache
+  - quota : QuotaPolicy
+  + call(prompt, schema) : LLMResult
+  - retryWithBackoff()
+  - validateJSON(result, schema)
+}
+LLMProvider <|.. GeminiProvider
+LLMProvider <|.. OpenAICompatProvider
+LLMGateway o-- LLMProvider
+interface STTProvider <<Adapter>> {
+  + transcribe(audio : Bytes, lang : String, hints : String[*]) : Transcript
+}
+interface TTSProvider <<Adapter>> {
+  + synthesize(text : String, voice : String) : Bytes
+}
+class WhisperSTT
+class CloudSTT
+class CloudTTS
+STTProvider <|.. WhisperSTT
+STTProvider <|.. CloudSTT
+TTSProvider <|.. CloudTTS
+class SpeechService {
+  - stt : STTProvider
+  - tts : TTSProvider
+  - glossary : TermGlossary
+  - minConfidence : Float
+  + transcribe(audio, nodeId) : Transcript
+  + synthesize(text) : AudioRef
+  - trimSilence(audio) : Bytes
+  - normalizeTerms(text) : String
+}
+class TermGlossary {
+  - terms : Map<String, String>
+  + hintsFor(nodeId) : String[*]
+  + fuzzyFix(text) : String
+}
+class Transcript {
+  + text : String
+  + confidence : Float
+  + segments : Segment[*]
+  + needsConfirmation() : Boolean
+}
+SpeechService o-- STTProvider
+SpeechService o-- TTSProvider
+SpeechService --> TermGlossary
+SpeechService ..> Transcript
+@enduml

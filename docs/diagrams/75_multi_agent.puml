@@ -1,0 +1,38 @@
+' Hình 6.4. Kiến trúc đa tác tử trong một phiên giảng lại
+@startuml multi_agent
+!include common.iuml
+skinparam nodesep 35
+skinparam ranksep 45
+title Kiến trúc đa tác tử trong một phiên giảng lại
+actor "Sinh viên" as SV
+component "Session Orchestrator\n(điều phối, quản lý trạng thái phiên)" as SO #E3F2FD
+component "Guard – đầu vào\n(chỉ thị điều khiển AI,\nlạc đề, dán bất thường)" as GI #FFEBEE
+component "Tutee Agent\n“học trò tò mò”\n(phân tích bao phủ,\nchọn chiến lược, đặt câu hỏi)" as TA #E8F5E9
+component "Guard – đầu ra\n(không lộ đáp án,\nkhông giảng hộ)" as GO #FFEBEE
+component "Judge Agent\n(chấm độc lập theo rubric,\nkhông nhập vai, chạy ≥ 2 lần)" as JA #FFF8E1
+component "Speech Service\n(STT / TTS)" as SP #F3E5F5
+database "Rubric của nút\n(ý chính, quan niệm sai,\ntình huống phản biện)" as RB
+database "Bộ nhớ phiên\n(transcript, coverage map)" as MEM
+database "Kho vector giáo trình\n(RAG)" as VEC
+SV --> SP : giọng nói
+SP --> SO : văn bản
+SV --> SO : văn bản
+SO --> GI : ① kiểm tra lời SV
+GI --> SO : hợp lệ / cờ vi phạm
+SO --> TA : ② transcript + ngữ cảnh
+TA ..> RB : đọc
+TA ..> VEC : truy hồi
+TA ..> MEM : đọc / ghi coverage
+TA --> GO : ③ câu hỏi nháp
+GO --> SO : câu hỏi đạt / yêu cầu sinh lại
+SO --> SV : câu hỏi (chữ, TTS)
+SO --> JA : ④ transcript đầy đủ (kết thúc)
+JA ..> RB : đối chiếu
+JA --> SO : điểm từng tiêu chí,\nkết luận, lý do
+note right of JA
+  Tách "người hỏi" (Tutee) và "người chấm" (Judge):
+  tránh AI vừa đá bóng vừa thổi còi,
+  và Judge không bị ảnh hưởng bởi
+  lời lẽ thuyết phục trong hội thoại.
+end note
+@enduml

@@ -1,0 +1,32 @@
+' Hình 2.3. Kiến trúc RAG tổng quát và cách áp dụng trong hệ thống
+@startuml h2_3
+!include common.iuml
+skinparam nodesep 30
+skinparam ranksep 35
+title Kiến trúc RAG (Retrieval-Augmented Generation) tổng quát
+package "① LẬP CHỈ MỤC (offline, khi tải giáo trình)" as P1 {
+  artifact "Tài liệu nguồn\n(giáo trình, đề cương, slide)" as D
+  rectangle "Trích xuất văn bản\n& cấu trúc chương/mục" as P
+  rectangle "Chia đoạn (chunking)\ntheo chương / mục,\ngắn mã nút khái niệm" as C
+  rectangle "Mô hình nhúng\n(embedding)" as E1
+  D --> P
+  P --> C
+  C --> E1
+}
+database "Kho vector\n(vector + metadata:\nchương, trang, nút)" as V
+package "② TRUY HỒI & SINH (online, trong phiên)" as P2 {
+  rectangle "Truy vấn\n(khái niệm đang giảng\n+ lời giảng của SV)" as Q
+  rectangle "Mô hình nhúng" as E2
+  rectangle "Tìm top-k đoạn gần nhất\n(cosine) + lọc theo nút" as S
+  rectangle "Ghép ngữ cảnh + rubric\nvào prompt" as PR
+  cloud "LLM" as L
+  rectangle "Đầu ra bám giáo trình\n(câu hỏi / điểm / rubric\nkèm trích dẫn nguồn)" as R
+  Q --> E2
+  E2 --> S
+  S --> PR
+  PR --> L
+  L --> R
+}
+E1 --> V : lưu
+V --> S : truy hồi
+@enduml

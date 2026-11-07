@@ -1,0 +1,65 @@
+' Hình 4.12. Biểu đồ hoạt động – Phiên giảng lại (b): phản biện và chấm điểm
+@startuml act_teach_b
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Phiên giảng lại (b): phản biện và chấm điểm
+|Hệ thống|
+start
+:(C) Lời giảng đã lưu;
+repeat
+  |AI (LLM)|
+  :Đối chiếu với rubric:
+  ý đã nêu, ý thiếu,
+  quan niệm sai;
+  :Chọn chiến lược câu hỏi
+  (ý thiếu → quan niệm sai
+  → tình huống biên
+  → chuyển giao);
+  :Sinh câu hỏi phản biện;
+  |Hệ thống|
+  :Guard đầu ra:
+  không lộ đáp án;
+  :Gửi câu hỏi (chữ, TTS
+  nếu bật), bắt đầu
+  đếm giờ;
+  |Sinh viên|
+  :Trả lời
+  (giọng nói / văn bản);
+  |Hệ thống|
+  if (Hết giờ?) then (có)
+    :Ghi nhận không
+    trả lời được;
+  else (không)
+    :STT nếu cần,
+    Guard, lưu lượt;
+  endif
+repeat while (Còn ý cần kiểm chứng\nvà số câu < tối đa?) is (còn) not (dừng)
+|AI (LLM)|
+:Tác tử chấm độc lập
+chấm 5 tiêu chí (2 lần);
+if (Hai lần lệch kết luận?) then (có)
+  :Chấm lần 3,
+  lấy đa số;
+else (không)
+endif
+|Hệ thống|
+:Tính tổng điểm,
+áp dụng quy tắc Đạt
+(BR-03);
+if (Đạt?) then (có)
+  :Nút → Đã đạt;
+  :Mở khóa nút phụ thuộc
+  đủ tiên quyết;
+else (không)
+  :Nút → Chưa đạt;
+  :Lưu ý thiếu &
+  quan niệm sai;
+endif
+:Phát sự kiện
+"mastery.updated";
+|Sinh viên|
+:Xem điểm từng tiêu chí
+và gợi ý ý cần ôn
+(không lộ đáp án);
+stop
+@enduml

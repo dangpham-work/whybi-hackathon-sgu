@@ -1,0 +1,34 @@
+' Hình 4.23. Biểu đồ tuần tự – Chạy vòng ghép cặp (UC15)
+@startuml seq_peer_round
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Chạy vòng ghép cặp (UC15)
+actor "GV /\nBộ hẹn giờ" as TR
+participant "Matching\nService" as MT
+participant "Complementarity\nScorer" as CS
+participant "Matching\nSolver" as SOL
+participant "Notification\nService" as NS
+database "PostgreSQL" as DB
+actor "Sinh viên A" as A
+actor "Sinh viên B" as B
+TR -> MT : runRound(class)
+MT -> DB : INSERT matching_round
+MT -> DB : SV opt-in,\nchưa có cặp
+MT -> DB : ma trận thành thạo\n+ chỉ số nút
+MT -> CS : buildWeights()
+CS -> CS : Đạt(A), Biên(A)
+CS -> CS : w(A,B) theo\ncông thức mục 6.6.2
+CS -> DB : lịch sử ghép\nN ngày
+CS --> MT : đồ thị có trọng số
+MT -> SOL : maxWeightMatching()
+SOL --> MT : tập cặp
+opt còn SV lẻ
+  MT -> MT : ghép một chiều\n/ nhóm 3
+end
+MT -> DB : INSERT peer_match\n(PROPOSED) + items
+MT -> NS : notify(A, B)
+NS --> A : "Gợi ý học cùng B"
+NS --> B : "Gợi ý học cùng A"
+@enduml

@@ -1,0 +1,29 @@
+' Hình 5.17. Wireframe GV-06 – Chi tiết nút và điểm nghẽn
+@startsalt wf_node_detail
+skinparam dpi 200
+title GV-06 – Chi tiết nút và điểm nghẽn
+{+
+  { <b>N5 Con trỏ</b> | Chương 3 | Bloom: Hiểu | <back:#EF9A9A> ĐỎ – 32% Đạt </back> | [✕ Đóng] }
+  ==
+  { Đã thử: 25/42 SV (60%) | Đạt: 8 | Chưa đạt: 17 | Lượt trung bình: 1,8 | Đang giảng: 3 }
+  {/ <b>Theo trạng thái</b> | Quan niệm sai | Điểm nghẽn gốc | Transcript mẫu }
+  {#
+    <b>Trạng thái</b> | <b>Sinh viên</b>
+    <back:#EF9A9A> Chưa đạt (17) </back> | Trần Bảo Châu, Phạm Thu Hà, Đỗ Quang Huy, Bùi Mai Linh, …
+    <back:#FFF59D> Đang giảng (3) </back> | Ngô Tuấn Kiệt, Lý Thanh Tâm, Hồ Ngọc Ánh
+    <back:#C8E6C9> Đạt (8) </back> | Nguyễn Minh An, Lê Hoàng Dũng, Võ Gia Khang, …
+    ○ Sẵn sàng, chưa thử (9) | Võ Gia Khang (sau khi Đạt N3), …
+    ⊘ Khóa (8) | …
+  }
+  {^"Quan niệm sai phổ biến (từ đánh giá của AI)"
+    1. "Con trỏ chứa giá trị của biến" – 9 SV
+    2. "free() xong thì con trỏ tự thành NULL" – 6 SV
+    3. Nhầm * khi khai báo và * khi truy xuất – 4 SV
+  }
+  {^"Điểm nghẽn gốc"
+    N5 là nút gốc của chuỗi nghẽn N5 → N6 (82% SV trượt N6 chưa Đạt N5).
+    Đề xuất: giảng lại N5, tập trung quan niệm sai số 1 và 2.
+  }
+  { [Ghép cặp ưu tiên nút này] | [Nhắc SV đang kẹt thử lại] | [Xuất danh sách] }
+}
+@endsalt

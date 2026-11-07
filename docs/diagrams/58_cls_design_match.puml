@@ -1,0 +1,60 @@
+' Hình 5.12. Biểu đồ lớp thiết kế (4) – Ghép cặp, cây kỹ năng và kho dữ liệu
+@startuml cls_design_match
+!include common.iuml
+skinparam nodesep 25
+skinparam ranksep 45
+title Biểu đồ lớp thiết kế (4) – Ghép cặp, cây kỹ năng và kho dữ liệu
+class MatchingService {
+  - scorer : ComplementarityScorer
+  - solver : MatchingSolver
+  + runRound(classId, trigger) : MatchingRound
+  + accept(matchId, sv)
+  + decline(matchId, sv)
+  + markStudied(matchId, sv)
+  + refreshVerification(matchId)
+}
+class ComplementarityScorer {
+  - alpha : Float = 1.0
+  - cooldownDays : Integer = 14
+  + mastered(sv) : Node[*]
+  + frontier(sv) : Node[*]
+  + weight(a, b) : Float
+}
+interface MatchingSolver <<Strategy>> {
+  + solve(graph) : Pair[*]
+}
+class BlossomSolver
+class GreedySolver
+MatchingSolver <|.. BlossomSolver
+MatchingSolver <|.. GreedySolver
+MatchingService --> ComplementarityScorer
+MatchingService --> MatchingSolver
+class SkillTreeService {
+  + buildDraftTree(docId) : TreeVersion
+  + addEdge(v, from, to)
+  + approveRubric(nodeId, rubric)
+  + publish(v)
+}
+class DagValidator {
+  + wouldCreateCycle(v, from, to) : Boolean
+  + breakCycles(g) : Graph
+  + transitiveReduction(g) : Graph
+  + layers(g) : Map<Node, Integer>
+}
+SkillTreeService --> DagValidator
+interface "Repository<T>" as Repository <<Repository>> {
+  + get(id) : T
+  + save(e : T)
+  + query(spec) : T[*]
+}
+class MasteryRepository
+class SessionRepository
+class TreeRepository
+class MatchRepository
+Repository <|.. MasteryRepository
+Repository <|.. SessionRepository
+Repository <|.. TreeRepository
+Repository <|.. MatchRepository
+SkillTreeService --> TreeRepository
+MatchingService --> MatchRepository
+@enduml

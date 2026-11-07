@@ -1,0 +1,107 @@
+' Hình 5.4. ERD chi tiết (1) – Người dùng, lớp học, tài liệu và thông báo
+@startuml erd_users
+!include common.iuml
+hide circle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+title ERD chi tiết (1) – Người dùng, lớp học, tài liệu và thông báo
+entity "users" as users {
+  * id : uuid <<PK>>
+  --
+  * full_name : varchar(120)
+  * email : varchar(150) <<UQ>>
+  * password_hash : varchar(255)
+  * role : varchar(16)  -- LECTURER/STUDENT/ADMIN
+  avatar_url : text
+  * is_active : boolean
+  * created_at : timestamptz
+}
+entity "lecturers" as lecturers {
+  * user_id : uuid <<PK, FK>>
+  --
+  faculty : varchar(120)
+  academic_title : varchar(40)
+}
+entity "students" as students {
+  * user_id : uuid <<PK, FK>>
+  --
+  * student_code : varchar(20) <<UQ>>
+  cohort : varchar(20)
+}
+entity "courses" as courses {
+  * id : uuid <<PK>>
+  --
+  * code : varchar(20) <<UQ>>
+  * name : varchar(200)
+  credits : smallint
+  description : text
+}
+entity "class_sections" as class_sections {
+  * id : uuid <<PK>>
+  --
+  * course_id : uuid <<FK>>
+  * lecturer_id : uuid <<FK>>
+  * name : varchar(120)
+  * semester : varchar(20)
+  * join_code : char(8) <<UQ>>
+  * status : varchar(16)
+  * pass_threshold : smallint  -- mặc định 70
+  * color_thresholds : jsonb  -- {green:0.7, yellow:0.4}
+  * min_sample : smallint  -- mặc định 5
+  * created_at : timestamptz
+}
+entity "enrollments" as enrollments {
+  * id : uuid <<PK>>
+  --
+  * class_id : uuid <<FK>>
+  * student_id : uuid <<FK>>
+  * joined_at : timestamptz
+  * peer_opt_in : boolean
+  UQ(class_id, student_id)
+}
+entity "syllabus_documents" as syllabus_documents {
+  * id : uuid <<PK>>
+  --
+  * class_id : uuid <<FK>>
+  * uploaded_by : uuid <<FK>>
+  * file_url : text
+  * file_type : varchar(8)
+  * status : varchar(16)
+  page_count : int
+  error_message : text
+  * uploaded_at : timestamptz
+}
+entity "document_chunks" as document_chunks {
+  * id : uuid <<PK>>
+  --
+  * document_id : uuid <<FK>>
+  chapter : varchar(200)
+  section_title : varchar(300)
+  * content : text
+  * embedding : vector(768)
+  page_from : int
+  page_to : int
+}
+entity "notifications" as notifications {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * type : varchar(32)
+  * title : varchar(200)
+  content : text
+  link : text
+  * is_read : boolean
+  * created_at : timestamptz
+}
+users ||--o| lecturers
+users ||--o| students
+users ||--o{ notifications
+courses ||--o{ class_sections
+lecturers ||--o{ class_sections
+class_sections ||--o{ enrollments
+students ||--o{ enrollments
+class_sections ||--o{ syllabus_documents
+users ||--o{ syllabus_documents
+syllabus_documents ||--|{ document_chunks
+@enduml

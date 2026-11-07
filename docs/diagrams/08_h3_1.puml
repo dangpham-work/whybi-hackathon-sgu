@@ -1,0 +1,28 @@
+' Hình 3.1. Sơ đồ ngữ cảnh hệ thống (Context Diagram)
+@startuml h3_1
+!include common.iuml
+left to right direction
+skinparam nodesep 45
+skinparam ranksep 110
+title Sơ đồ ngữ cảnh hệ thống (Context Diagram)
+actor "Giảng viên" as GV
+actor "Sinh viên" as SV
+actor "Quản trị viên" as QTV
+actor "Bộ hẹn giờ\n«thời gian»" as TM
+rectangle "**HỆ THỐNG**\n[TÊN HỆ THỐNG]\n\nNền tảng học tập\n“Sinh viên làm thầy,\nAI làm học trò”" as SYS #BBDEFB
+cloud "Dịch vụ LLM\n(trích xuất khái niệm,\nsinh câu hỏi, chấm điểm)" as LLM
+cloud "Dịch vụ giọng nói\n(STT: giọng nói → văn bản;\nTTS: văn bản → giọng nói)" as STT
+cloud "Dịch vụ email /\nthông báo đẩy" as MAIL
+GV --> SYS : giáo trình (PDF/DOCX),\nchỉnh sửa cây, duyệt rubric,\ncấu hình ngưỡng, lệnh ghép cặp
+GV <-- SYS : cây kỹ năng nháp, bản đồ nhiệt\ntheo tên SV, điểm nghẽn gốc,\nhồ sơ năng lực, transcript
+SV --> SYS : lời giảng (giọng nói / văn bản),\ncâu trả lời phản biện,\nphản hồi ghép cặp
+SV <-- SYS : câu hỏi phản biện (chữ / tiếng),\nkết quả & gợi ý, bản đồ cá nhân,\ngợi ý bạn cùng tiến
+QTV --> SYS : tài khoản, môn học,\ncấu hình AI, hạn mức
+QTV <-- SYS : nhật ký, cờ vi phạm,\nthống kê sử dụng
+TM --> SYS : ghép cặp định kỳ,\nhết hạn gợi ý, dọn ghi âm
+SYS --> LLM : prompt + ngữ cảnh RAG
+SYS <-- LLM : JSON khái niệm / câu hỏi /\nđiểm theo tiêu chí
+SYS --> STT : âm thanh lời giảng /\nvăn bản câu hỏi
+SYS <-- STT : bản chép lời + độ tin cậy /\nâm thanh câu hỏi
+SYS --> MAIL : nội dung thông báo
+@enduml

@@ -1,0 +1,39 @@
+' Hình 6.10. Lưu đồ thuật toán truy vết điểm nghẽn gốc
+@startuml rootcause_algo
+!include common.iuml
+skinparam ActivityFontSize 11
+title Thuật toán truy vết điểm nghẽn gốc (RootCauseAnalyzer)
+start
+:Đầu vào: lớp C, nút Y có màu ĐỎ,
+ngưỡng θ (mặc định 0,6), độ sâu tối đa D (3);
+:F ← tập SV đã thử Y nhưng Chưa đạt;
+if (|F| < cỡ mẫu tối thiểu?) then (có)
+  :Không kết luận;
+  stop
+else (không)
+endif
+:A ← các tổ tiên của Y trong DAG
+(BFS ngược, độ sâu ≤ D);
+:best ← rỗng, bestScore ← 0;
+repeat
+  :Lấy nút X ∈ A;
+  :r(X|Y) ← |{s ∈ F : X chưa Đạt với s}| / |F|;
+  if (r(X|Y) ≥ θ?) then (có)
+    :score ← r(X|Y) × (1 + 0,1 × khoảng cách(X, Y))
+    (ưu tiên nút nằm sâu hơn về phía gốc);
+    if (score > bestScore?) then (có)
+      :best ← X, bestScore ← score;
+    else (không)
+    endif
+  else (không)
+  endif
+repeat while (Còn X trong A?) is (còn) not (hết)
+if (best rỗng?) then (có)
+  :Kết luận: Y tự là điểm nghẽn;
+else (không)
+  :Kết luận: best là điểm nghẽn gốc của Y;
+endif
+:Ghi root_cause_node_id, root_cause_score
+vào class_node_stats, phát cảnh báo;
+stop
+@enduml

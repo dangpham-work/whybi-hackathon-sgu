@@ -1,0 +1,48 @@
+' Hình 5.8. Ma trận thành thạo và cách 4 mắt xích đọc / ghi
+@startuml matrix_illus
+!include common.iuml
+skinparam nodesep 30
+skinparam ranksep 40
+title Ma trận thành thạo – cấu trúc dữ liệu trung tâm nối 4 mắt xích
+rectangle M #FFFFFF [
+<b>MA TRẬN THÀNH THẠO M[Sinh viên × Nút]</b> (ví dụ lớp CTDL&GT, 5 SV × 6 nút; số trong ngoặc = số lượt đã thử)
+|= Sinh viên |= N1 Biến & bộ nhớ |= N2 Mảng |= N3 Hàm |= N4 Đệ quy |= N5 Con trỏ |= N6 Cấp phát động |
+| Nguyễn Minh An | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFCDD2> CHƯA ĐẠT (2) </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFFFFF> SẴN SÀNG </back> |
+| Trần Bảo Châu | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFCDD2> CHƯA ĐẠT (1) </back> | <back:#ECEFF1> KHÓA </back> |
+| Lê Hoàng Dũng | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFF8E1> ĐANG GIẢNG </back> |
+| Phạm Thu Hà | <back:#C8E6C9> ĐẠT </back> | <back:#FFCDD2> CHƯA ĐẠT (3) </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFFFFF> SẴN SÀNG </back> | <back:#FFCDD2> CHƯA ĐẠT (2) </back> | <back:#ECEFF1> KHÓA </back> |
+| Võ Gia Khang | <back:#C8E6C9> ĐẠT </back> | <back:#C8E6C9> ĐẠT </back> | <back:#FFFFFF> SẴN SÀNG </back> | <back:#ECEFF1> KHÓA </back> | <back:#ECEFF1> KHÓA </back> | <back:#ECEFF1> KHÓA </back> |
+|= Đạt / đã thử |= 5/5 |= 4/5 |= 4/4 |= 2/3 |= 2/4 |= 0/0 |
+]
+rectangle MX1 #E3F2FD [
+<b>MX1 – Cây kỹ năng</b>
+định nghĩa CÁC CỘT và quan hệ
+tiên quyết giữa các cột (DAG):
+N1→N2, N1→N3, N3→N4,
+N1→N5, N3→N5, N5→N6
+]
+rectangle MX2 #E8F5E9 [
+<b>MX2 – Giảng lại cho AI</b>
+GHI GIÁ TRỊ một ô (SV, nút)
+sau mỗi phiên giảng lại
+]
+rectangle MX3 #FFF8E1 [
+<b>MX3 – Bản đồ nhiệt</b>
+TỔNG HỢP THEO CỘT:
+N5 Con trỏ: 2/4 = 50% → VÀNG
+(cỡ mẫu tối thiểu = 3)
+và hiển thị từng HÀNG theo tên SV
+]
+rectangle MX4 #FCE4EC [
+<b>MX4 – Ghép cặp</b>
+SO SÁNH CÁC HÀNG:
+An (Đạt N5, Biên N4) ↔ Châu (Đạt N4, Biên N5)
+→ bù trừ hai chiều, w = 1
+Dũng → Hà (N2, N5): ghép một chiều
+nếu Hà là SV lẻ
+]
+MX1 -down-> M
+MX2 -down-> M
+M -down-> MX3
+M -down-> MX4
+@enduml

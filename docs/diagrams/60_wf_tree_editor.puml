@@ -1,0 +1,46 @@
+' Hình 5.14. Wireframe GV-04 – Trình sửa cây kỹ năng và rubric
+@startsalt wf_tree_editor
+skinparam dpi 200
+title GV-04 – Trình sửa cây kỹ năng và rubric
+{+
+  {* <b>[TÊN HỆ THỐNG]</b> | Lớp: CTDL&GT – Nhóm 02 | Cây kỹ năng | Bản đồ nhiệt | Ghép cặp | Cấu hình }
+  {
+    [+ Thêm nút] | [⇄ Nối cạnh] | [Gộp nút] | [Xóa] | [Tự sắp xếp] | [✓ Kiểm tra DAG] | [Lịch sử phiên bản] | . | [<b>Phát hành</b>]
+  }
+  ==
+  {
+    {+
+      <b>KHUNG VẼ CÂY (kéo thả)</b>
+      {
+        . | [N1 Biến & bộ nhớ] | .
+        ↙ | ↓ | ↘
+        [N2 Mảng] | [N3 Hàm →] | [<b>N5 Con trỏ</b> ✎]
+        ↓ | ↓ | ↓
+        [N8 Ngăn xếp] | [N4 Đệ quy] | [N6 Cấp phát động]
+      }
+      <color:#C62828>⚠ 1 nút chưa duyệt rubric: N6</color>
+      Phiên bản: v2 (Bản nháp) – lưu tự động 10:42
+    } | {+
+      <b>THUỘC TÍNH NÚT: N5 Con trỏ</b>
+      Tên nút        | "Con trỏ                 "
+      Chương         | ^Chương 3 – Con trỏ^
+      Mức Bloom      | ^Hiểu (Understand)^
+      Số câu phản biện tối thiểu | "3  "
+      Ngưỡng Đạt     | "70 "
+      --
+      <b>Ý chính bắt buộc</b>
+      [X] Con trỏ lưu địa chỉ của một ô nhớ
+      [X] Toán tử & lấy địa chỉ, * truy xuất giá trị
+      [X] Con trỏ có kiểu – xác định cách đọc ô nhớ
+      [+ Thêm ý]
+      <b>Quan niệm sai thường gặp</b>
+      • "Con trỏ chứa giá trị của biến"
+      • "Xóa ô nhớ thì con trỏ tự về NULL"
+      <b>Tình huống phản biện</b>
+      • Dùng con trỏ sau khi free (dangling)
+      • Hai con trỏ cùng trỏ một ô nhớ
+      [Sinh lại bằng AI] | [<b>Duyệt rubric</b>]
+    }
+  }
+}
+@endsalt

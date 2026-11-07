@@ -1,0 +1,33 @@
+' Hình 4.27. Trạng thái con của ĐANG GIẢNG GIẢI (giọng nói / văn bản)
+@startuml st_session_explain
+!include common.iuml
+hide empty description
+skinparam nodesep 40
+skinparam ranksep 40
+title Trạng thái con của ĐANG GIẢNG GIẢI (EXPLAINING)
+state "ĐANG GIẢNG GIẢI (EXPLAINING)" as EXPLAINING #F5F9FF {
+  state "Chọn chế độ nhập" as Mode
+  state "Đang ghi âm" as Rec
+  Rec : do / đếm thời lượng (≤ 3 phút)
+  state "Đang chép lời (STT)" as Stt
+  Stt : do / nhận dạng + chuẩn hóa thuật ngữ
+  state "Chờ xác nhận\nbản chép lời" as Confirm
+  state "Đang gõ" as Typing
+  Typing : do / ghi nhận sự kiện dán
+  state "Kiểm tra Guard" as Guard1
+  [*] --> Mode
+  Mode --> Rec : chọn giọng nói
+  Mode --> Typing : chọn văn bản
+  Rec --> Stt : dừng ghi âm
+  Rec --> Mode : ghi lại
+  Stt --> Confirm : độ tin cậy < ngưỡng
+  Stt --> Guard1 : độ tin cậy ≥ ngưỡng
+  Confirm --> Guard1 : SV xác nhận
+  Confirm --> Rec : ghi âm lại
+  Typing --> Guard1 : gửi
+  Guard1 --> Mode : vi phạm / nhắc lại chủ đề
+  Guard1 --> [*] : hợp lệ
+}
+[*] --> EXPLAINING
+EXPLAINING --> [*] : sang ĐANG PHẢN BIỆN
+@enduml

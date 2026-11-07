@@ -1,0 +1,21 @@
+' Hình 5.16. Wireframe GV-05b – Dashboard bản đồ nhiệt (lưới SV × Nút, hiển thị tên)
+@startsalt wf_heatmap_grid
+skinparam dpi 200
+title GV-05b – Dashboard bản đồ nhiệt (chế độ lưới Sinh viên × Nút, hiển thị tên)
+{+
+  {* <b>[TÊN HỆ THỐNG]</b> | Lớp: CTDL&GT – Nhóm 02 | Cây kỹ năng | <b>Bản đồ nhiệt</b> | Ghép cặp | Cấu hình }
+  {/ Chế độ cây | <b>Lưới SV × Nút</b> | Điểm nghẽn | Ghép cặp }
+  { Tìm SV: | "Nhập tên / MSSV   " | Lọc: | ^Tất cả trạng thái^ | ^Mọi nhóm^ | [Xuất CSV] }
+  {#
+    <b>Sinh viên</b>          | <b>MSSV</b> | <b>N1</b> | <b>N2</b> | <b>N3</b> | <b>N4</b> | <b>N5</b> | <b>N6</b> | <b>N8</b> | <b>Tiến độ</b>
+    Nguyễn Minh An      | 3121xxx01 | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#EF9A9A> ✗2 </back> | <back:#C8E6C9> ✓ </back> | ○ | ○ | 4/7
+    Trần Bảo Châu      | 3121xxx02 | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#EF9A9A> ✗1 </back> | ⊘ | ○ | 4/7
+    Lê Hoàng Dũng       | 3121xxx03 | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | <back:#FFF59D> … </back> | <back:#C8E6C9> ✓ </back> | 6/7
+    Phạm Thu Hà         | 3121xxx04 | <back:#C8E6C9> ✓ </back> | <back:#EF9A9A> ✗3 </back> | <back:#C8E6C9> ✓ </back> | ○ | <back:#EF9A9A> ✗2 </back> | ⊘ | ⊘ | 2/7
+    Võ Gia Khang        | 3121xxx05 | <back:#C8E6C9> ✓ </back> | <back:#C8E6C9> ✓ </back> | ○ | ⊘ | ⊘ | ⊘ | ○ | 2/7
+    …                   | …         | … | … | … | … | … | … | … | …
+    <b>Tỉ lệ Đạt</b>     | .         | <b>95%</b> | <b>88%</b> | <b>81%</b> | <b>—</b> | <b>32%</b> | <b>25%</b> | <b>55%</b> | .
+  }
+  { Chú giải: | <back:#C8E6C9> ✓ Đạt </back> | <back:#EF9A9A> ✗n Chưa đạt (n lượt) </back> | <back:#FFF59D> … Đang giảng </back> | ○ Sẵn sàng | ⊘ Khóa | (nhấn tên SV → hồ sơ năng lực) }
+}
+@endsalt

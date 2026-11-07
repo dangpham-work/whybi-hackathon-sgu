@@ -1,0 +1,36 @@
+' Hình 5.18. Wireframe SV-02 – Bản đồ học tập cá nhân
+@startsalt wf_student_map
+skinparam dpi 200
+title SV-02 – Bản đồ học tập cá nhân (dạng cây kỹ năng)
+{+
+  {* <b>[TÊN HỆ THỐNG]</b> | Lớp: CTDL&GT – Nhóm 02 | <b>Bản đồ học tập</b> | Bạn cùng tiến | Lịch sử | 🔔 2 }
+  { Xin chào, <b>Trần Bảo Châu</b> | Tiến độ: [■■■■■■□□□□] 4/7 nút | Chuỗi ngày học: 5 🔥 }
+  ==
+  {
+    {+
+      {
+        . | <back:#C8E6C9> ✓ N1 Biến & bộ nhớ </back> | .
+        ↙ | ↓ | ↘
+        <back:#C8E6C9> ✓ N2 Mảng </back> | <back:#C8E6C9> ✓ N3 Hàm </back> → | <back:#EF9A9A> <b>✗ N5 Con trỏ</b> </back>
+        ↓ | ↓ | ↓
+        ○ N8 Ngăn xếp | <back:#C8E6C9> ✓ N4 Đệ quy </back> | ⊘ N6 Cấp phát động
+      }
+      ✓ Đạt  ✗ Chưa đạt  ○ Sẵn sàng  ⊘ Khóa
+    } | {+
+      <b>N5 – Con trỏ</b>
+      Trạng thái: <color:#C62828>Chưa đạt (1 lượt)</color>
+      Điểm cao nhất: 58/100
+      --
+      <b>Gợi ý ôn tập (không lộ đáp án)</b>
+      • Bạn chưa giải thích được điều gì
+        xảy ra với con trỏ sau khi giải phóng
+        vùng nhớ mà nó trỏ tới.
+      • Xem lại mục 3.2 giáo trình (tr. 45–47).
+      --
+      [<b>▶ Giảng lại cho AI</b>]
+      [👥 Học cùng bạn Nguyễn Minh An]
+      Nút sẽ mở khi Đạt N5: N6 Cấp phát động
+    }
+  }
+}
+@endsalt

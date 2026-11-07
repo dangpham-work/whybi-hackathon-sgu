@@ -1,0 +1,109 @@
+' Hình 5.6. ERD chi tiết (3) – Phiên giảng lại, đánh giá và thành thạo
+@startuml erd_session
+!include common.iuml
+hide circle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+title ERD chi tiết (3) – Phiên giảng lại, đánh giá và thành thạo
+entity "students" as students <<tham chiếu>> {
+  * user_id : uuid <<PK>>
+}
+entity "concept_nodes" as concept_nodes <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "rubric_criteria" as rubric_criteria <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "teaching_sessions" as teaching_sessions {
+  * id : uuid <<PK>>
+  --
+  * student_id : uuid <<FK>>
+  * node_id : uuid <<FK>>
+  * class_id : uuid <<FK>>
+  * input_mode : varchar(8)
+  * status : varchar(16)
+  * attempt_no : smallint
+  * is_peer_followup : boolean
+  peer_match_item_id : uuid <<FK>>
+  * tts_enabled : boolean
+  * started_at : timestamptz
+  ended_at : timestamptz
+}
+entity "session_turns" as session_turns {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * turn_no : smallint
+  * speaker : varchar(8)  -- STUDENT/TUTEE
+  * turn_type : varchar(16)
+  content : text
+  * input_mode : varchar(8)
+  audio_url : text
+  stt_confidence : real
+  transcript_edited : boolean
+  paste_ratio : real
+  response_time_ms : int
+  strategy : varchar(24)
+  * created_at : timestamptz
+  UQ(session_id, turn_no)
+}
+entity "evaluations" as evaluations {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK, UQ>>
+  * total_score : numeric(5,2)
+  * verdict : varchar(8)
+  covered_points : jsonb
+  missing_points : jsonb
+  detected_misconceptions : jsonb
+  feedback : text
+  * judge_runs : smallint
+  * created_at : timestamptz
+}
+entity "criterion_scores" as criterion_scores {
+  * id : uuid <<PK>>
+  --
+  * evaluation_id : uuid <<FK>>
+  * criterion_id : uuid <<FK>>
+  * score : numeric(5,2)
+  rationale : text
+}
+entity "mastery_records" as mastery_records {
+  * id : uuid <<PK>>
+  --
+  * student_id : uuid <<FK>>
+  * node_id : uuid <<FK>>
+  * class_id : uuid <<FK>>
+  * state : varchar(16)
+  best_score : numeric(5,2)
+  * attempts : smallint
+  last_session_id : uuid <<FK>>
+  * updated_at : timestamptz
+  UQ(student_id, node_id)
+  INDEX(class_id, node_id, state)
+}
+entity "security_flags" as security_flags {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  turn_id : uuid <<FK>>
+  * type : varchar(24)
+  * severity : varchar(8)
+  detail : text
+  * resolved : boolean
+  resolved_by : uuid <<FK>>
+  * created_at : timestamptz
+}
+students ||--o{ teaching_sessions
+concept_nodes ||--o{ teaching_sessions
+teaching_sessions ||--|{ session_turns
+teaching_sessions ||--o| evaluations
+evaluations ||--|{ criterion_scores
+rubric_criteria ||--o{ criterion_scores
+teaching_sessions ||--o{ security_flags
+session_turns |o--o{ security_flags
+students ||--o{ mastery_records
+concept_nodes ||--o{ mastery_records
+teaching_sessions |o--o{ mastery_records : last_session
+@enduml

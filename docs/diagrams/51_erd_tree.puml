@@ -1,0 +1,111 @@
+' Hình 5.5. ERD chi tiết (2) – Cây kỹ năng và rubric
+@startuml erd_tree
+!include common.iuml
+hide circle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+title ERD chi tiết (2) – Cây kỹ năng và rubric
+entity "class_sections" as class_sections <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "skill_trees" as skill_trees {
+  * id : uuid <<PK>>
+  --
+  * class_id : uuid <<FK, UQ>>
+  * title : varchar(200)
+  published_version_id : uuid <<FK>>
+  * created_at : timestamptz
+}
+entity "tree_versions" as tree_versions {
+  * id : uuid <<PK>>
+  --
+  * tree_id : uuid <<FK>>
+  * version_no : int
+  * status : varchar(16)
+  change_note : text
+  * created_by : uuid <<FK>>
+  * created_at : timestamptz
+  published_at : timestamptz
+  UQ(tree_id, version_no)
+}
+entity "concept_nodes" as concept_nodes {
+  * id : uuid <<PK>>
+  --
+  * version_id : uuid <<FK>>
+  * key : varchar(64)
+  * title : varchar(200)
+  description : text
+  chapter_ref : varchar(100)
+  * bloom_level : varchar(16)
+  position_x : real
+  position_y : real
+  * min_challenges : smallint
+  UQ(version_id, key)
+}
+entity "prerequisite_edges" as prerequisite_edges {
+  * id : uuid <<PK>>
+  --
+  * version_id : uuid <<FK>>
+  * from_node_id : uuid <<FK>>
+  * to_node_id : uuid <<FK>>
+  * source : varchar(10)  -- AI/LECTURER
+  confidence : real
+  UQ(version_id, from_node_id, to_node_id)
+  CHECK(from_node_id <> to_node_id)
+}
+entity "rubrics" as rubrics {
+  * id : uuid <<PK>>
+  --
+  * node_id : uuid <<FK, UQ>>
+  * pass_threshold : smallint
+  * status : varchar(16)
+  approved_by : uuid <<FK>>
+  approved_at : timestamptz
+}
+entity "rubric_criteria" as rubric_criteria {
+  * id : uuid <<PK>>
+  --
+  * rubric_id : uuid <<FK>>
+  * code : varchar(16)
+  * name : varchar(100)
+  description : text
+  * weight : numeric(4,2)
+  * max_score : smallint
+}
+entity "key_points" as key_points {
+  * id : uuid <<PK>>
+  --
+  * node_id : uuid <<FK>>
+  * content : text
+  * is_required : boolean
+  source_chunk_id : uuid <<FK>>
+}
+entity "misconceptions" as misconceptions {
+  * id : uuid <<PK>>
+  --
+  * node_id : uuid <<FK>>
+  * content : text
+  probe_question : text
+  * is_critical : boolean
+}
+entity "challenge_scenarios" as challenge_scenarios {
+  * id : uuid <<PK>>
+  --
+  * node_id : uuid <<FK>>
+  * scenario : text
+  * bloom_level : varchar(16)
+  expected_points : text
+}
+class_sections ||--o| skill_trees
+skill_trees ||--|{ tree_versions
+tree_versions ||--|{ concept_nodes
+tree_versions ||--o{ prerequisite_edges
+concept_nodes ||--o{ prerequisite_edges : from
+concept_nodes ||--o{ prerequisite_edges : to
+concept_nodes ||--|| rubrics
+rubrics ||--|{ rubric_criteria
+concept_nodes ||--|{ key_points
+concept_nodes ||--o{ misconceptions
+concept_nodes ||--|{ challenge_scenarios
+@enduml

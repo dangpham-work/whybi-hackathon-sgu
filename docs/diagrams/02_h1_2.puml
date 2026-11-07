@@ -1,0 +1,53 @@
+' Hình 1.2. Cây vấn đề (Problem Tree): nguyên nhân gốc – vấn đề cốt lõi – hệ quả
+@startmindmap h1_2
+skinparam dpi 200
+<style>
+mindmapDiagram {
+  node {
+    FontName DejaVu Sans
+    FontSize 12
+    Padding 8
+    Margin 6
+    BackgroundColor #FAFAFA
+    LineColor #455A64
+    RoundCorner 8
+  }
+  :depth(0) {
+    BackgroundColor #FFCDD2
+    FontStyle bold
+    FontSize 14
+  }
+  :depth(1) {
+    BackgroundColor #ECEFF1
+    FontStyle bold
+  }
+  .effect {
+    BackgroundColor #FFF3E0
+  }
+  .cause {
+    BackgroundColor #E3F2FD
+  }
+}
+</style>
+* VẤN ĐỀ CỐT LÕI\nSV không biết mình hổng ở đâu;\nGV không biết lớp kẹt ở đâu;\nlớp không tận dụng được nhau
+** HỆ QUẢ
+*** Lỗ hổng nền tảng lan\nsang các chương sau <<effect>>
+*** GV chỉ phát hiện điểm yếu khi\nchấm thi – quá muộn để điều chỉnh <<effect>>
+*** Kết quả học tập thấp,\nSV mất động lực, phụ thuộc AI <<effect>>
+*** Nguồn lực hỗ trợ từ bạn bè\ntrong lớp bị lãng phí <<effect>>
+*** Bài giảng không được điều\nchỉnh theo thực tế lớp <<effect>>
+left side
+** NGUYÊN NHÂN GỐC
+*** Tầng cá nhân
+**** Dùng AI để nhận lời giải\nthay vì tự tạo lời giải <<cause>>
+**** Nhầm “đọc thấy hợp lý”\nvới “tự giải thích được” <<cause>>
+**** Không có công cụ tự kiểm chứng\nmức hiểu theo từng khái niệm <<cause>>
+**** Không thấy được cấu trúc\ntiên quyết của môn học <<cause>>
+*** Tầng lớp học
+**** SV ngại giơ tay hỏi\nvì sợ bị đánh giá <<cause>>
+**** Câu hỏi “Cả lớp hiểu chưa?”\nkhông tạo ra dữ liệu <<cause>>
+**** Đánh giá chủ yếu là tổng kết\n(giữa kỳ, cuối kỳ) <<cause>>
+*** Tầng cộng đồng
+**** Không ai biết bạn nào\nvững phần nào <<cause>>
+**** Mỗi SV học một mình\nvới máy <<cause>>
+@endmindmap

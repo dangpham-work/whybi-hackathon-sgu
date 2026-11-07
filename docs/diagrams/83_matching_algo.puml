@@ -1,0 +1,42 @@
+' Hình 6.12. Lưu đồ thuật toán ghép cặp bù trừ
+@startuml matching_algo
+!include common.iuml
+skinparam ActivityFontSize 11
+title Thuật toán ghép cặp bù trừ (MatchingService)
+start
+:Đầu vào: lớp C, α, N ngày tránh ghép lại,
+số nút tối đa mỗi chiều m (mặc định 2);
+:S ← SV có peer_opt_in = true
+và không có cặp đang hoạt động;
+:Với mỗi SV s: Đạt(s), Biên(s)
+(Biên = chưa Đạt và mọi tiên quyết đã Đạt);
+:Với mỗi nút n: p(n) = 1 + α·(1 − passRate(n));
+:G ← đồ thị vô hướng trên S;
+repeat
+  :Lấy cặp (a, b), a ≠ b;
+  :T_ab ← Đạt(a) ∩ Biên(b);
+  :T_ba ← Đạt(b) ∩ Biên(a);
+  :w ← min(Σ p(T_ab), Σ p(T_ba));
+  if (w > 0 và (a,b) không ghép trong N ngày?) then (có)
+    :Thêm cạnh (a, b, w) vào G;
+  else (không)
+  endif
+repeat while (Còn cặp chưa xét?) is (còn) not (hết)
+:M ← max_weight_matching(G)
+(Blossom của Edmonds, O(V³),
+networkx.max_weight_matching);
+:U ← SV trong S không thuộc M;
+repeat
+  :Lấy u ∈ U;
+  if (Có SV đã Đạt một nút Biên(u) có p cao nhất?) then (có)
+    :Ghép một chiều (mentor → u);
+  else (không)
+    :Đưa u vào hàng chờ vòng sau;
+  endif
+repeat while (Còn u trong U?) is (còn) not (hết)
+:Với mỗi cặp: chọn ≤ m nút mỗi chiều
+có p(n) lớn nhất làm nội dung dạy / học;
+:Lưu peer_match (PROPOSED, hạn 48h)
+và peer_match_item, gửi thông báo;
+stop
+@enduml

@@ -1,0 +1,33 @@
+' Hình 4.26. Biểu đồ trạng thái – TeachingSession (mức tổng quát)
+@startuml st_session
+!include common.iuml
+hide empty description
+skinparam nodesep 45
+skinparam ranksep 45
+title Trạng thái của phiên giảng lại (TeachingSession) – mức tổng quát
+state "KHỞI TẠO\n(CREATED)" as CREATED
+state "ĐANG GIẢNG GIẢI\n(EXPLAINING)" as EXPLAINING #E3F2FD
+state "ĐANG PHẢN BIỆN\n(CHALLENGING)" as CHALLENGING #E3F2FD
+state "ĐANG CHẤM\n(EVALUATING)" as EVALUATING #FFF8E1
+state "HOÀN TẤT\n(COMPLETED)" as COMPLETED #C8E6C9
+state "BỎ DỞ\n(ABANDONED)" as ABANDONED #ECEFF1
+state "BỊ GẮN CỜ\n(FLAGGED)" as FLAGGED #FFCDD2
+EXPLAINING : trạng thái phức hợp\n(xem hình chi tiết)
+CHALLENGING : trạng thái phức hợp\n(xem hình chi tiết)
+EVALUATING : do / Judge chấm ≥ 2 lần
+COMPLETED : entry / cập nhật MasteryRecord
+FLAGGED : entry / chờ GV xem transcript
+[*] --> CREATED : SV nhấn "Bắt đầu giảng"
+CREATED --> EXPLAINING : gửi lời mở đầu
+EXPLAINING --> CHALLENGING : lời giảng hợp lệ
+CHALLENGING --> EVALUATING : kết thúc vòng hỏi
+EVALUATING --> COMPLETED : lưu kết quả
+EXPLAINING --> ABANDONED : rời phiên > 10 phút
+CHALLENGING --> ABANDONED : rời phiên > 10 phút
+EXPLAINING --> FLAGGED : vi phạm ≥ 3 lần
+CHALLENGING --> FLAGGED : vi phạm ≥ 3 lần
+FLAGGED --> EVALUATING : GV cho phép chấm
+FLAGGED --> [*] : GV hủy kết quả
+COMPLETED --> [*]
+ABANDONED --> [*]
+@enduml

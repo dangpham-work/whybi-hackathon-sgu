@@ -1,0 +1,38 @@
+' Hình 4.25. Biểu đồ trạng thái – MasteryRecord
+@startuml st_mastery
+!include common.iuml
+hide empty description
+skinparam nodesep 45
+skinparam ranksep 55
+title Trạng thái thành thạo của một nút đối với một sinh viên (MasteryRecord)
+state "KHÓA\n(LOCKED)" as LOCKED #ECEFF1
+state "SẴN SÀNG\n(AVAILABLE)" as AVAILABLE #FFFFFF
+state "ĐANG GIẢNG\n(IN_PROGRESS)" as IN_PROGRESS #FFF8E1
+state "ĐÃ ĐẠT\n(MASTERED)" as MASTERED #C8E6C9
+state "CHƯA ĐẠT\n(NOT_PASSED)" as NOT_PASSED #FFCDD2
+state "CẦN XÁC NHẬN LẠI\n(NEEDS_REVERIFY)" as NEEDS_REVERIFY #FFE0B2
+LOCKED : hiển thị biểu tượng khóa
+LOCKED : chỉ ra tiên quyết còn thiếu
+IN_PROGRESS : entry / tạo phiên giảng lại
+IN_PROGRESS : do / hội thoại với AI
+MASTERED : entry / lưu best_score
+MASTERED : entry / mở khóa nút con đủ tiên quyết
+MASTERED : entry / phát "mastery.updated"
+NOT_PASSED : entry / attempts += 1
+NOT_PASSED : entry / lưu ý thiếu, quan niệm sai
+NOT_PASSED : entry / phát "mastery.updated"
+[*] --> LOCKED : phát hành cây\n[nút có tiên quyết]
+[*] --> AVAILABLE : phát hành cây\n[nút gốc]
+LOCKED --> AVAILABLE : mọi tiên quyết\nđã Đạt
+AVAILABLE --> IN_PROGRESS : SV bắt đầu phiên
+IN_PROGRESS --> MASTERED : chấm Đạt
+IN_PROGRESS --> NOT_PASSED : chấm Chưa đạt
+IN_PROGRESS --> AVAILABLE : bỏ dở / hết hạn phiên\n[chưa từng trượt]
+IN_PROGRESS --> NOT_PASSED : bỏ dở / hết hạn phiên\n[đã từng trượt]
+NOT_PASSED --> IN_PROGRESS : thử lại\n[sau thời gian chờ]
+MASTERED --> NEEDS_REVERIFY : phiên bản cây mới\nđổi rubric của nút
+NEEDS_REVERIFY --> IN_PROGRESS : bắt đầu phiên\nxác nhận lại
+AVAILABLE --> LOCKED : phiên bản mới thêm\ntiên quyết chưa Đạt
+NOT_PASSED --> LOCKED : phiên bản mới thêm\ntiên quyết chưa Đạt
+MASTERED --> [*] : lớp học phần\nkết thúc
+@enduml

@@ -1,0 +1,47 @@
+' Hình 4.16. Biểu đồ tuần tự – Xử lý nền trích xuất và sinh cây kỹ năng (UC06)
+@startuml seq_tree_extract
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Xử lý nền: trích xuất và sinh cây kỹ năng (UC06)
+queue "Hàng đợi" as Q
+participant "Document\nWorker" as W
+participant "SkillTree\nService" as TS
+participant "Dag\nValidator" as DV
+participant "LLM\nProvider" as LLM
+database "PostgreSQL\n+ pgvector" as DB
+participant "Realtime\nGateway" as WS
+Q -> W : nhận tác vụ
+W -> W : trích văn bản\n(PyMuPDF / python-docx)
+opt bản quét
+  W -> W : OCR tiếng Việt
+end
+W -> W : nhận diện chương/mục,\nchia đoạn
+W -> LLM : embed(chunks)
+LLM --> W : vectors
+W -> DB : INSERT document_chunk
+W -> WS : tiến độ 30%
+W -> TS : buildDraftTree(docId)
+loop từng chương
+  TS -> LLM : trích khái niệm\n(JSON schema)
+  LLM --> TS : khái niệm
+end
+TS -> TS : gộp trùng\n(cosine ≥ 0.9)
+TS -> LLM : suy luận tiên quyết\n(cặp ứng viên)
+LLM --> TS : cạnh + độ tin cậy
+TS -> DV : sanitize(graph)
+DV -> DV : phá chu trình,\nrút gọn bắc cầu
+DV --> TS : DAG + tầng
+TS -> WS : tiến độ 70%
+loop từng nút
+  TS -> DB : truy hồi đoạn\nliên quan
+  TS -> LLM : sinh rubric
+  LLM --> TS : rubric + trích dẫn
+end
+TS -> DB : INSERT tree_version (DRAFT),\nnode, edge, rubric
+TS --> W : versionId
+W -> DB : document → PARSED
+W -> WS : "tree.generated"
+WS --> WS : đẩy tới GV
+@enduml

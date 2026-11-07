@@ -1,0 +1,53 @@
+' Hình 4.5. Use Case phân rã – Giảng lại cho AI
+@startuml uc_teach
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 12
+skinparam ranksep 55
+skinparam UsecaseFontSize 11
+title Use Case phân rã – Giảng lại cho AI
+actor "Sinh viên" as SV
+actor "Dịch vụ LLM\n«hệ thống»" as LLM
+actor "Dịch vụ STT/TTS\n«hệ thống»" as STT
+rectangle "Phân hệ Giảng lại cho AI" {
+  usecase "UC17 Tham gia lớp bằng mã" as UC17
+  usecase "UC18 Xem bản đồ học tập cá nhân" as UC18
+  usecase "Xem chi tiết nút &\nnút tiên quyết còn thiếu" as UC18a
+  usecase "UC19 Thực hiện phiên giảng lại" as UC19
+  usecase "Chọn nút khái niệm" as UC19a
+  usecase "Giảng giải khái niệm" as UC19b
+  usecase "Trả lời câu hỏi phản biện" as UC19c
+  usecase "Nhận đánh giá theo rubric" as UC19d
+  usecase "Nhập bằng giọng nói" as V
+  usecase "Xác nhận / chỉnh bản chép lời" as V2
+  usecase "Nhập bằng văn bản" as T
+  usecase "Nghe câu hỏi bằng giọng nói (TTS)" as TTS
+  usecase "Tạm dừng / bỏ dở phiên" as AB
+  usecase "UC20 Xem kết quả & phản hồi" as UC20
+  usecase "Thử lại nút" as UC20a
+  usecase "Xem lịch sử các phiên" as UC20b
+}
+SV --> UC17
+SV --> UC18
+SV --> UC19
+SV --> UC20
+UC18a .up.> UC18 : <<extend>>
+UC19 ..> UC19a : <<include>>
+UC19 ..> UC19b : <<include>>
+UC19 ..> UC19c : <<include>>
+UC19 ..> UC19d : <<include>>
+V .up.> UC19b : <<extend>>
+T .up.> UC19b : <<extend>>
+V .up.> UC19c : <<extend>>
+T .up.> UC19c : <<extend>>
+V ..> V2 : <<include>>
+TTS .up.> UC19c : <<extend>>
+AB .up.> UC19 : <<extend>>
+UC20a .up.> UC20 : <<extend>>
+UC20b .up.> UC20 : <<extend>>
+UC19c --> LLM
+UC19d --> LLM
+V --> STT
+TTS --> STT
+@enduml

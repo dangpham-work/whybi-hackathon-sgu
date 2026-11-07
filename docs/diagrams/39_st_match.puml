@@ -1,0 +1,38 @@
+' Hình 4.30. Biểu đồ trạng thái – PeerMatch
+@startuml st_match
+!include common.iuml
+hide empty description
+skinparam nodesep 40
+skinparam ranksep 50
+title Trạng thái của gợi ý ghép cặp (PeerMatch)
+state "ĐỀ XUẤT\n(PROPOSED)" as PROPOSED #FFF8E1
+state "CHỜ BÊN CÒN LẠI\n(WAITING_OTHER)" as WAITING
+state "ĐÃ CHẤP NHẬN\n(ACCEPTED)" as ACCEPTED #E3F2FD
+state "TỪ CHỐI\n(DECLINED)" as DECLINED #ECEFF1
+state "HẾT HẠN\n(EXPIRED)" as EXPIRED #ECEFF1
+state "ĐÃ HỌC CÙNG\n(STUDIED)" as STUDIED #E3F2FD
+state "ĐÃ XÁC NHẬN\n(VERIFIED)" as VERIFIED #C8E6C9
+state "XÁC NHẬN MỘT PHẦN\n(PARTIALLY_VERIFIED)" as PARTIAL #FFF9C4
+state "CHƯA XÁC NHẬN\n(UNVERIFIED)" as UNVERIFIED #FFCDD2
+PROPOSED : entry / gửi thông báo cho hai SV
+PROPOSED : hạn phản hồi 48 giờ
+STUDIED : entry / mở yêu cầu xác nhận lại
+STUDIED : hạn xác nhận 7 ngày
+[*] --> PROPOSED : vòng ghép cặp tạo gợi ý
+PROPOSED --> WAITING : một bên chấp nhận
+WAITING --> ACCEPTED : bên còn lại chấp nhận
+PROPOSED --> DECLINED : một bên từ chối
+WAITING --> DECLINED : bên còn lại từ chối
+PROPOSED --> EXPIRED : quá 48 giờ
+WAITING --> EXPIRED : quá 48 giờ
+ACCEPTED --> STUDIED : cả hai đánh dấu\n"Đã học cùng"
+ACCEPTED --> EXPIRED : quá 7 ngày chưa học
+STUDIED --> VERIFIED : mọi mục được\nxác nhận Đạt
+STUDIED --> PARTIAL : hết hạn,\nmột phần Đạt
+STUDIED --> UNVERIFIED : hết hạn,\nkhông mục nào Đạt
+DECLINED --> [*]
+EXPIRED --> [*]
+VERIFIED --> [*]
+PARTIAL --> [*]
+UNVERIFIED --> [*]
+@enduml

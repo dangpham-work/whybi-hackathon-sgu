@@ -1,0 +1,45 @@
+' Hình 4.37. Biểu đồ lớp phân tích theo mẫu Boundary – Control – Entity cho UC19
+@startuml cls_bce
+!include common.iuml
+skinparam nodesep 35
+skinparam ranksep 60
+title Biểu đồ lớp phân tích theo mẫu Boundary – Control – Entity cho UC19
+left to right direction
+boundary "TeachBackScreen" as B1
+boundary "VoiceRecorderWidget" as B2
+boundary "TranscriptConfirmDialog" as B3
+boundary "ResultPanel" as B4
+control "SessionController" as C1
+control "SessionOrchestrator" as C2
+control "SpeechHandler" as C3
+control "TuteeAgent" as C4
+control "GuardAgent" as C5
+control "JudgeAgent" as C6
+control "MasteryUpdater" as C7
+entity "TeachingSession" as E1
+entity "SessionTurn" as E2
+entity "ConceptNode" as E3
+entity "Rubric" as E4
+entity "Evaluation" as E5
+entity "MasteryRecord" as E6
+entity "SecurityFlag" as E7
+B1 --> C1
+B2 --> C1
+B3 --> C1
+B4 <-- C1
+C1 --> C2
+C1 --> C3
+C2 --> C4
+C2 --> C5
+C2 --> C6
+C2 --> C7
+C2 --> E1
+C2 --> E2
+C4 --> E3
+C4 --> E4
+C6 --> E4
+C6 --> E5
+C7 --> E6
+C5 --> E7
+C3 --> E2
+@enduml

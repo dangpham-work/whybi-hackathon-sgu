@@ -1,0 +1,108 @@
+' Hình 4.32. Biểu đồ lớp phân tích (1) – Người dùng, lớp học và tài liệu
+@startuml cls_users
+!include common.iuml
+skinparam nodesep 40
+skinparam ranksep 50
+title Biểu đồ lớp phân tích (1) – Người dùng, lớp học và tài liệu
+abstract class User {
+  - id : UUID
+  - fullName : String
+  - email : String
+  - passwordHash : String
+  - role : Role
+  - avatarUrl : String
+  - isActive : Boolean
+  - createdAt : DateTime
+  + login(email, password) : Token
+  + logout()
+  + updateProfile(data)
+  + changePassword(old, new)
+}
+class Lecturer {
+  - faculty : String
+  - academicTitle : String
+  + createClass(course, semester) : ClassSection
+  + uploadSyllabus(cls, file) : SyllabusDocument
+  + publishTree(version)
+  + viewHeatmap(cls) : HeatmapView
+  + triggerMatching(cls) : MatchingRound
+}
+class Student {
+  - studentCode : String
+  - cohort : String
+  + joinClass(joinCode) : Enrollment
+  + viewLearningMap(cls) : MasteryRecord[*]
+  + startSession(node) : TeachingSession
+  + respondToMatch(match, accept : Boolean)
+}
+class Admin {
+  + manageAccount(user, action)
+  + importUsers(csvFile) : Integer
+  + configureAIProvider(config)
+  + reviewFlag(flag, decision)
+}
+class Course {
+  - id : UUID
+  - code : String
+  - name : String
+  - credits : Integer
+  - description : String
+}
+class ClassSection {
+  - id : UUID
+  - name : String
+  - semester : String
+  - joinCode : String
+  - status : ClassStatus
+  - passThreshold : Integer
+  - colorThresholds : JSON
+  + regenerateJoinCode() : String
+  + getMasteryMatrix() : Matrix
+  + getPublishedVersion() : TreeVersion
+}
+class Enrollment {
+  - id : UUID
+  - joinedAt : DateTime
+  - peerOptIn : Boolean
+  + togglePeerOptIn()
+}
+class Notification {
+  - id : UUID
+  - type : NotificationType
+  - title : String
+  - content : String
+  - link : String
+  - isRead : Boolean
+  - createdAt : DateTime
+  + markRead()
+}
+class SyllabusDocument {
+  - id : UUID
+  - fileUrl : String
+  - fileType : FileType
+  - status : DocStatus
+  - pageCount : Integer
+  - uploadedAt : DateTime
+  + parse() : DocumentChunk[*]
+}
+class DocumentChunk {
+  - id : UUID
+  - chapter : String
+  - sectionTitle : String
+  - content : Text
+  - embedding : Vector
+  - pageFrom : Integer
+  - pageTo : Integer
+}
+User <|-- Lecturer
+User <|-- Student
+User <|-- Admin
+User "1" -- "0..*" Notification : nhận >
+Course "1" -- "0..*" ClassSection : mở >
+Lecturer "1" -- "0..*" ClassSection : phụ trách >
+ClassSection "1" *-- "0..*" Enrollment
+Student "1" -- "0..*" Enrollment : ghi danh >
+ClassSection "1" o-- "0..*" SyllabusDocument
+Lecturer "1" -- "0..*" SyllabusDocument : tải lên >
+SyllabusDocument "1" *-- "1..*" DocumentChunk
+@enduml

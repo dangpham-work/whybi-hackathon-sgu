@@ -1,0 +1,43 @@
+' Hình 4.10. Biểu đồ hoạt động – Duyệt và phát hành cây kỹ năng (b)
+@startuml act_tree_b
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Duyệt và phát hành cây kỹ năng (b)
+|Giảng viên|
+start
+:(B) Mở trình sửa cây;
+repeat
+  :Thêm / sửa / xóa / gộp nút;
+  :Kéo thả cạnh tiên quyết;
+  :Duyệt & chỉnh rubric
+  từng nút;
+  |Hệ thống|
+  :Kiểm tra:
+  - không có chu trình
+  - mọi nút có rubric đã duyệt
+  - có ít nhất 1 nút gốc;
+  if (Hợp lệ?) then (không)
+    :Tô đỏ vị trí lỗi
+    (chu trình, nút thiếu rubric);
+  else (có)
+    :Lưu tự động;
+  endif
+  |Giảng viên|
+repeat while (Sẵn sàng phát hành?) is (chưa) not (rồi)
+:Nhấn "Phát hành";
+|Hệ thống|
+:Đánh dấu Đã phát hành,
+lưu trữ phiên bản cũ;
+if (Lớp đã có phiên bản trước?) then (có)
+  :Ánh xạ nút theo khóa;
+  :Nút bị đổi rubric:
+  Đạt → Cần xác nhận lại;
+  :Nút mới có tiên quyết
+  chưa Đạt → Khóa;
+else (không)
+  :Nút gốc → Sẵn sàng;
+  :Các nút còn lại → Khóa;
+endif
+:Gửi thông báo cho lớp;
+stop
+@enduml

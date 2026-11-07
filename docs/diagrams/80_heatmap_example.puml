@@ -1,0 +1,41 @@
+' Hình 6.9. Ví dụ bản đồ nhiệt trên cây và truy vết điểm nghẽn gốc
+@startuml heatmap_example
+!include common.iuml
+skinparam nodesep 35
+skinparam ranksep 45
+title Ví dụ bản đồ nhiệt trên cây và truy vết điểm nghẽn gốc (lớp 42 SV)
+rectangle "N1 Biến & bộ nhớ\n✓ 95% (40/42)" as N1 #C8E6C9
+rectangle "N2 Mảng\n✓ 88% (35/40)" as N2 #C8E6C9
+rectangle "N3 Hàm\n✓ 81% (30/37)" as N3 #C8E6C9
+rectangle "N4 Đệ quy\nXÁM (3 SV thử)" as N4 #ECEFF1
+rectangle "<b>N5 Con trỏ</b>\n✗ 32% (8/25)\n◎ ĐIỂM NGHẼN GỐC" as N5 #EF9A9A
+rectangle "N6 Cấp phát động\n✗ 25% (3/12)" as N6 #EF9A9A
+rectangle "N7 Danh sách liên kết\n! 50% (2/4)" as N7 #FFF59D
+rectangle "N8 Ngăn xếp & hàng đợi\n! 55% (6/11)" as N8 #FFF59D
+N1 --> N2
+N1 --> N3
+N1 --> N5
+N3 --> N4
+N3 --> N5
+N5 --> N6
+N6 --> N7
+N2 --> N8
+N7 --> N8
+note right of N6
+  <b>Truy vết cho Y = N6 (đỏ)</b>
+  Trượt(N6) = 9 SV
+  Tổ tiên: N5, N3, N1
+  r(N5 | N6) = 7/9 = 0,78 ≥ θ = 0,6 ✔
+  r(N3 | N6) = 1/9 = 0,11
+  r(N1 | N6) = 0/9 = 0
+  → Nút gốc: <b>N5 Con trỏ</b>
+  (N5 cũng đang đỏ: 32%)
+end note
+note left of N5
+  <b>Cảnh báo cho GV</b>
+  "Nên giảng lại N5 Con trỏ"
+  Quan niệm sai phổ biến:
+  • con trỏ chứa giá trị (9 SV)
+  • free() xong thành NULL (6 SV)
+end note
+@enduml

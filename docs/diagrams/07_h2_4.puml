@@ -1,0 +1,19 @@
+' Hình 2.4. Định vị giải pháp theo hai trục: vai trò người dạy và phạm vi phục vụ
+@startuml h2_4
+!include common.iuml
+skinparam nodesep 25
+skinparam ranksep 25
+title Định vị giải pháp so với các nhóm công cụ hiện có
+rectangle "<b>AI / MÁY LÀM THẦY × PHỤC VỤ CÁ NHÂN</b>\n\nChatbot giải bài hộ, gia sư AI hỏi–đáp\n→ SV tiếp nhận thụ động, dễ ảo giác hiểu bài\n→ không tạo dữ liệu cho GV" as Q1 #FFEBEE
+rectangle "<b>AI / MÁY LÀM THẦY × PHỤC VỤ CẢ LỚP</b>\n\nQuiz / poll trực tiếp trong lớp\n→ đo đúng/sai trắc nghiệm\n→ không đo được “hiểu bản chất”" as Q2 #FFF8E1
+rectangle "<b>SINH VIÊN LÀM THẦY × PHỤC VỤ CÁ NHÂN</b>\n\nTự học kiểu Feynman bằng ghi chú\n→ không ai phản biện\n→ không có dữ liệu tổng hợp" as Q3 #E3F2FD
+rectangle "<b>SINH VIÊN LÀM THẦY × PHỤC VỤ CẢ LỚP</b>\n\n<b>HỆ THỐNG ĐỀ XUẤT</b>\nSV giảng lại cho AI + AI phản biện\n+ bản đồ nhiệt lớp + ghép cặp bù trừ" as Q4 #C8E6C9
+Q1 -[hidden]right- Q2
+Q3 -[hidden]right- Q4
+Q1 -[hidden]down- Q3
+Q2 -[hidden]down- Q4
+legend bottom
+  Trục ngang: phạm vi phục vụ (cá nhân → cả lớp)
+  Trục dọc: vai trò người dạy (AI làm thầy → sinh viên làm thầy)
+endlegend
+@enduml

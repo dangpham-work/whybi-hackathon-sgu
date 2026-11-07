@@ -1,0 +1,67 @@
+' Hình 4.4. Use Case phân rã – Quản lý môn học và cây kỹ năng
+@startuml uc_tree
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 10
+skinparam ranksep 55
+skinparam UsecaseFontSize 11
+title Use Case phân rã – Quản lý môn học & cây kỹ năng
+actor "Giảng viên" as GV
+actor "Dịch vụ LLM\n«hệ thống»" as LLM
+rectangle "Phân hệ Môn học & Cây kỹ năng" {
+  usecase "UC04 Quản lý lớp học phần" as UC04
+  usecase "Tạo lớp học phần" as UC04a
+  usecase "Tạo lại mã tham gia" as UC04b
+  usecase "Lưu trữ lớp" as UC04c
+  usecase "UC05 Tải giáo trình lên" as UC05
+  usecase "UC06 Sinh cây kỹ năng tự động" as UC06
+  usecase "Phân tích tài liệu\n(OCR nếu là bản quét)" as UC06a
+  usecase "Trích xuất khái niệm" as UC06b
+  usecase "Suy luận quan hệ tiên quyết" as UC06c
+  usecase "Kiểm tra tính hợp lệ DAG" as DAG
+  usecase "Sinh rubric cho nút" as UC06d
+  usecase "UC07 Chỉnh sửa cây kỹ năng" as UC07
+  usecase "Thêm / sửa / xóa nút" as UC07a
+  usecase "Gộp hai nút" as UC07b
+  usecase "Thêm / xóa cạnh tiên quyết\n(kéo thả)" as UC07c
+  usecase "Sắp xếp lại bố cục" as UC07d
+  usecase "UC08 Duyệt / chỉnh rubric" as UC08
+  usecase "Sửa ý chính / quan niệm sai /\ntình huống phản biện" as UC08a
+  usecase "Sinh lại rubric bằng AI" as UC08b
+  usecase "UC09 Phát hành cây kỹ năng" as UC09
+  usecase "Khởi tạo bản đồ học tập SV" as UC09a
+  usecase "Gửi thông báo cho lớp" as UC09b
+  usecase "Quản lý phiên bản cây\n(xem lịch sử, khôi phục)" as UC09c
+}
+GV --> UC04
+GV --> UC05
+GV --> UC06
+GV --> UC07
+GV --> UC08
+GV --> UC09
+GV --> UC09c
+UC04a .up.> UC04 : <<extend>>
+UC04b .up.> UC04 : <<extend>>
+UC04c .up.> UC04 : <<extend>>
+UC06 ..> UC05 : <<include>>
+UC06 ..> UC06a : <<include>>
+UC06 ..> UC06b : <<include>>
+UC06 ..> UC06c : <<include>>
+UC06 ..> DAG : <<include>>
+UC06 ..> UC06d : <<include>>
+UC07a .up.> UC07 : <<extend>>
+UC07b .up.> UC07 : <<extend>>
+UC07c .up.> UC07 : <<extend>>
+UC07d .up.> UC07 : <<extend>>
+UC07 ..> DAG : <<include>>
+UC08a .up.> UC08 : <<extend>>
+UC08b .up.> UC08 : <<extend>>
+UC09 ..> DAG : <<include>>
+UC09 ..> UC09a : <<include>>
+UC09 ..> UC09b : <<include>>
+UC06b --> LLM
+UC06c --> LLM
+UC06d --> LLM
+UC08b --> LLM
+@enduml

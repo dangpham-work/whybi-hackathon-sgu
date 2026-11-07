@@ -1,0 +1,83 @@
+' Hình 4.34. Biểu đồ lớp phân tích (3) – Phiên giảng lại, đánh giá và thành thạo
+@startuml cls_session
+!include common.iuml
+skinparam nodesep 40
+skinparam ranksep 50
+title Biểu đồ lớp phân tích (3) – Phiên giảng lại, đánh giá và thành thạo
+class Student <<tham chiếu>>
+class ConceptNode <<tham chiếu>>
+class RubricCriterion <<tham chiếu>>
+class TeachingSession {
+  - id : UUID
+  - inputMode : InputMode
+  - status : SessionStatus
+  - attemptNo : Integer
+  - isPeerFollowup : Boolean
+  - ttsEnabled : Boolean
+  - startedAt : DateTime
+  - endedAt : DateTime
+  + addTurn(turn : SessionTurn)
+  + nextQuestion() : SessionTurn
+  + complete() : Evaluation
+  + abandon()
+}
+class SessionTurn {
+  - id : UUID
+  - turnNo : Integer
+  - speaker : Speaker
+  - turnType : TurnType
+  - content : Text
+  - inputMode : InputMode
+  - audioUrl : String
+  - sttConfidence : Float
+  - transcriptEdited : Boolean
+  - pasteRatio : Float
+  - responseTimeMs : Integer
+  - strategy : QuestionStrategy
+  - createdAt : DateTime
+}
+class Evaluation {
+  - id : UUID
+  - totalScore : Float
+  - verdict : Verdict
+  - coveredPoints : JSON
+  - missingPoints : JSON
+  - detectedMisconceptions : JSON
+  - feedback : Text
+  - judgeRuns : Integer
+  - createdAt : DateTime
+  + isPassed() : Boolean
+}
+class CriterionScore {
+  - id : UUID
+  - score : Float
+  - rationale : Text
+}
+class MasteryRecord {
+  - id : UUID
+  - state : MasteryState
+  - bestScore : Float
+  - attempts : Integer
+  - updatedAt : DateTime
+  + canStart() : Boolean
+  + transitionTo(s : MasteryState)
+}
+class SecurityFlag {
+  - id : UUID
+  - type : FlagType
+  - severity : Severity
+  - detail : Text
+  - resolved : Boolean
+  - createdAt : DateTime
+}
+Student "1" -- "0..*" TeachingSession : thực hiện >
+ConceptNode "1" -- "0..*" TeachingSession : về >
+TeachingSession "1" *-- "1..*" SessionTurn
+TeachingSession "1" *-- "0..1" Evaluation
+TeachingSession "1" -- "0..*" SecurityFlag
+Evaluation "1" *-- "1..*" CriterionScore
+CriterionScore "0..*" --> "1" RubricCriterion
+Student "1" -- "0..*" MasteryRecord
+ConceptNode "1" -- "0..*" MasteryRecord
+MasteryRecord "0..*" --> "0..1" TeachingSession : lastSession
+@enduml

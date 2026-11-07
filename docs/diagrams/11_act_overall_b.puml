@@ -1,0 +1,59 @@
+' Hình 4.2. Biểu đồ hoạt động tổng thể (b) – vòng lặp học tập
+@startuml act_overall_b
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động tổng thể (b) – Vòng lặp học tập\n(Mắt xích 2, 3, 4)
+|Sinh viên|
+start
+:(A) Cây đã phát hành;
+repeat
+  :Chọn nút Sẵn sàng /
+  Chưa đạt trên bản đồ;
+  if (Chế độ nhập?) then (giọng nói)
+    :Nói lời giảng;
+    |Hệ thống|
+    :STT → văn bản,
+    chuẩn hóa thuật ngữ;
+    |Sinh viên|
+    :Xác nhận bản chép lời;
+  else (văn bản)
+    :Gõ lời giảng;
+  endif
+  repeat
+    |AI (LLM)|
+    :Học trò tò mò
+    đặt câu hỏi phản biện;
+    |Sinh viên|
+    :Trả lời, bảo vệ
+    lập luận;
+  repeat while (Còn ý chưa kiểm chứng?) is (còn) not (hết)
+  |AI (LLM)|
+  :Tác tử chấm độc lập
+  chấm theo rubric;
+  |Hệ thống|
+  :Cập nhật ma trận
+  thành thạo, mở khóa
+  nút phụ thuộc;
+  :Cập nhật bản đồ nhiệt
+  thời gian thực;
+  |Giảng viên|
+  if (Có điểm nghẽn?) then (có)
+    :Xem SV đang kẹt
+    (theo tên), giảng kỹ
+    nút gốc trên lớp;
+  else (không)
+  endif
+  |Hệ thống|
+  :Chạy ghép cặp bù trừ;
+  |Sinh viên|
+  if (Chấp nhận ghép cặp?) then (có)
+    :Học cùng bạn,
+    dạy lại cho nhau;
+    :Giảng lại cho AI
+    nút vừa học
+    (xác nhận lại);
+  else (không)
+  endif
+repeat while (Còn nút chưa Đạt?) is (còn) not (hoàn thành)
+stop
+@enduml

@@ -1,0 +1,50 @@
+' Hình 7.1. Quy trình đánh giá các thành phần AI
+@startuml eval_method
+!include common.iuml
+skinparam ActivityFontSize 11
+title Quy trình đánh giá các thành phần AI
+start
+fork
+  partition "A. Chất lượng cây kỹ năng" {
+    :Chọn 3–5 đề cương mẫu
+    (CTDL&GT, OOP, CSDL…);
+    :GV / nhóm gán nhãn cây chuẩn
+    (nút + cạnh tiên quyết);
+    :Chạy pipeline sinh cây;
+    :So khớp nút (đồng nghĩa)
+    và cạnh;
+    :Precision / Recall / F1
+    cho nút và cạnh;
+  }
+fork again
+  partition "B. Độ tin cậy của bộ chấm" {
+    :Thu 60–100 lời giảng mẫu
+    (tốt / trung bình / sai bản chất);
+    :2 người chấm độc lập theo rubric
+    → nhãn chuẩn (giải quyết bất đồng);
+    :Judge chấm cùng bộ dữ liệu;
+    :Ma trận nhầm lẫn, Cohen's kappa
+    (AI–người, người–người);
+  }
+fork again
+  partition "C. Khả năng chống gian lận" {
+    :Xây bộ kịch bản tấn công:
+    jailbreak, dán lời giải AI khác,
+    lạc đề, trả lời rỗng;
+    :Chạy tự động qua phiên;
+    :Tỉ lệ bị chặn / tỉ lệ
+    "Đạt" sai;
+  }
+fork again
+  partition "D. Hiệu năng" {
+    :Kiểm thử tải (Locust / k6):
+    20 – 50 – 100 phiên đồng thời;
+    :Đo độ trễ mỗi lượt AI, STT,
+    độ trễ cập nhật heatmap;
+    :p50 / p95, tỉ lệ lỗi;
+  }
+end fork
+:Tổng hợp vào bảng kết quả Chương 7;
+:Đối chiếu chỉ tiêu ở Chương 3 (NFR);
+stop
+@enduml

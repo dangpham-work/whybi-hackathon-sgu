@@ -1,0 +1,37 @@
+' Hình 4.24. Biểu đồ tuần tự – Phản hồi gợi ý và xác nhận lại (UC22–UC23)
+@startuml seq_peer_verify
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Phản hồi gợi ý và xác nhận lại sau học cặp (UC22–UC23)
+actor "Sinh viên A" as A
+actor "Sinh viên B" as B
+participant "Web App" as UI
+participant "Matching\nService" as MT
+participant "Notification\nService" as NS
+database "PostgreSQL" as DB
+A -> UI : Chấp nhận
+UI -> MT : POST /matches/{m}/accept
+MT -> DB : ghi nhận A đồng ý
+B -> UI : Chấp nhận
+UI -> MT : POST /matches/{m}/accept
+MT -> DB : status = ACCEPTED
+MT -> NS : gửi liên hệ\n& nội dung dạy/học
+NS --> A : thông tin B
+NS --> B : thông tin A
+... Hai bạn học cùng nhau ...
+A -> UI : "Đã học cùng"
+UI -> MT : POST /matches/{m}/studied
+B -> UI : "Đã học cùng"
+UI -> MT : POST /matches/{m}/studied
+MT -> DB : status = STUDIED
+MT -> NS : mở yêu cầu\nxác nhận lại
+ref over A, DB : Phiên giảng lại (1/4 → 4/4)\ncho nút vừa học, is_peer_followup = true
+MT -> DB : kiểm tra mọi item\nđã verified
+alt tất cả xác nhận
+  MT -> DB : status = VERIFIED
+else hết 7 ngày chưa đủ
+  MT -> DB : PARTIALLY_VERIFIED\n/ UNVERIFIED
+end
+@enduml

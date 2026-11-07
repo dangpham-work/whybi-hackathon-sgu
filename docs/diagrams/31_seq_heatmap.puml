@@ -1,0 +1,46 @@
+' Hình 4.22. Biểu đồ tuần tự – Cập nhật bản đồ nhiệt thời gian thực và xem chi tiết nút
+@startuml seq_heatmap
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Cập nhật bản đồ nhiệt thời gian thực (UC10–UC11)
+actor "Giảng viên" as GV
+participant "Dashboard" as UI
+participant "Realtime\nGateway" as WS
+participant "Heatmap\nAPI" as HC
+queue "EventBus" as EB
+participant "Aggregation\nWorker" as AW
+participant "RootCause\nAnalyzer" as RC
+database "PostgreSQL" as DB
+== Mở bảng điều khiển ==
+GV -> UI : Mở lớp
+UI -> HC : GET /classes/{id}/heatmap
+HC -> DB : stat + mastery\n+ tên SV
+HC --> UI : ảnh chụp hiện tại
+UI -> WS : SUBSCRIBE\nclass:{id}:heatmap
+WS -> WS : kiểm tra quyền GV
+== Khi có kết quả mới ==
+EB -> AW : "mastery.updated"
+AW -> DB : mastery của nút\ntrong lớp
+AW -> AW : tỉ lệ thử, tỉ lệ Đạt,\nlượt TB, phân màu
+opt màu ĐỎ
+  AW -> RC : analyze(class, node)
+  RC -> DB : tiên quyết +\ntrạng thái SV
+  RC -> RC : tính r(X|Y)
+  RC --> AW : nút gốc X
+end
+AW -> DB : UPSERT\nclass_node_stat
+AW -> WS : publish {node, color,\ncell(tên SV, state), alert}
+WS --> UI : push WebSocket
+UI -> UI : đổi màu nút\nvà ô của SV
+opt có cảnh báo
+  UI --> GV : "Nên giảng lại X"
+end
+== Xem chi tiết nút ==
+GV -> UI : Nhấn nút đỏ
+UI -> HC : GET /nodes/{n}/detail
+HC -> DB : SV theo trạng thái,\nquan niệm sai, nút gốc
+HC --> UI : chi tiết
+UI --> GV : Bảng chi tiết\nđiểm nghẽn
+@enduml

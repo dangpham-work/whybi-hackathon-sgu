@@ -1,0 +1,31 @@
+' Hình 5.19. Wireframe SV-04 – Phiên giảng lại (giọng nói + văn bản)
+@startsalt wf_session
+skinparam dpi 200
+title SV-04 – Màn hình phiên giảng lại (văn bản + giọng nói)
+{+
+  { <b>Giảng cho AI: N5 Con trỏ</b> | Câu phản biện 2/4 | ⏱ 01:35 | 🔊 Đọc câu hỏi: [X] | [Kết thúc phiên] }
+  ==
+  {S
+    <b>🤖 Học trò tò mò:</b> Mình chưa biết con trỏ là gì cả. Bạn giảng giúp mình bằng lời của bạn nhé!
+                                        <b>Bạn (🎤 giọng nói, đã xác nhận):</b>
+                                        Con trỏ là một biến đặc biệt, nó không lưu giá trị
+                                        mà lưu địa chỉ của một ô nhớ khác. Dùng dấu & để
+                                        lấy địa chỉ và dấu * để đọc giá trị tại địa chỉ đó…
+    <b>🤖 Học trò tò mò:</b> À, vậy nếu mình có hai con trỏ cùng trỏ vào một ô nhớ,
+    rồi mình sửa giá trị qua con trỏ thứ nhất, thì con trỏ thứ hai thấy gì?
+                                        <b>Bạn (⌨ văn bản):</b> Con trỏ thứ hai cũng thấy giá trị mới
+                                        vì cả hai cùng trỏ vào một địa chỉ…
+    <b>🤖 Học trò tò mò:</b> Hay quá! Thế nếu mình free() ô nhớ đó rồi vẫn dùng
+    con trỏ thứ hai để đọc thì chuyện gì xảy ra?
+  }
+  ==
+  {/ <b>🎤 Giọng nói</b> | ⌨ Văn bản }
+  {
+    [● Nhấn để ghi âm] | 〰〰〰〰〰〰〰 00:00 / 03:00 | [■ Dừng] | [↺ Ghi lại]
+  }
+  {
+    "Hoặc gõ câu trả lời của bạn tại đây…                                          " | [Gửi ➤]
+  }
+  { <i>Mẹo: hãy giải thích bản chất “vì sao”, không chỉ định nghĩa. AI sẽ không đưa đáp án.</i> }
+}
+@endsalt

@@ -1,0 +1,66 @@
+' Hình 3.2. Sơ đồ phân rã chức năng (BFD)
+@startwbs h3_2
+skinparam dpi 200
+<style>
+wbsDiagram {
+  node {
+    FontName DejaVu Sans
+    FontSize 11
+    Padding 6
+    Margin 4
+    BackgroundColor #FAFAFA
+    LineColor #455A64
+    RoundCorner 6
+  }
+  :depth(0) {
+    BackgroundColor #BBDEFB
+    FontStyle bold
+    FontSize 13
+  }
+  :depth(1) {
+    BackgroundColor #E3F2FD
+    FontStyle bold
+  }
+}
+</style>
+* HỆ THỐNG\n[TÊN HỆ THỐNG]
+** 1. Môn học & Cây kỹ năng
+*** 1.1 Quản lý lớp học phần
+*** 1.2 Tải giáo trình (PDF/DOCX)
+*** 1.3 Sinh cây kỹ năng tự động
+*** 1.4 Trình sửa cây kéo thả
+*** 1.5 Kiểm tra tính hợp lệ DAG
+*** 1.6 Duyệt / sửa rubric
+*** 1.7 Phát hành & quản lý phiên bản
+** 2. Giảng lại cho AI
+*** 2.1 Bản đồ học tập cá nhân
+*** 2.2 Phiên giảng lại
+*** 2.3 Nhập bằng giọng nói (STT)
+*** 2.4 Nhập bằng văn bản
+*** 2.5 Câu hỏi phản biện (TTS tùy chọn)
+*** 2.6 Chấm điểm theo rubric
+*** 2.7 Kết quả & phản hồi
+*** 2.8 Lịch sử phiên
+** 3. Bản đồ nhiệt lớp học
+*** 3.1 Bản đồ nhiệt dạng cây
+*** 3.2 Lưới SV × Nút (có tên)
+*** 3.3 Chi tiết nút & quan niệm sai
+*** 3.4 Truy vết điểm nghẽn gốc
+*** 3.5 Hồ sơ năng lực sinh viên
+*** 3.6 Cấu hình ngưỡng màu
+*** 3.7 Xuất báo cáo lớp
+** 4. Ghép cặp bạn cùng tiến
+*** 4.1 Tham gia / rút khỏi ghép cặp
+*** 4.2 Chạy vòng ghép cặp
+*** 4.3 Gợi ý & phản hồi gợi ý
+*** 4.4 Điều chỉnh cặp thủ công (GV)
+*** 4.5 Xác nhận lại sau học cặp
+*** 4.6 Thống kê hiệu quả ghép cặp
+** 5. Tài khoản & Quản trị
+*** 5.1 Đăng nhập / phân quyền
+*** 5.2 Quản lý tài khoản
+*** 5.3 Quản lý môn học
+*** 5.4 Cấu hình AI & hạn mức
+*** 5.5 Thông báo
+*** 5.6 Nhật ký & cờ vi phạm
+@endwbs

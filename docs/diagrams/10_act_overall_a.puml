@@ -1,0 +1,46 @@
+' Hình 4.1. Biểu đồ hoạt động tổng thể (a) – thiết lập môn học
+@startuml act_overall_a
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động tổng thể (a) – Thiết lập môn học\n(Mắt xích 1)
+|Giảng viên|
+start
+:Tạo lớp học phần;
+:Phát mã tham gia cho SV;
+:Tải giáo trình / đề cương
+(PDF, DOCX);
+|Hệ thống|
+:Trích xuất văn bản,
+nhận diện chương / mục;
+:Lập chỉ mục RAG
+(chia đoạn, embedding);
+|AI (LLM)|
+:Trích xuất khái niệm;
+:Suy luận quan hệ
+tiên quyết;
+:Sinh rubric từng nút
+(ý chính, quan niệm sai,
+tình huống phản biện);
+|Hệ thống|
+:Kiểm tra DAG
+(phá chu trình,
+rút gọn bắc cầu);
+:Lưu phiên bản Bản nháp;
+|Giảng viên|
+repeat
+  :Rà soát cây & rubric,
+  kéo thả chỉnh sửa;
+  |Hệ thống|
+  :Kiểm tra tính hợp lệ;
+  |Giảng viên|
+repeat while (Hợp lệ và đã hài lòng?) is (chưa) not (rồi)
+:Phát hành cây cho lớp;
+|Hệ thống|
+:Khởi tạo bản đồ học tập
+từng SV (nút gốc: Sẵn sàng,
+còn lại: Khóa);
+:Gửi thông báo cho lớp;
+:(A) Chuyển sang
+vòng lặp học tập;
+stop
+@enduml

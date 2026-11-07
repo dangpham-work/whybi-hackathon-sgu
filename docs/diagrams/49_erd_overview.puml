@@ -1,0 +1,77 @@
+' Hình 5.3. Mô hình thực thể – liên kết (ERD) tổng quan – 30 bảng
+@startuml erd_overview
+!include common.iuml
+hide circle
+hide members
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+title Mô hình thực thể – liên kết (ERD) – tổng quan
+entity users
+entity lecturers
+entity students
+entity courses
+entity class_sections
+entity enrollments
+entity notifications
+entity syllabus_documents
+entity document_chunks
+entity skill_trees
+entity tree_versions
+entity concept_nodes
+entity prerequisite_edges
+entity rubrics
+entity rubric_criteria
+entity key_points
+entity misconceptions
+entity challenge_scenarios
+entity teaching_sessions
+entity session_turns
+entity evaluations
+entity criterion_scores
+entity mastery_records
+entity security_flags
+entity class_node_stats
+entity matching_rounds
+entity peer_matches
+entity peer_match_items
+entity ai_provider_configs
+entity audit_logs
+users ||--o| lecturers
+users ||--o| students
+users ||--o{ notifications
+users ||--o{ audit_logs
+courses ||--o{ class_sections
+lecturers ||--o{ class_sections
+class_sections ||--o{ enrollments
+students ||--o{ enrollments
+class_sections ||--o{ syllabus_documents
+syllabus_documents ||--|{ document_chunks
+class_sections ||--o| skill_trees
+skill_trees ||--|{ tree_versions
+tree_versions ||--|{ concept_nodes
+tree_versions ||--o{ prerequisite_edges
+concept_nodes ||--o{ prerequisite_edges
+concept_nodes ||--|| rubrics
+rubrics ||--|{ rubric_criteria
+concept_nodes ||--|{ key_points
+concept_nodes ||--o{ misconceptions
+concept_nodes ||--|{ challenge_scenarios
+students ||--o{ teaching_sessions
+concept_nodes ||--o{ teaching_sessions
+teaching_sessions ||--|{ session_turns
+teaching_sessions ||--o| evaluations
+evaluations ||--|{ criterion_scores
+rubric_criteria ||--o{ criterion_scores
+teaching_sessions ||--o{ security_flags
+students ||--o{ mastery_records
+concept_nodes ||--o{ mastery_records
+class_sections ||--o{ class_node_stats
+concept_nodes ||--o{ class_node_stats
+class_sections ||--o{ matching_rounds
+matching_rounds ||--o{ peer_matches
+students ||--o{ peer_matches
+peer_matches ||--|{ peer_match_items
+concept_nodes ||--o{ peer_match_items
+peer_match_items |o--o{ teaching_sessions
+@enduml

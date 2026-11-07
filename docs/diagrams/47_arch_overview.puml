@@ -1,0 +1,58 @@
+' Hình 5.1. Kiến trúc tổng thể hệ thống (phân tầng)
+@startuml arch_overview
+!include common.iuml
+skinparam nodesep 30
+skinparam ranksep 35
+skinparam RectangleFontSize 12
+title Kiến trúc tổng thể hệ thống (phân tầng)
+actor "Giảng viên" as GV
+actor "Sinh viên" as SV
+rectangle L1 #F5F9FF [
+<b>① TẦNG TRÌNH BÀY – Frontend (React + TypeScript SPA)</b>
+|= Ứng dụng Giảng viên |= Ứng dụng Sinh viên |
+| Quản lý lớp, tải giáo trình | Tham gia lớp bằng mã |
+| Trình sửa cây kéo thả (React Flow) | Bản đồ học tập dạng cây kỹ năng |
+| Dashboard bản đồ nhiệt (cây + lưới có tên SV) | Phiên giảng lại: chat + ghi âm (MediaRecorder) |
+| Chi tiết nút, hồ sơ SV, transcript | Kết quả theo tiêu chí, gợi ý bạn cùng tiến |
+]
+rectangle L0 #F1F8E9 [
+<b>Nginx</b> – reverse proxy, TLS, phục vụ tệp tĩnh, nâng cấp WebSocket
+]
+rectangle L2 #F1F8E9 [
+<b>② TẦNG ỨNG DỤNG – Backend (Python FastAPI)</b>
+|= Cổng giao tiếp |= Dịch vụ nghiệp vụ |= Tầng AI (AI Orchestration) |
+| REST API (JWT, RBAC, Pydantic) | Course & Class Service | Tutee Agent (học trò tò mò) |
+| Realtime Gateway (WebSocket) | Syllabus Service | Judge Agent (chấm độc lập) |
+| | SkillTree Service + DagValidator | Guard Agent (kiểm duyệt) |
+| | Session Orchestrator | Retrieval Service (RAG) |
+| | Mastery Service | Speech Service (STT / TTS) |
+| | Heatmap Service + RootCauseAnalyzer | LLM Gateway (adapter, retry, cache, hạn mức) |
+| | Matching Service | Prompt Registry (mẫu prompt có phiên bản) |
+| | Notification Service | |
+]
+rectangle L3 #FFF8E1 [
+<b>③ TẦNG XỬ LÝ NỀN – Celery Workers</b>
+|= Document Worker |= Aggregation Worker |= Matching Worker |= Scheduler (beat) |
+| trích xuất, OCR, sinh cây | tính chỉ số, phân màu, truy vết gốc | chạy vòng ghép cặp | ghép định kỳ, hết hạn, dọn ghi âm |
+]
+rectangle L4 #FFF3E0 [
+<b>④ TẦNG DỮ LIỆU</b>
+|= PostgreSQL 16 + pgvector |= Redis 7 |= Object Storage (MinIO / S3) |
+| dữ liệu nghiệp vụ, vector giáo trình | broker tác vụ, pub/sub sự kiện, cache | tệp giáo trình, bản ghi âm |
+]
+cloud EXT #F3E5F5 [
+<b>⑤ DỊCH VỤ BÊN NGOÀI</b>
+LLM API (Gemini / OpenAI-compatible)
+STT / TTS API (hoặc Whisper tự host)
+Email / Push
+]
+GV --> L1
+SV --> L1
+L1 --> L0 : HTTPS / WSS
+L0 --> L2 : REST / WebSocket
+L2 --> L3 : đưa tác vụ, phát sự kiện\n(qua Redis)
+L2 --> L4 : SQL, vector search, S3 API
+L3 --> L4
+L2 -right-> EXT : HTTPS
+L3 -right-> EXT : HTTPS
+@enduml

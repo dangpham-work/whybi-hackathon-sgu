@@ -1,0 +1,49 @@
+' Hình 4.20. Biểu đồ tuần tự – Phiên giảng lại (3/4): vòng phản biện Socratic
+@startuml seq_teach_challenge
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Phiên giảng lại (3/4): vòng phản biện Socratic
+actor "Sinh viên" as SV
+participant "Màn hình\nphiên giảng" as UI
+participant "Session\nService" as SO
+participant "Tutee\nAgent" as TA
+participant "Guard\nAgent" as GD
+participant "Speech\nService" as SP
+participant "LLM\nProvider" as LLM
+database "PostgreSQL" as DB
+loop còn ý cần kiểm chứng và số câu < N
+  SO -> TA : nextQuestion(transcript,\nrubric, context)
+  TA -> LLM : phân tích độ bao phủ
+  LLM --> TA : covered, missing,\nmisconceptions
+  TA -> TA : chọn chiến lược\n(xem Hình 6.6)
+  TA -> LLM : sinh câu hỏi\n(vai học trò)
+  LLM --> TA : câu hỏi
+  TA --> SO : question
+  SO -> GD : checkOutput(question,\nkeyPoints)
+  alt lộ đáp án / giảng hộ
+    GD --> SO : REJECT
+    SO -> TA : regenerate(lý do)
+  else đạt
+    GD --> SO : OK
+  end
+  SO -> DB : INSERT turn\n(QUESTION, strategy)
+  opt bật đọc câu hỏi
+    SO -> SP : synthesize(question)
+    SP --> SO : audio (TTS)
+  end
+  SO --> UI : câu hỏi, hạn giờ
+  UI --> SV : "Nếu xóa ô nhớ rồi vẫn\ndùng con trỏ thì sao?"
+  alt trả lời trong hạn
+    SV -> UI : Trả lời (giọng nói\nhoặc văn bản)
+    UI -> SO : POST /turns {answer}
+    SO -> GD : checkInput(answer)
+    SO -> DB : INSERT turn\n(ANSWER, response_ms)
+  else hết giờ
+    UI -> SO : POST /timeout
+    SO -> DB : INSERT turn\n(timed_out)
+  end
+end
+SO --> UI : "Mình đang tổng hợp\nđánh giá…"
+@enduml
