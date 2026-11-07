@@ -15,5 +15,4 @@ collect_ignore = [
     "test_syllabus_preprocess.py",  # C1-09 – cần services/syllabus.DocumentRef… (C2-08 bản mới)
     "test_syllabus_preprocess_db.py",  # C1-09 – như trên
     "test_tree_draft_db.py",  # C1-10 – cần fake._hash_embedding (C1-01) + class_sections.challenge_count (C2-17)
-    "test_tts_db.py",  # C1-14 – cần api/sessions.get_tts_service (C1-07 bản mới)
 ]
