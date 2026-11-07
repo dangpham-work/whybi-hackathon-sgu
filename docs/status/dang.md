@@ -44,3 +44,11 @@
 - C1-05: port Judge chấm 5 tiêu chí, BR-03, chấm nhiều lần và phản hồi từ whybi-ai@40ae7a7; chờ CI và Long duyệt.
 
 - C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.
+
+## C1-09 – hoàn thiện phần nối xử lý giáo trình sau port (#9)
+
+- Bổ sung DocumentRef, pages_key, SyllabusProcessingRepo và kiểm chủ job; jobId trả từ upload bằng documentId để kênh tiến độ xác thực đúng tài liệu.
+- Giữ khóa dòng + populate_existing và không ghi đè PARSED khi job giao lại/lỗi đến muộn; mark_failed rollback trước ghi.
+- Test hồi quy đỏ xác nhận jobId lệch documentId/JOB_NOT_FOUND; sau sửa PostgreSQL riêng có 82 passed, 2 skipped (Tesseract thật, MinIO thật); realtime job có 4 passed. Ruff check/format và diff-check xanh.
+- Không thay worker, schema, model, migration hay realtime. Không merge.
+- Cần Long: class challenge_count (C2-17) và helper tra nút của SkillTreeService để hoàn thiện tiếp pipeline C1-10/11; ngoài phạm vi còn lỗi heatmap nodeKey trong test_realtime_ws.
