@@ -3,6 +3,8 @@
 > Cập nhật sau mỗi thẻ (kế hoạch §4.2). Mọi người – và mọi phiên AI – đọc hết `docs/status/` trước khi sửa code.
 
 - Xong:
+  - C2-08: lớp học phần, mã tham gia 8 ký tự, SV tham gia lớp (gọi `MasteryService.ensure_student`), tải giáo trình
+    PDF/DOCX ≤ 20 MB lên kho S3 (tự tạo bucket `S3_BUCKET`), tạo `syllabus_documents` + job Celery, trả `jobId`. Không có migration.
   - C2-07: đăng nhập / làm mới / đăng xuất / quên + đặt lại mật khẩu / GET + PATCH /me; Argon2id; JWT access 30 phút;
     kiểm vai trò ở mọi API (test tự quét route). Email `@whybi.test` đăng nhập được (hết lỗi 422).
   - C2-06: CSDL 30 bảng (migration `1af58d747696`) + migration `c2a06b5e9d10` thêm 13 CHECK theo từ điển dữ liệu 5.2.4.
@@ -15,6 +17,25 @@
     - Thứ tự khởi động: postgres, redis, minio healthy → api healthy (đã chạy `alembic upgrade head`) → nginx.
     - Sửa `STT_WHISPER_URL` thành `http://stt:8000` (cổng trong container; cổng host 9100 chỉ dùng từ ngoài).
 - Phát sự kiện / hợp đồng đã chốt:
+  - **Lớp học phần** (C2-08), JSON camelCase, `ClassOut { id, name, semester, joinCode, studentCount, treeStatus? }`:
+    - `GET /classes` (GV, SV): GV → lớp mình phụ trách (mới tạo trước); SV → lớp đã tham gia (mới tham gia trước).
+      `treeStatus`: `PUBLISHED` nếu đã phát hành, không thì trạng thái phiên bản mới nhất, chưa có cây thì `null`.
+    - `POST /classes {courseId, name, semester}` (GV) → 201 `ClassOut`. Môn không có → 404 `COURSE_NOT_FOUND`.
+      Mã tham gia 8 ký tự `A–Z, 2–9` (bỏ O/0, I/1), duy nhất.
+    - `POST /classes/join {joinCode}` (SV) → 200 `ClassOut`. Mã nhận chữ thường, tự đổi IN HOA.
+      Sai mã / lớp đã lưu trữ → 404 `JOIN_CODE_INVALID`; đã ở lớp → 409 `ALREADY_ENROLLED`; sai định dạng → 422 `VALIDATION_ERROR`.
+      Lớp đã phát hành cây thì SV có ngay ô ma trận (`my-map` dùng được).
+    - Tài khoản thiếu hồ sơ trong bảng `lecturers` / `students` → 403 `LECTURER_PROFILE_MISSING` / `STUDENT_PROFILE_MISSING`
+      (token `dev-*` không có hồ sơ nên không tạo / tham gia lớp được – dùng tài khoản seed KT-02).
+  - **Tải giáo trình** (C2-08) `POST /classes/{classId}/syllabi` (multipart, trường `file`, GV phụ trách) →
+    202 `JobAccepted { jobId, documentId, channel: "job:{jobId}" }`:
+    - Sai đuôi / nội dung không khớp (vd. .exe đổi đuôi .pdf – TC01) / tệp rỗng → 422 `INVALID_FILE`,
+      `details.reason` ∈ `EXTENSION | CONTENT_MISMATCH | EMPTY`; quá 20 MB → 422 `FILE_TOO_LARGE` (`details.maxMb`).
+    - Lớp khác → 404 `CLASS_NOT_FOUND`; không phải GV phụ trách → 403 `NOT_CLASS_OWNER`.
+      Kho S3 lỗi → 503 `STORAGE_UNAVAILABLE`; hàng đợi lỗi → 503 `JOB_QUEUE_UNAVAILABLE` (tài liệu chuyển `FAILED`).
+    - Tệp lưu ở `s3://{S3_BUCKET}/syllabi/{classId}/{documentId}.{pdf|docx}` (`syllabus_documents.file_url`);
+      đọc lại bằng `app.services.storage.default_storage().get(url)`.
+    - Job: `celery.send_task("app.workers.documents.process_syllabus", args=[documentId, jobId], task_id=jobId)` → hàng đợi `documents`.
   - **Xác thực** (C2-07), JSON camelCase:
     - `POST /auth/login {email, password}` → `{accessToken, refreshToken, tokenType:"bearer", expiresIn:1800}`.
       Sai email hoặc mật khẩu → 401 `INVALID_CREDENTIALS` (cùng một lỗi); tài khoản khóa → 403 `ACCOUNT_DISABLED`.
@@ -60,7 +81,7 @@
     - C2-06 tạo bảng; `scripts/seed_db.py` nạp seed vào CSDL với cùng các uuid5.
     - C2-09 thay phần đọc JSON trong `SkillTreeService.get_class_tree` bằng truy vấn phiên bản đã phát hành hoặc bản nháp.
     - Chữ ký API và schema giữ nguyên.
-- Đang làm: C2-09
+- Đang làm: —
 - Cần từ người khác:
   - Đăng (C1-10): `TreeVersion` giờ từ chối cạnh trỏ tới key không có và cạnh tự trỏ. Nếu sinh cây nháp bằng `call_json`,
     dùng schema nháp riêng (không validator) hoặc lọc cạnh lỗi trước, rồi mới dựng `TreeVersion` và gọi `sanitize` (C2-09).
@@ -73,4 +94,9 @@
   - Cả đội: gửi username GitHub để bật `.github/CODEOWNERS`.
   - Người điều phối: bật bảo vệ nhánh `main`.
   - Đăng (C1-07): cuối phiên, sau khi lưu kết quả phiên, gọi `get_bus().publish(TOPIC_SESSION_COMPLETED, session_result)`.
-  - Đăng (C1-09) và Long (C2-08): bucket `S3_BUCKET` chưa được tạo sẵn; code tải tệp cần tạo bucket nếu chưa có (`make_bucket`).
+  - Đăng (C1-09): `process_syllabus(documentId, jobId)` đọc tệp bằng `default_storage().get(doc.file_url)`
+    (`MinioStorage` tự tạo bucket khi ghi), chuyển `syllabus_documents.status` UPLOADED → PARSING → PARSED / FAILED,
+    phát tiến độ lên kênh `job:{jobId}`.
+  - Thắng (GD-04 / GD-05): thêm câu cho mã mới `JOIN_CODE_INVALID`, `ALREADY_ENROLLED`, `FILE_TOO_LARGE`,
+    `COURSE_NOT_FOUND`, `STUDENT_PROFILE_MISSING`, `JOB_QUEUE_UNAVAILABLE`, `STORAGE_UNAVAILABLE` vào `FRIENDLY`; chạy `npm run gen:api`
+    (`JobAccepted` có thêm `channel`; `JoinRequest.joinCode` nhận chữ thường).
