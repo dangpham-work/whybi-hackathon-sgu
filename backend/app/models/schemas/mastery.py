@@ -3,7 +3,10 @@
 session (Đăng) ─ session.completed(SessionResult) ─▶ mastery (Long) ─ mastery.changed ─▶ heatmap, matching
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
+
+from pydantic import Field
 
 from app.models.enums import HeatColor, MasteryState
 from app.models.schemas.common import ApiModel
@@ -13,12 +16,17 @@ TOPIC_MASTERY_CHANGED = "mastery.changed"
 
 
 class MasteryChanged(ApiModel):
+    """Payload `mastery.changed` (C2-05, đã chốt). Chỉ MasteryService phát; heatmap (C2-11), matching (C2-14) nghe."""
+
     class_id: UUID
     student_id: UUID
     node_id: UUID
-    old_state: MasteryState | None
+    node_key: str | None = None  # key ổn định giữa các phiên bản – frontend tô màu theo key
+    old_state: MasteryState | None  # None = ô vừa được khởi tạo
     new_state: MasteryState
-    unlocked_node_ids: list[UUID] = []
+    unlocked_node_ids: list[UUID] = []  # nút chuyển LOCKED → AVAILABLE nhờ thay đổi này
+    session_id: UUID | None = None  # phiên gây ra thay đổi (None khi do phát hành phiên bản mới)
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # --- Payload WebSocket theo Bảng 5.11 ---
