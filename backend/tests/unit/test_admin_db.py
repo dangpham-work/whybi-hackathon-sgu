@@ -349,6 +349,7 @@ def test_dat_lai_mat_khau_thu_hoi_access_token_cu_nhung_dang_nhap_moi_duoc(admin
         app.dependency_overrides[deps.get_current_user] = lambda: deps.CurrentUser(id=admin.admin, role=Role.ADMIN)
 
 
+@cho_c1_12
 def test_tai_ghi_am_tinh_han_muc_truoc_stt_ke_ca_khi_stt_loi(published):  # noqa: F811
     """Tệp ghi âm bị tính ngay cả khi nhận dạng thất bại (không thể gửi tệp lỗi để né hạn mức)."""
     w, tree = published
