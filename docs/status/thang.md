@@ -70,11 +70,12 @@
   - Chưa có API đọc trạng thái giáo trình đã tải: tải lại trang giữa chừng thì GV-03 không khôi phục được thanh tiến độ.
   - Phần Figma chưa làm: hoạt động gần đây, cảnh báo điểm nghẽn gốc (cần C2-13), thống kê ghép cặp ở GV-02.
 
-## GD-08 – SV-05, SV-06 (2026-10-24)
+## GD-09 – GV-04 Trình sửa cây và rubric (2026-10-24)
 
-- Xong: SV-05 bảng xác nhận bản chép lời hiện trong phiên khi `Transcript.needsConfirmation` (gạch chân `lowConfidenceWords`, cho sửa nhỏ,
-  sửa > 20% số từ thì chặn gửi và bảo ghi âm lại, gửi `transcriptEdited`); `/sv/sessions/:id/transcript` chuyển về phiên.
-  SV-06 kết quả: đủ 5 tiêu chí, điều làm tốt, gợi ý ôn, trang giáo trình, cờ dán; gặp 409 `RESULT_NOT_READY` thì tự hỏi lại mỗi 3 giây. Test: `src/test/gd08.test.tsx`.
-- Cần từ người khác:
-  - Đăng (C1-12): gợi ý sửa thuật ngữ ("phờ ri" → free()) ở Figma SV-05 cần API trả gợi ý; chưa làm nút "Áp dụng".
-  - SV-06: Figma có "Lượt thứ 2" và "Vượt 3/4 câu phản biện"; `SessionResult` chưa có hai trường này nên chưa hiện.
+- Xong: tải bản nháp (`GET /classes/{id}/tree?draft=true`), thêm nút, nối cạnh bằng kéo thả (409 `CYCLE_DETECTED` hiện đường đi theo tên nút), xóa cạnh tiên quyết,
+  sửa tên / chương / Bloom, sửa rubric (ý chính, quan niệm sai, ngưỡng), lưu nháp, duyệt, sinh lại bằng AI, phát hành (liệt kê `details.errors` khi 422), tạo bản nháp từ bản đã phát hành.
+  Cảnh báo "N nút chưa duyệt rubric" theo BR-05. Test: `src/test/gd09.test.tsx`.
+- Cần từ Long (C2-09):
+  - `DELETE /nodes/{id}` và API gộp nút: nút "Xóa nút", "Gộp nút" đang khóa, chưa làm giả.
+  - OpenAPI `POST /classes/{id}/tree-versions` nên khai báo body tùy chọn; `details.errors` của `PUBLISH_CHECK_FAILED` nên là mảng chuỗi tiếng Việt.
+- Chưa làm (thuộc GD-14): lịch sử, so sánh, khôi phục phiên bản. "Kiểm tra DAG" riêng chưa có vì backend chặn chu trình ngay khi nối và kiểm lại khi phát hành.
