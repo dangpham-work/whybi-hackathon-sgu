@@ -79,3 +79,13 @@
   - `DELETE /nodes/{id}` và API gộp nút: nút "Xóa nút", "Gộp nút" đang khóa, chưa làm giả.
   - OpenAPI `POST /classes/{id}/tree-versions` nên khai báo body tùy chọn; `details.errors` của `PUBLISH_CHECK_FAILED` nên là mảng chuỗi tiếng Việt.
 - Chưa làm (thuộc GD-14): lịch sử, so sánh, khôi phục phiên bản. "Kiểm tra DAG" riêng chưa có vì backend chặn chu trình ngay khi nối và kiểm lại khi phát hành.
+
+## GD-11 – GV-09, SV-07 (2026-10-24)
+
+- Xong: GV-09 chạy vòng ghép cặp (có chọn nút ưu tiên), danh sách cặp (A/B, nút dạy–học, trọng số, trạng thái), thống kê `matching-stats`;
+  SV-07 liệt kê gợi ý với tên nút từ `my-map`, hạn còn lại (BR-09), chấp nhận / từ chối / "Đã học cùng", nút "Giảng lại … để xác nhận" mở phiên có `peerMatchItemId`.
+  Test: `src/test/gd11.test.tsx`. Sinh lại `api-types.ts` từ OpenAPI hiện tại (trùng bản ở PR GD-10).
+- Cần từ Long (C2-14):
+  - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
+  - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
+- Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.

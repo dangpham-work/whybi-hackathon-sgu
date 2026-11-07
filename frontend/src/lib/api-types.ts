@@ -30,7 +30,7 @@ export interface paths {
         };
         /**
          * List Flags
-         * @description Danh sách cờ vi phạm (FR-AD-07).
+         * @description Cờ vi phạm (FR-AD-07), mới nhất trước. QTV thấy mọi lớp; GV chỉ thấy cờ của lớp mình phụ trách.
          */
         get: operations["list_flags_api_v1_admin_flags_get"];
         put?: never;
@@ -50,8 +50,31 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resolve Flag */
+        /**
+         * Resolve Flag
+         * @description Đánh dấu đã xử lý và ghi nhật ký. Cờ không tồn tại hoặc thuộc lớp khác (với GV) ⇒ 404 FLAG_NOT_FOUND.
+         */
         post: operations["resolve_flag_api_v1_admin_flags__flag_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Logs
+         * @description Nhật ký thao tác quản trị, mới nhất trước (FR-AD-07).
+         */
+        get: operations["list_audit_logs_api_v1_admin_audit_logs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -69,7 +92,8 @@ export interface paths {
         /**
          * Put Ai Config
          * @description Cấu hình nhà cung cấp LLM/STT/TTS và model dự phòng (FR-AD-05) – thẻ của Đăng.
-         *     LLM áp ngay vào gateway (giữ trong bộ nhớ tiến trình); lưu CSDL khi C2-06 xong. STT/TTS: C1-12, C1-14.
+         *     LLM, STT áp ngay (giữ trong bộ nhớ tiến trình); lưu CSDL khi C2-06 xong. STT: fake | whisper | cloud (C1-12),
+         *     TTS: fake | cloud (C1-14). Model "default" ⇒ model mặc định của adapter.
          */
         put: operations["put_ai_config_api_v1_admin_ai_config_put"];
         post?: never;
@@ -86,10 +110,57 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Users */
+        /**
+         * List Users
+         * @description Tài khoản (FR-AD-03); lọc theo vai trò, trạng thái, tìm theo tên / email / MSSV.
+         */
         get: operations["list_users_api_v1_admin_users_get"];
         put?: never;
+        /**
+         * Create User
+         * @description Tạo một tài khoản. Mật khẩu ban đầu ngẫu nhiên, chỉ trả lần này. 409 USER_EXISTS khi trùng email / MSSV.
+         */
+        post: operations["create_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch User
+         * @description Đổi họ tên, khóa / mở khóa (`isActive`). Khóa ⇒ không đăng nhập được và token đang dùng bị thu hồi ngay.
+         */
+        patch: operations["patch_user_api_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Đặt lại mật khẩu ngẫu nhiên, chỉ trả lần này; mọi phiên đăng nhập cũ của người đó bị thu hồi ngay.
+         */
+        post: operations["reset_password_api_v1_admin_users__user_id__reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -107,7 +178,8 @@ export interface paths {
         put?: never;
         /**
          * Import Students
-         * @description Nhập danh sách SV từ CSV (FR-AD-03).
+         * @description Nhập SV từ CSV UTF-8 (FR-AD-03), cột: mssv, ho_ten, email, [khoa]. Tạo tài khoản SV với mật khẩu ngẫu nhiên
+         *     (trả một lần trong `created`). Dòng trùng tài khoản có sẵn vào `skipped`, dòng sai vào `errors`.
          */
         post: operations["import_students_api_v1_admin_users_import_post"];
         delete?: never;
@@ -129,6 +201,24 @@ export interface paths {
          */
         get: operations["list_courses_api_v1_admin_courses_get"];
         put?: never;
+        /** Create Course */
+        post: operations["create_course_api_v1_admin_courses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Course */
+        put: operations["update_course_api_v1_admin_courses__course_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -143,10 +233,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Quotas
+         * @description Hạn mức đã đặt kèm mức đã dùng (FR-AD-06).
+         */
+        get: operations["list_quotas_api_v1_admin_quotas_get"];
         /**
          * Put Quotas
-         * @description Hạn mức token / phút ghi âm theo lớp, theo SV (FR-AD-06).
+         * @description Đặt hạn mức token / phút ghi âm cho một lớp hoặc một SV (FR-AD-06); `null` = không giới hạn, cả hai `null` = bỏ.
+         *     Vượt hạn mức thì bắt đầu phiên, gửi lượt, tải ghi âm trả 429 QUOTA_EXCEEDED.
          */
         put: operations["put_quotas_api_v1_admin_quotas_put"];
         post?: never;
@@ -165,11 +260,48 @@ export interface paths {
         };
         /**
          * My Notifications
-         * @description Thông báo trong ứng dụng (FR-AD-08); realtime qua kênh user:{id}.
+         * @description Thông báo của chính mình, mới nhất trước (FR-AD-08); thông báo mới đến qua kênh WebSocket `user:{id}`.
          */
         get: operations["my_notifications_api_v1_notifications_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read All Notifications */
+        post: operations["read_all_notifications_api_v1_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Notification
+         * @description Đánh dấu đã đọc. Thông báo của người khác ⇒ 404.
+         */
+        post: operations["read_notification_api_v1_notifications__notification_id__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -297,13 +429,13 @@ export interface paths {
         };
         /**
          * List My Classes
-         * @description GV-01 / SV-01.
+         * @description GV-01: lớp mình phụ trách. SV-01: lớp đã tham gia.
          */
         get: operations["list_my_classes_api_v1_classes_get"];
         put?: never;
         /**
          * Create Class
-         * @description Tạo lớp, sinh mã tham gia 8 ký tự (FR-SK-01).
+         * @description Tạo lớp, sinh mã tham gia 8 ký tự (FR-SK-01). Môn không có ⇒ 404 COURSE_NOT_FOUND.
          */
         post: operations["create_class_api_v1_classes_post"];
         delete?: never;
@@ -323,7 +455,8 @@ export interface paths {
         put?: never;
         /**
          * Join Class
-         * @description SV tham gia lớp bằng mã (FR-TB-01).
+         * @description SV tham gia lớp bằng mã (FR-TB-01). Sai mã ⇒ 404 JOIN_CODE_INVALID; đã ở lớp ⇒ 409 ALREADY_ENROLLED;
+         *     sai định dạng ⇒ 422 VALIDATION_ERROR.
          */
         post: operations["join_class_api_v1_classes_join_post"];
         delete?: never;
@@ -343,8 +476,8 @@ export interface paths {
         put?: never;
         /**
          * Upload Syllabus
-         * @description PDF/DOCX ≤ 20 MB → MinIO → job documents; tiến độ qua kênh job:{jobId} (FR-SK-02, 03).
-         *     TC01: tệp .exe đổi đuôi .pdf ⇒ 422 INVALID_FILE.
+         * @description PDF/DOCX ≤ 20 MB → kho đối tượng → job documents; tiến độ qua kênh job:{jobId} (FR-SK-02, 03).
+         *     Sai định dạng (kể cả .exe đổi đuôi .pdf – TC01) ⇒ 422 INVALID_FILE; quá 20 MB ⇒ 422 FILE_TOO_LARGE.
          */
         post: operations["upload_syllabus_api_v1_classes__class_id__syllabi_post"];
         delete?: never;
@@ -362,7 +495,9 @@ export interface paths {
         };
         /**
          * Get Heatmap
-         * @description Ảnh chụp: cây màu + lưới SV × Nút có tên; sau đó nghe kênh class:{id}:heatmap.
+         * @description Ảnh chụp: cây màu + lưới SV × Nút có tên; sau đó nghe kênh class:{id}:heatmap (FR-HM-01, 02, 04, 05).
+         *     `q` lọc lưới theo tên / MSSV; `anonymize=true` là chế độ trình chiếu (FR-HM-09).
+         *     Chỉ GV phụ trách lớp: 404 CLASS_NOT_FOUND / 403 NOT_CLASS_OWNER / 404 TREE_NOT_PUBLISHED.
          */
         get: operations["get_heatmap_api_v1_classes__class_id__heatmap_get"];
         put?: never;
@@ -380,7 +515,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Node Detail */
+        /**
+         * Node Detail
+         * @description GV-06 (FR-HM-06): SV theo trạng thái (có tên), quan niệm sai phổ biến, nút gốc.
+         *     Nút không thuộc bản đang phát hành của lớp ⇒ 404 NODE_NOT_FOUND.
+         */
         get: operations["node_detail_api_v1_classes__class_id__nodes__node_id__detail_get"];
         put?: never;
         post?: never;
@@ -399,9 +538,31 @@ export interface paths {
         };
         /**
          * Student Profile
-         * @description GV-07 / GV-08: hồ sơ năng lực, transcript, ghi âm (FR-HM-07).
+         * @description GV-07 / GV-08: hồ sơ năng lực, transcript, ghi âm (FR-HM-07). Ghi âm nghe qua `GET /turns/{id}/audio`.
+         *     Lỗi: 403 NOT_CLASS_OWNER, 403 NOT_ENROLLED (SV không ở lớp).
          */
         get: operations["student_profile_api_v1_classes__class_id__students__student_id__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/turns/{turn_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Turn Audio
+         * @description Nghe lại ghi âm một lượt (FR-HM-07, FR-TB-15): chính SV chủ phiên hoặc GV phụ trách lớp.
+         *     404 AUDIO_NOT_AVAILABLE khi SV không đồng ý lưu hoặc ghi âm đã quá hạn; 403 với người khác.
+         */
+        get: operations["turn_audio_api_v1_turns__turn_id__audio_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -417,8 +578,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Put Settings */
+        /**
+         * Get Settings
+         * @description GV-10: cấu hình hiện tại của lớp (FR-HM-08).
+         */
+        get: operations["get_settings_api_v1_classes__class_id__settings_get"];
+        /**
+         * Put Settings
+         * @description GV-10 (FR-HM-08): lưu ngưỡng màu, cỡ mẫu tối thiểu, ngưỡng Đạt, số câu phản biện; màu cả lớp tính lại ngay và
+         *     đẩy lên kênh heatmap. 422 khi ngưỡng vàng cao hơn ngưỡng xanh hoặc số câu ngoài 3–5.
+         */
         put: operations["put_settings_api_v1_classes__class_id__settings_put"];
         post?: never;
         delete?: never;
@@ -436,9 +605,51 @@ export interface paths {
         };
         /**
          * Export Report
-         * @description Xuất báo cáo lớp CSV / PDF (FR-HM-10, vòng 3).
+         * @description Xuất báo cáo lớp CSV (lưới SV × nút) hoặc PDF (tổng quan, nút, cảnh báo, SV) – FR-HM-10. Tải về dạng tệp.
+         *     Chỉ GV phụ trách lớp (403 NOT_CLASS_OWNER); lớp chưa phát hành cây ⇒ 404 TREE_NOT_PUBLISHED.
          */
         get: operations["export_report_api_v1_classes__class_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/nodes/{node_id}/review-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Review Window
+         * @description C2-15: GV đặt hạn kiểm tra bài cũ của nút. Trong hạn ghép cặp chạy theo sự kiện: người Đạt dạy tối đa 3 người
+         *     chưa Đạt, không đạt ⇒ ghép ngay. Đặt lại cho cùng nút thì dời hạn.
+         */
+        put: operations["set_review_window_api_v1_classes__class_id__nodes__node_id__review_window_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/review-windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Review Windows
+         * @description C2-15: các hạn của lớp kèm số người dạy, số bạn đã có cặp và bạn còn chờ (GV giảng trực tiếp / ghép tay).
+         */
+        get: operations["list_review_windows_api_v1_classes__class_id__review_windows_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -458,7 +669,7 @@ export interface paths {
         put?: never;
         /**
          * Run Round
-         * @description TC13: lớp có An–Châu bù trừ hai chiều ⇒ gợi ý An ↔ Châu (N5 / N4).
+         * @description TC13: lớp có An–Châu bù trừ hai chiều ⇒ gợi ý An ↔ Châu (N5 / N4). GV phụ trách lớp mới được chạy.
          */
         post: operations["run_round_api_v1_classes__class_id__matching_rounds_post"];
         delete?: never;
@@ -476,7 +687,7 @@ export interface paths {
         };
         /**
          * List Matches
-         * @description SV-07 / GV-09.
+         * @description SV-07: cặp của chính SV. GV-09: mọi cặp của lớp (GV phụ trách).
          */
         get: operations["list_matches_api_v1_classes__class_id__matches_get"];
         put?: never;
@@ -495,7 +706,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Peer Opt In */
+        /**
+         * Peer Opt In
+         * @description FR-PM-01 / BR-10: tắt tham gia ⇒ các gợi ý đang chờ của SV bị từ chối.
+         */
         put: operations["peer_opt_in_api_v1_enrollments__enrollment_id__peer_opt_in_put"];
         post?: never;
         delete?: never;
@@ -539,9 +753,30 @@ export interface paths {
         head?: never;
         /**
          * Adjust Match
-         * @description GV điều chỉnh cặp thủ công (FR-PM-08, vòng 2).
+         * @description GV điều chỉnh cặp thủ công (FR-PM-08): `cancel` hủy cặp, hoặc `replaceStudentId` + `withStudentId` thay một SV
+         *     (nút dạy / học tính lại, cặp quay về PROPOSED).
          */
         patch: operations["adjust_match_api_v1_matches__match_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/matching-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matching Stats
+         * @description Hiệu quả ghép cặp (6.6.6): tỉ lệ chấp nhận, học cùng, mục được xác nhận Đạt.
+         */
+        get: operations["matching_stats_api_v1_classes__class_id__matching_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/sessions": {
@@ -576,9 +811,53 @@ export interface paths {
         put?: never;
         /**
          * Upload Audio
-         * @description Ghi âm ≤ 3 phút → STT tiếng Việt, chuẩn hóa thuật ngữ, độ tin cậy từng từ (FR-TB-05…07).
+         * @description Ghi âm ≤ 3 phút (multipart: `file`, `consent`) → STT tiếng Việt, chuẩn hóa thuật ngữ theo nút, độ tin cậy
+         *     từng từ (FR-TB-05…07). `consent=true` (BR-13) mới lưu ghi âm vào MinIO, `audioRef = "s3://audio/…"`;
+         *     không đồng ý ⇒ không lưu, `audioRef = "unsaved:<uuid>"`. Gửi lượt: POST /turns với inputMode=VOICE, audioRef.
          */
         post: operations["upload_audio_api_v1_sessions__session_id__audio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/turns/{turn_no}/tts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Question Audio
+         * @description Đọc to câu hỏi của Tutee (FR-TB-10): địa chỉ này nằm ở `Question.audioUrl` khi SV bật `ttsEnabled`.
+         *     Tổng hợp lần đầu rồi lưu đệm; cần Bearer như mọi API (client tải blob rồi phát).
+         */
+        get: operations["question_audio_api_v1_sessions__session_id__turns__turn_no__tts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session
+         * @description Khôi phục màn SV-04 sau khi tải lại trang: hội thoại đã có, câu Tutee đang chờ (hạn, audioUrl), tiến độ.
+         *     Chỉ SV chủ phiên (người khác ⇒ 403); phiên đã kết thúc vẫn xem được (question = null).
+         */
+        get: operations["get_session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -616,7 +895,7 @@ export interface paths {
         put?: never;
         /**
          * Timeout
-         * @description Hết giờ trả lời một câu (FR-TB-11).
+         * @description Hết giờ trả lời một câu (FR-TB-11). Đồng hồ và hạn cấu hình theo lớp: C1-15.
          */
         post: operations["timeout_api_v1_sessions__session_id__timeout_post"];
         delete?: never;
@@ -654,9 +933,30 @@ export interface paths {
         };
         /**
          * My Sessions
-         * @description SV-08 Lịch sử phiên (FR-TB-15, vòng 3).
+         * @description SV-08 Lịch sử phiên của chính mình (FR-TB-15): kết quả các phiên đã chấm, mới nhất trước; lọc theo `class_id`.
          */
         get: operations["my_sessions_api_v1_me_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Session
+         * @description Chi tiết một phiên của mình: kết quả, transcript từng lượt, `audioUrl` để nghe lại ghi âm (còn hạn lưu).
+         *     Phiên của người khác ⇒ 403 FORBIDDEN.
+         */
+        get: operations["my_session_api_v1_me_sessions__session_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -695,7 +995,7 @@ export interface paths {
         };
         /**
          * List Versions
-         * @description Lịch sử phiên bản (FR-SK-10, vòng 2).
+         * @description Lịch sử phiên bản, mới nhất trước (FR-SK-10).
          */
         get: operations["list_versions_api_v1_classes__class_id__tree_versions_get"];
         put?: never;
@@ -821,7 +1121,8 @@ export interface paths {
         put?: never;
         /**
          * Regenerate Rubric
-         * @description Sinh lại rubric bằng AI (RAG) – thẻ của Đăng.
+         * @description Sinh lại rubric bằng AI (RAG trên giáo trình của lớp, FR-SK-08). Rubric mới ở trạng thái chưa duyệt;
+         *     lớp chưa có giáo trình đã xử lý ⇒ 422 NO_SOURCE_MATERIAL.
          */
         post: operations["regenerate_rubric_api_v1_nodes__node_id__rubric_regenerate_post"];
         delete?: never;
@@ -862,9 +1163,29 @@ export interface paths {
         put?: never;
         /**
          * Restore Version
-         * @description Khôi phục phiên bản cũ thành bản nháp mới (FR-SK-10).
+         * @description Khôi phục phiên bản cũ thành bản nháp mới (FR-SK-10); bản cũ giữ nguyên, rubric duyệt lại.
          */
         post: operations["restore_version_api_v1_tree_versions__version_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tree-versions/{from_id}/compare/{to_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Versions
+         * @description So sánh hai phiên bản cùng lớp theo key nút: thêm, bỏ, đổi; cạnh thêm, bỏ (FR-SK-10).
+         */
+        get: operations["compare_versions_api_v1_tree_versions__from_id__compare__to_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -908,6 +1229,28 @@ export interface components {
              */
             audioRetentionDays: number;
         };
+        /** AuditLogOut */
+        AuditLogOut: {
+            /** Id */
+            id: number;
+            /** Userid */
+            userId?: string | null;
+            /** Action */
+            action: string;
+            /** Entity */
+            entity: string;
+            /** Entityid */
+            entityId?: string | null;
+            /** Payload */
+            payload?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+        };
         /**
          * BloomLevel
          * @enum {string}
@@ -922,6 +1265,11 @@ export interface components {
         Body_upload_audio_api_v1_sessions__session_id__audio_post: {
             /** File */
             file: string;
+            /**
+             * Consent
+             * @default false
+             */
+            consent: boolean;
         };
         /** Body_upload_syllabus_api_v1_classes__class_id__syllabi_post */
         Body_upload_syllabus_api_v1_classes__class_id__syllabi_post: {
@@ -973,7 +1321,7 @@ export interface components {
         };
         /**
          * ClassSettings
-         * @description GV-10 – FR-HM-08 (BR-03, BR-06).
+         * @description GV-10 – FR-HM-08 (BR-03, BR-06). Ngưỡng Đạt và số câu phản biện hiện chỉ được lưu (Orchestrator chưa đọc).
          */
         ClassSettings: {
             /**
@@ -1001,6 +1349,42 @@ export interface components {
              * @default 3
              */
             challengeCount: number;
+        };
+        /** CourseIn */
+        CourseIn: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Credits */
+            credits?: number | null;
+            /** Description */
+            description?: string | null;
+        };
+        /** CourseOut */
+        CourseOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Credits */
+            credits?: number | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
+         * CreatedUser
+         * @description Mật khẩu ban đầu chỉ trả đúng một lần – QTV chuyển cho người dùng, không xem lại được.
+         */
+        CreatedUser: {
+            user: components["schemas"]["UserOut"];
+            /** Password */
+            password: string;
         };
         /**
          * CriterionCode
@@ -1038,16 +1422,86 @@ export interface components {
             /** Confidence */
             confidence?: number | null;
         };
+        /** EdgeRef */
+        EdgeRef: {
+            /** Fromkey */
+            fromKey: string;
+            /** Tokey */
+            toKey: string;
+        };
         /**
          * EdgeSource
          * @enum {string}
          */
         EdgeSource: "AI" | "LECTURER";
+        /** ErrorBody */
+        ErrorBody: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Details
+             * @default {}
+             */
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /** ErrorResponse */
+        ErrorResponse: {
+            error: components["schemas"]["ErrorBody"];
+        };
+        /** FlagOut */
+        FlagOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sessionid
+             * Format: uuid
+             */
+            sessionId: string;
+            /** Turnid */
+            turnId?: string | null;
+            /**
+             * Classid
+             * Format: uuid
+             */
+            classId: string;
+            /**
+             * Studentid
+             * Format: uuid
+             */
+            studentId: string;
+            /**
+             * Studentname
+             * @default
+             */
+            studentName: string;
+            /** Type */
+            type: string;
+            /** Severity */
+            severity: string;
+            /** Detail */
+            detail?: string | null;
+            /** Resolved */
+            resolved: boolean;
+            /** Resolvedby */
+            resolvedBy?: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+        };
         /**
          * FlagType
          * @enum {string}
          */
-        FlagType: "PASTE_SUSPECTED" | "JAILBREAK" | "OFF_TOPIC" | "LOW_STT_CONFIDENCE" | "ANSWER_LEAK";
+        FlagType: "PASTE_SUSPECTED" | "JAILBREAK" | "OFF_TOPIC" | "LOW_STT_CONFIDENCE" | "ANSWER_LEAK" | "GUARD_UNCHECKED";
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
             /** Email */
@@ -1070,6 +1524,18 @@ export interface components {
             };
             /** Progress */
             progress: number;
+            /**
+             * Statesbykey
+             * @default {}
+             */
+            statesByKey: {
+                [key: string]: components["schemas"]["MasteryState"];
+            };
+            /**
+             * Masteredcount
+             * @default 0
+             */
+            masteredCount: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1082,8 +1548,17 @@ export interface components {
          */
         HeatColor: "GREY" | "GREEN" | "YELLOW" | "RED";
         /**
+         * HeatSample
+         * @description Đủ mẫu để kết luận màu chưa (FR-HM-04: tách "chưa đủ mẫu / chưa thử" khỏi "chưa đạt") – C2-11.
+         * @enum {string}
+         */
+        HeatSample: "NO_ATTEMPT" | "INSUFFICIENT" | "SUFFICIENT";
+        /**
          * HeatmapAlert
-         * @description class:{id}:heatmap → heatmap.alert ("Nên giảng lại X")
+         * @description class:{id}:heatmap → heatmap.alert ("Nên giảng lại X"); cũng là kết quả HeatmapService.trace_root_causes.
+         *
+         *     C2-12 (mục 6.5.3): `nodeId` là nút ĐỎ Y, `rootCauseNodeId` là nút X nên giảng lại trước
+         *     (= Y khi `isSelf`: không tổ tiên nào có r(X|Y) ≥ θ). Trường thêm ở C2-12 đều tùy chọn (tương thích ngược).
          */
         HeatmapAlert: {
             /**
@@ -1098,6 +1573,25 @@ export interface components {
             rootCauseNodeId: string;
             /** Message */
             message: string;
+            /** Nodekey */
+            nodeKey?: string | null;
+            /** Rootcausenodekey */
+            rootCauseNodeKey?: string | null;
+            /** Rootcausetitle */
+            rootCauseTitle?: string | null;
+            /**
+             * Isself
+             * @default false
+             */
+            isSelf: boolean;
+            /** Score */
+            score?: number | null;
+            /** Conditionalfailrate */
+            conditionalFailRate?: number | null;
+            /** Failedcount */
+            failedCount?: number | null;
+            /** Distance */
+            distance?: number | null;
         };
         /** HeatmapSnapshot */
         HeatmapSnapshot: {
@@ -1127,6 +1621,29 @@ export interface components {
              * @default []
              */
             alerts: components["schemas"]["HeatmapAlert"][];
+            tree?: components["schemas"]["TreeVersion"] | null;
+        };
+        /** ImportResult */
+        ImportResult: {
+            /** Created */
+            created: components["schemas"]["ImportedStudent"][];
+            /** Skipped */
+            skipped: components["schemas"]["RowIssue"][];
+            /** Errors */
+            errors: components["schemas"]["RowIssue"][];
+        };
+        /** ImportedStudent */
+        ImportedStudent: {
+            /** Row */
+            row: number;
+            /** Studentcode */
+            studentCode: string;
+            /** Fullname */
+            fullName: string;
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
         };
         /**
          * InputMode
@@ -1142,6 +1659,8 @@ export interface components {
              * Format: uuid
              */
             documentId: string;
+            /** Channel */
+            channel: string;
         };
         /** JoinRequest */
         JoinRequest: {
@@ -1178,15 +1697,73 @@ export interface components {
          * @enum {string}
          */
         MasteryState: "LOCKED" | "AVAILABLE" | "IN_PROGRESS" | "MASTERED" | "NOT_PASSED" | "NEEDS_REVERIFY";
-        /** MatchOut */
+        /**
+         * MatchAdjust
+         * @description GV điều chỉnh cặp thủ công (FR-PM-08, C2-15): hủy cặp (`cancel`) hoặc thay một SV bằng SV khác trong lớp.
+         *     Thay SV ⇒ tính lại nút dạy / học, cặp quay về PROPOSED để hai bên chấp nhận lại.
+         */
+        MatchAdjust: {
+            /**
+             * Cancel
+             * @default false
+             */
+            cancel: boolean;
+            /** Replacestudentid */
+            replaceStudentId?: string | null;
+            /** Withstudentid */
+            withStudentId?: string | null;
+        };
+        /**
+         * MatchItemOut
+         * @description Một chiều dạy → học của một nút. SV học dùng `id` làm `peerMatchItemId` khi mở phiên xác nhận lại.
+         */
+        MatchItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Teacherid
+             * Format: uuid
+             */
+            teacherId: string;
+            /**
+             * Learnerid
+             * Format: uuid
+             */
+            learnerId: string;
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** Nodekey */
+            nodeKey: string;
+            /** Verified */
+            verified: boolean;
+            /** Verifiedat */
+            verifiedAt?: string | null;
+        };
+        /**
+         * MatchOut
+         * @description Một gợi ý ghép cặp nhìn từ phía người xem. SV: "tôi" là SV đang đăng nhập. GV: góc nhìn của SV A.
+         */
         MatchOut: {
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /**
+             * Partnerid
+             * Format: uuid
+             */
+            partnerId: string;
             /** Partnername */
             partnerName: string;
+            /** Partneremail */
+            partnerEmail?: string | null;
             /** Iteach */
             iTeach: string[];
             /** Ilearn */
@@ -1194,14 +1771,82 @@ export interface components {
             status: components["schemas"]["MatchStatus"];
             /** Weight */
             weight: number;
-            /** Expiresat */
+            /**
+             * Expiresat
+             * Format: date-time
+             */
             expiresAt: string;
+            /**
+             * Oneway
+             * @default false
+             */
+            oneWay: boolean;
+            /**
+             * Acceptedbyme
+             * @default false
+             */
+            acceptedByMe: boolean;
+            /**
+             * Studiedbyme
+             * @default false
+             */
+            studiedByMe: boolean;
+            /**
+             * Studentaid
+             * Format: uuid
+             */
+            studentAId: string;
+            /** Studentaname */
+            studentAName: string;
+            /**
+             * Studentbid
+             * Format: uuid
+             */
+            studentBId: string;
+            /** Studentbname */
+            studentBName: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["MatchItemOut"][];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
         };
         /**
          * MatchStatus
          * @enum {string}
          */
         MatchStatus: "PROPOSED" | "WAITING_OTHER" | "ACCEPTED" | "DECLINED" | "EXPIRED" | "STUDIED" | "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED";
+        /**
+         * MatchingStats
+         * @description Hiệu quả ghép cặp của lớp (mục 6.6.6, FR-PM-08).
+         */
+        MatchingStats: {
+            /** Totalmatches */
+            totalMatches: number;
+            /** Accepted */
+            accepted: number;
+            /** Declined */
+            declined: number;
+            /** Expired */
+            expired: number;
+            /** Studied */
+            studied: number;
+            /** Itemstotal */
+            itemsTotal: number;
+            /** Itemsverified */
+            itemsVerified: number;
+            /** Acceptrate */
+            acceptRate: number;
+            /** Studiedrate */
+            studiedRate: number;
+            /** Verifiedrate */
+            verifiedRate: number;
+        };
         /** Me */
         Me: {
             /** Id */
@@ -1285,6 +1930,38 @@ export interface components {
             positionY?: number | null;
             rubric?: components["schemas"]["Rubric"] | null;
         };
+        /**
+         * NodeAlreadyMasteredDetails
+         * @description `details` của lỗi 409 NODE_ALREADY_MASTERED ở POST /sessions: nút đã Đạt, chỉ học lại khi NEEDS_REVERIFY.
+         */
+        NodeAlreadyMasteredDetails: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /**
+             * State
+             * @constant
+             */
+            state: "MASTERED";
+        };
+        /** NodeAlreadyMasteredErrorBody */
+        NodeAlreadyMasteredErrorBody: {
+            /**
+             * Code
+             * @default NODE_ALREADY_MASTERED
+             * @constant
+             */
+            code: "NODE_ALREADY_MASTERED";
+            /** Message */
+            message: string;
+            details: components["schemas"]["NodeAlreadyMasteredDetails"];
+        };
+        /** NodeAlreadyMasteredErrorResponse */
+        NodeAlreadyMasteredErrorResponse: {
+            error: components["schemas"]["NodeAlreadyMasteredErrorBody"];
+        };
         /** NodeDetail */
         NodeDetail: {
             /**
@@ -1303,6 +1980,45 @@ export interface components {
             }[];
             /** Rootcausenodeid */
             rootCauseNodeId?: string | null;
+            /** Nodekey */
+            nodeKey?: string | null;
+            alert?: components["schemas"]["HeatmapAlert"] | null;
+        };
+        /**
+         * NodeLockedDetails
+         * @description `details` của lỗi 409 NODE_LOCKED ở POST /sessions (FR-TB-02, TC06): chỉ cho ô chưa mở (LOCKED), kèm key các
+         *     nút tiên quyết còn thiếu (UI tra tên nút từ cây đã tải). Ô NOT_PASSED đang chờ BR-11 ⇒ RETRY_COOLDOWN, ô MASTERED
+         *     ⇒ NODE_ALREADY_MASTERED – mã lỗi theo MasteryService (C2-10).
+         */
+        NodeLockedDetails: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /**
+             * State
+             * @constant
+             */
+            state: "LOCKED";
+            /** Missingprerequisites */
+            missingPrerequisites: string[];
+        };
+        /** NodeLockedErrorBody */
+        NodeLockedErrorBody: {
+            /**
+             * Code
+             * @default NODE_LOCKED
+             * @constant
+             */
+            code: "NODE_LOCKED";
+            /** Message */
+            message: string;
+            details: components["schemas"]["NodeLockedDetails"];
+        };
+        /** NodeLockedErrorResponse */
+        NodeLockedErrorResponse: {
+            error: components["schemas"]["NodeLockedErrorBody"];
         };
         /**
          * NodePatch
@@ -1383,11 +2099,107 @@ export interface components {
              * @default false
              */
             isRootCause: boolean;
+            /** Nodekey */
+            nodeKey?: string | null;
+            /** Attemptedrate */
+            attemptedRate?: number | null;
+            /** Enrolledcount */
+            enrolledCount?: number | null;
+            sample?: components["schemas"]["HeatSample"] | null;
+            /** Label */
+            label?: string | null;
+            /** Rootcausenodeid */
+            rootCauseNodeId?: string | null;
+            /** Rootcausenodekey */
+            rootCauseNodeKey?: string | null;
+        };
+        /**
+         * NotificationOut
+         * @description Cùng dạng cho `GET /notifications` và payload `notification` trên kênh WebSocket.
+         */
+        NotificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content?: string | null;
+            /** Link */
+            link?: string | null;
+            /**
+             * Isread
+             * @default false
+             */
+            isRead: boolean;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
         };
         /** OptIn */
         OptIn: {
             /** Peeroptin */
             peerOptIn: boolean;
+        };
+        /** ProfileSession */
+        ProfileSession: {
+            /**
+             * Sessionid
+             * Format: uuid
+             */
+            sessionId: string;
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** Nodekey */
+            nodeKey?: string | null;
+            /** Nodetitle */
+            nodeTitle?: string | null;
+            /** Attemptno */
+            attemptNo: number;
+            /** Status */
+            status: string;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /** Endedat */
+            endedAt?: string | null;
+            result?: components["schemas"]["SessionResult"] | null;
+            /**
+             * Turns
+             * @default []
+             */
+            turns: components["schemas"]["ProfileTurn"][];
+        };
+        /** ProfileTurn */
+        ProfileTurn: {
+            /** Turnno */
+            turnNo: number;
+            /** Speaker */
+            speaker: string;
+            /** Turntype */
+            turnType: string;
+            /** Content */
+            content?: string | null;
+            /** Inputmode */
+            inputMode: string;
+            /** Audiourl */
+            audioUrl?: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
         };
         /** ProviderConfig */
         ProviderConfig: {
@@ -1440,6 +2252,55 @@ export interface components {
          * @enum {string}
          */
         QuestionStrategy: "MISSING_KEY_POINT" | "MISCONCEPTION_PROBE" | "EDGE_CASE" | "TRANSFER";
+        /**
+         * QuotaIn
+         * @description `null` = không giới hạn loại đó; cả hai null = bỏ hạn mức.
+         */
+        QuotaIn: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "CLASS" | "STUDENT";
+            /**
+             * Scopeid
+             * Format: uuid
+             */
+            scopeId: string;
+            /** Tokenlimit */
+            tokenLimit?: number | null;
+            /** Audiominuteslimit */
+            audioMinutesLimit?: number | null;
+        };
+        /** QuotaOut */
+        QuotaOut: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "CLASS" | "STUDENT";
+            /**
+             * Scopeid
+             * Format: uuid
+             */
+            scopeId: string;
+            /** Tokenlimit */
+            tokenLimit?: number | null;
+            /** Audiominuteslimit */
+            audioMinutesLimit?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Tokensused
+             * @default 0
+             */
+            tokensUsed: number;
+            /**
+             * Audiominutesused
+             * @default 0
+             */
+            audioMinutesUsed: number;
+        };
         /** RefreshRequest */
         RefreshRequest: {
             /** Refreshtoken */
@@ -1453,6 +2314,43 @@ export interface components {
             newPassword: string;
         };
         /**
+         * ReviewWindowOut
+         * @description Hạn kiểm tra bài cũ của một nút (C2-15). Trong hạn, ghép cặp chạy theo sự kiện: người Đạt dạy tối đa 3 người
+         *     chưa Đạt; không đạt ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ chờ. Hết hạn thì dừng ghép tự động.
+         */
+        ReviewWindowOut: {
+            /** Nodeid */
+            nodeId: string | null;
+            /** Nodekey */
+            nodeKey: string;
+            /**
+             * Deadlineat
+             * Format: date-time
+             */
+            deadlineAt: string;
+            /** Open */
+            open: boolean;
+            /** Teachercount */
+            teacherCount: number;
+            /** Matchedcount */
+            matchedCount: number;
+            /**
+             * Waitingstudentids
+             * @default []
+             */
+            waitingStudentIds: string[];
+            /** Message */
+            message?: string | null;
+        };
+        /** ReviewWindowRequest */
+        ReviewWindowRequest: {
+            /**
+             * Deadlineat
+             * Format: date-time
+             */
+            deadlineAt: string;
+        };
+        /**
          * Role
          * @enum {string}
          */
@@ -1464,17 +2362,36 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Triggertype */
+            triggerType: string;
             /** Participantcount */
             participantCount: number;
             /** Totalweight */
             totalWeight: number;
             /** Matches */
             matches: components["schemas"]["MatchOut"][];
+            /**
+             * Waitingstudentids
+             * @default []
+             */
+            waitingStudentIds: string[];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
         };
         /** RoundRequest */
         RoundRequest: {
             /** Prioritynodeid */
             priorityNodeId?: string | null;
+        };
+        /** RowIssue */
+        RowIssue: {
+            /** Row */
+            row: number;
+            /** Reason */
+            reason: string;
         };
         /**
          * Rubric
@@ -1543,6 +2460,69 @@ export interface components {
          * SessionResult
          * @description GET /sessions/{id}/result và payload sự kiện session.completed (Redis Pub/Sub).
          *     Bên nghe: MasteryService (Long, C2-10) đọc studentId, nodeId, classId, verdict, flags, isPeerFollowup.
+         *     `state` là trạng thái Orchestrator ĐỀ XUẤT (PASSED ⇒ MASTERED, FAILED ⇒ NOT_PASSED); MasteryService là nguồn
+         *     chân lý và phát `mastery.changed`. `unlockedNodes` do MasteryService tính – Orchestrator để trống.
+         * @example {
+         *       "attemptNo": 1,
+         *       "classId": "0fcd3055-a08a-5a08-b881-bbab21c660c2",
+         *       "completedAt": "2026-10-15T08:30:00Z",
+         *       "criteria": [
+         *         {
+         *           "code": "CORRECTNESS",
+         *           "max": 25,
+         *           "score": 22,
+         *           "weight": 0.25
+         *         },
+         *         {
+         *           "code": "COVERAGE",
+         *           "max": 25,
+         *           "score": 20,
+         *           "weight": 0.25
+         *         },
+         *         {
+         *           "code": "ESSENCE",
+         *           "max": 20,
+         *           "score": 15,
+         *           "weight": 0.2
+         *         },
+         *         {
+         *           "code": "ROBUSTNESS",
+         *           "max": 20,
+         *           "score": 14,
+         *           "weight": 0.2
+         *         },
+         *         {
+         *           "code": "CLARITY",
+         *           "max": 10,
+         *           "score": 7,
+         *           "weight": 0.1
+         *         }
+         *       ],
+         *       "detectedMisconceptions": [
+         *         "MC2"
+         *       ],
+         *       "failedConditions": [],
+         *       "flags": [],
+         *       "isPeerFollowup": false,
+         *       "nodeId": "7f3c1a2e-0000-4000-8000-000000000003",
+         *       "passThreshold": 70,
+         *       "reviewHints": [
+         *         "Vì sao con trỏ cần có kiểu dữ liệu? Thử nghĩ về phép cộng con trỏ."
+         *       ],
+         *       "sessionId": "7f3c1a2e-0000-4000-8000-000000000001",
+         *       "sourcePages": [
+         *         45,
+         *         46
+         *       ],
+         *       "state": "MASTERED",
+         *       "strengths": [
+         *         "Giải thích đúng con trỏ treo khi bị hỏi về free()"
+         *       ],
+         *       "studentId": "7f3c1a2e-0000-4000-8000-000000000002",
+         *       "totalScore": 78,
+         *       "unlockedNodes": [],
+         *       "verdict": "PASSED"
+         *     }
          */
         SessionResult: {
             /**
@@ -1606,11 +2586,23 @@ export interface components {
              * @default false
              */
             isPeerFollowup: boolean;
+            /** Peermatchitemid */
+            peerMatchItemId?: string | null;
             /**
              * Detectedmisconceptions
              * @default []
              */
             detectedMisconceptions: string[];
+            /**
+             * Failedconditions
+             * @default []
+             */
+            failedConditions: ("SCORE" | "REQUIRED_POINTS" | "CHALLENGES" | "CRITICAL_MISCONCEPTION")[];
+            /**
+             * Attemptno
+             * @default 1
+             */
+            attemptNo: number;
             /** Completedat */
             completedAt?: string | null;
         };
@@ -1635,10 +2627,105 @@ export interface components {
             peerMatchItemId?: string | null;
         };
         /**
+         * SessionState
+         * @description GET /sessions/{id} – trạng thái phiên của chính SV để khôi phục UI sau khi tải lại (bug #120).
+         *
+         *     `turns` theo thứ tự lượt, gồm cả thông báo của hệ thống (SYSTEM_NOTICE). `question` là câu Tutee đang chờ SV trả lời
+         *     (kèm hạn `deadline`, `audioUrl`); None khi phiên đã kết thúc. Giai đoạn tiếp theo suy ra từ `status`:
+         *     EXPLAINING ⇒ gửi EXPLANATION, CHALLENGING ⇒ gửi ANSWER.
+         */
+        SessionState: {
+            /**
+             * Sessionid
+             * Format: uuid
+             */
+            sessionId: string;
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            status: components["schemas"]["SessionStatus"];
+            inputMode: components["schemas"]["InputMode"];
+            /**
+             * Ttsenabled
+             * @default false
+             */
+            ttsEnabled: boolean;
+            /** Turns */
+            turns: components["schemas"]["SessionTurnView"][];
+            question?: components["schemas"]["Question"] | null;
+            /**
+             * Questionsasked
+             * @default 0
+             */
+            questionsAsked: number;
+            /**
+             * Questionstotal
+             * @default 0
+             */
+            questionsTotal: number;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /** Endedat */
+            endedAt?: string | null;
+        };
+        /**
          * SessionStatus
          * @enum {string}
          */
         SessionStatus: "CREATED" | "EXPLAINING" | "CHALLENGING" | "EVALUATING" | "COMPLETED" | "ABANDONED" | "FLAGGED";
+        /**
+         * SessionTurnView
+         * @description Một lượt hội thoại để dựng lại màn hình khi tải lại trang (GET /sessions/{id}).
+         */
+        SessionTurnView: {
+            /** Turnno */
+            turnNo: number;
+            speaker: components["schemas"]["Speaker"];
+            turnType: components["schemas"]["TurnType"];
+            /** Text */
+            text: string;
+            inputMode: components["schemas"]["InputMode"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+        };
+        /**
+         * Speaker
+         * @enum {string}
+         */
+        Speaker: "STUDENT" | "TUTEE";
+        /** StudentProfile */
+        StudentProfile: {
+            /**
+             * Classid
+             * Format: uuid
+             */
+            classId: string;
+            /**
+             * Studentid
+             * Format: uuid
+             */
+            studentId: string;
+            /** Fullname */
+            fullName: string;
+            /** Studentcode */
+            studentCode: string;
+            /** Masteredcount */
+            masteredCount: number;
+            /** Totalcount */
+            totalCount: number;
+            /** Progress */
+            progress: components["schemas"]["NodeProgress"][];
+            /** Sessions */
+            sessions: components["schemas"]["ProfileSession"][];
+        };
         /** TokenPair */
         TokenPair: {
             /** Accesstoken */
@@ -1682,6 +2769,26 @@ export interface components {
              * @default false
              */
             needsConfirmation: boolean;
+        };
+        /**
+         * TreeDiff
+         * @description So sánh hai phiên bản cây (FR-SK-10) theo key nút – key ổn định giữa các phiên bản.
+         */
+        TreeDiff: {
+            /** Fromversionno */
+            fromVersionNo: number;
+            /** Toversionno */
+            toVersionNo: number;
+            /** Nodesadded */
+            nodesAdded: string[];
+            /** Nodesremoved */
+            nodesRemoved: string[];
+            /** Nodeschanged */
+            nodesChanged: string[];
+            /** Edgesadded */
+            edgesAdded: components["schemas"]["EdgeRef"][];
+            /** Edgesremoved */
+            edgesRemoved: components["schemas"]["EdgeRef"][];
         };
         /**
          * TreeStatus
@@ -1760,7 +2867,17 @@ export interface components {
              * @default 0
              */
             questionsTotal: number;
+            /**
+             * Flags
+             * @default []
+             */
+            flags: components["schemas"]["FlagType"][];
         };
+        /**
+         * TurnType
+         * @enum {string}
+         */
+        TurnType: "OPENING" | "EXPLANATION" | "QUESTION" | "ANSWER" | "SYSTEM_NOTICE";
         /** UpdateMe */
         UpdateMe: {
             /** Fullname */
@@ -1771,6 +2888,49 @@ export interface components {
             currentPassword?: string | null;
             /** Newpassword */
             newPassword?: string | null;
+        };
+        /** UserCreate */
+        UserCreate: {
+            /** Fullname */
+            fullName: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+            /** Studentcode */
+            studentCode?: string | null;
+            /** Cohort */
+            cohort?: string | null;
+        };
+        /** UserOut */
+        UserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Fullname */
+            fullName: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["Role"];
+            /** Isactive */
+            isActive: boolean;
+            /** Studentcode */
+            studentCode?: string | null;
+            /** Cohort */
+            cohort?: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+        };
+        /** UserPatch */
+        UserPatch: {
+            /** Fullname */
+            fullName?: string | null;
+            /** Isactive */
+            isActive?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1845,9 +3005,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["FlagOut"][];
                 };
             };
             /** @description Validation Error */
@@ -1878,9 +3036,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["FlagOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audit_logs_api_v1_admin_audit_logs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogOut"][];
                 };
             };
             /** @description Validation Error */
@@ -1929,7 +3117,13 @@ export interface operations {
     };
     list_users_api_v1_admin_users_get: {
         parameters: {
-            query?: never;
+            query?: {
+                role?: components["schemas"]["Role"] | null;
+                q?: string | null;
+                active?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1942,9 +3136,115 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["UserOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedUser"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_user_api_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_admin_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedUser"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1968,9 +3268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ImportResult"];
                 };
             };
             /** @description Validation Error */
@@ -1999,14 +3297,176 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["CourseOut"][];
+                };
+            };
+        };
+    };
+    create_course_api_v1_admin_courses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_api_v1_admin_courses__course_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_quotas_api_v1_admin_quotas_get: {
+        parameters: {
+            query?: {
+                scope?: ("CLASS" | "STUDENT") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
     put_quotas_api_v1_admin_quotas_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuotaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                unread_only?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_all_notifications_api_v1_notifications_read_all_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2028,11 +3488,13 @@ export interface operations {
             };
         };
     };
-    my_notifications_api_v1_notifications_get: {
+    read_notification_api_v1_notifications__notification_id__read_post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                notification_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2043,9 +3505,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2387,7 +3856,10 @@ export interface operations {
     };
     get_heatmap_api_v1_classes__class_id__heatmap_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                anonymize?: boolean;
+            };
             header?: never;
             path: {
                 class_id: string;
@@ -2418,7 +3890,9 @@ export interface operations {
     };
     node_detail_api_v1_classes__class_id__nodes__node_id__detail_get: {
         parameters: {
-            query?: never;
+            query?: {
+                anonymize?: boolean;
+            };
             header?: never;
             path: {
                 class_id: string;
@@ -2466,9 +3940,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["StudentProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    turn_audio_api_v1_turns__turn_id__audio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/*": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_classes__class_id__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSettings"];
                 };
             };
             /** @description Validation Error */
@@ -2520,7 +4054,7 @@ export interface operations {
     export_report_api_v1_classes__class_id__report_get: {
         parameters: {
             query?: {
-                format?: string;
+                format?: "csv" | "pdf";
             };
             header?: never;
             path: {
@@ -2535,10 +4069,73 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_review_window_api_v1_classes__class_id__nodes__node_id__review_window_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewWindowRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewWindowOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_review_windows_api_v1_classes__class_id__review_windows_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewWindowOut"][];
                 };
             };
             /** @description Validation Error */
@@ -2694,7 +4291,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchAdjust"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2703,6 +4304,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    matching_stats_api_v1_classes__class_id__matching_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchingStats"];
                 };
             };
             /** @description Validation Error */
@@ -2736,6 +4368,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionCreated"];
+                };
+            };
+            /** @description NODE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description NODE_LOCKED – tiên quyết còn thiếu · NODE_ALREADY_MASTERED – nút đã Đạt */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeLockedErrorResponse"] | components["schemas"]["NodeAlreadyMasteredErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2773,6 +4423,179 @@ export interface operations {
                     "application/json": components["schemas"]["Transcript"];
                 };
             };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AUDIO_TOO_LARGE (> 12 MB) · AUDIO_TOO_LONG (> 3 phút) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description UNSUPPORTED_AUDIO_FORMAT – chỉ webm, ogg, wav, mp3, m4a */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description EMPTY_AUDIO · NO_SPEECH_DETECTED · VALIDATION_ERROR */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STT_UNAVAILABLE · AUDIO_STORE_UNAVAILABLE */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    question_audio_api_v1_sessions__session_id__turns__turn_no__tts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                turn_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Giọng đọc câu hỏi */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "audio/mpeg": unknown;
+                    "audio/wav": unknown;
+                };
+            };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description TTS_UNAVAILABLE – phiên vẫn chạy, đọc bằng chữ */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionState"];
+                };
+            };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2808,6 +4631,33 @@ export interface operations {
                     "application/json": components["schemas"]["TurnReply"];
                 };
             };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2837,6 +4687,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TurnReply"];
+                };
+            };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2870,6 +4747,33 @@ export interface operations {
                     "application/json": components["schemas"]["SessionResult"];
                 };
             };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description RESULT_NOT_READY */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2899,6 +4803,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionResult"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_session_api_v1_me_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSession"];
                 };
             };
             /** @description Validation Error */
@@ -3262,6 +5197,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TreeVersion"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_versions_api_v1_tree_versions__from_id__compare__to_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                from_id: string;
+                to_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeDiff"];
                 };
             };
             /** @description Validation Error */
