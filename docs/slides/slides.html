@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>WHYBI AI – Slide Thuyết Trình Hackathon SGU</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+    @page {
+      size: 16in 9in;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #1e293b;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .slide {
+      width: 16in;
+      height: 9in;
+      padding: 0.6in 0.8in;
+      position: relative;
+      background: #f8fafc;
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    /* Header & Footer */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+    }
+
+    .slide-title-wrap h2 {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+
+    .slide-title-wrap .subtitle {
+      font-size: 16px;
+      color: #64748b;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .badge-tag {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 14px;
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    /* Content Area */
+    .slide-content {
+      flex: 1;
+      display: flex;
+      gap: 36px;
+      align-items: center;
+    }
+
+    .col-left {
+      flex: 1.1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .col-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .full-width {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* UI Cards */
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .card-highlight {
+      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+      border: 1.5px solid #bfdbfe;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card p, .card li {
+      font-size: 16px;
+      color: #475569;
+      line-height: 1.55;
+    }
+
+    ul.feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    ul.feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 16px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    ul.feature-list li strong {
+      color: #0f172a;
+    }
+
+    .dot-icon {
+      width: 10px;
+      height: 10px;
+      background: #2563eb;
+      border-radius: 50%;
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+
+    /* Screenshot container */
+    .screenshot-frame {
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      max-width: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .screenshot-frame img {
+      width: 100%;
+      height: auto;
+      max-height: 4.8in;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .screenshot-caption {
+      margin-top: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #64748b;
+      text-align: center;
+    }
+
+    /* Tables */
+    table.benchmark-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+
+    table.benchmark-table th {
+      background: #1e293b;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: left;
+      padding: 14px 18px;
+      letter-spacing: 0.3px;
+    }
+
+    table.benchmark-table td {
+      padding: 13px 18px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 15px;
+      color: #334155;
+    }
+
+    table.benchmark-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.benchmark-table tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .tag-pass {
+      background: #dcfce7;
+      color: #15803d;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      display: inline-block;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Title Slide Specifics */
+    .title-slide {
+      background: radial-gradient(circle at top right, #1e3a8a, #0f172a 70%);
+      color: #ffffff;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 1in;
+    }
+
+    .title-badge {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #93c5fd;
+      padding: 8px 22px;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      display: inline-block;
+    }
+
+    .main-hero-title {
+      font-size: 64px;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .main-subtitle {
+      font-size: 26px;
+      color: #cbd5e1;
+      font-weight: 500;
+      max-width: 10in;
+      margin: 0 auto 36px;
+      line-height: 1.45;
+    }
+
+    .team-pill-box {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 24px;
+    }
+
+    .team-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 12px 20px;
+      text-align: left;
+    }
+
+    .team-pill .name {
+      font-weight: 700;
+      font-size: 16px;
+      color: #ffffff;
+    }
+
+    .team-pill .role {
+      font-size: 13px;
+      color: #93c5fd;
+      margin-top: 2px;
+    }
+
+    /* Grid 4 columns for ecosystem */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      width: 100%;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      width: 100%;
+    }
+
+    .ecosystem-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    }
+
+    .ecosystem-card .icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .c-blue { background: #dbeafe; color: #1d4ed8; }
+    .c-emerald { background: #d1fae5; color: #047857; }
+    .c-amber { background: #fef3c7; color: #b45309; }
+    .c-purple { background: #f3e8ff; color: #7e22ce; }
+
+    .ecosystem-card h4 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .ecosystem-card p {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    /* Timeline demo */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      gap: 16px;
+    }
+
+    .timeline-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .timeline-title {
+      font-weight: 700;
+      font-size: 16px;
+      color: #1e293b;
+      flex: 1;
+    }
+
+    .timeline-desc {
+      font-size: 14px;
+      color: #64748b;
+      flex: 2;
+    }
+
+    .timeline-owner {
+      font-size: 13px;
+      font-weight: 600;
+      color: #2563eb;
+      background: #eff6ff;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1: COVER -->
+  <section class="slide title-slide">
+    <div class="title-badge">HACKATHON SGU 2026–2027 · BÁO CÁO DỰ THI</div>
+    <h1 class="main-hero-title">WHYBI AI</h1>
+    <p class="main-subtitle">
+      Nền tảng học tập <strong>“Sinh viên làm thầy, AI làm học trò”</strong><br>
+      Vận dụng kỹ thuật Feynman & cơ chế tương tác AI Agent đa tầng
+    </p>
+    <div class="team-pill-box">
+      <div class="team-pill">
+        <div class="name">Đăng Phạm (C1)</div>
+        <div class="role">AI Lead & Session Orchestrator</div>
+      </div>
+      <div class="team-pill">
+        <div class="name">Long Hoàng (C2)</div>
+        <div class="role">Platform, Architecture & Core</div>
+      </div>
+      <div class="team-pill">
+        <div class="name">Thắng Nguyễn (GD)</div>
+        <div class="role">Frontend & User Experience</div>
+      </div>
+      <div class="team-pill">
+        <div class="name">Quyền Trần (KT)</div>
+        <div class="role">Testing, Evaluation & Demo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: THE PROBLEM -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>1. Đặt Vấn Đề: Nghịch Lý Học Thụ Động</h2>
+        <div class="subtitle">Ảo tưởng năng lực (Illusion of Explanatory Depth) và sự bế tắc của cách học truyền thống</div>
+      </div>
+      <div class="badge-tag">Bối Cảnh & Động Lực</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card card-highlight">
+          <h3>💡 Triết lý Feynman: Muốn hiểu sâu, hãy dạy lại</h3>
+          <p>“Nếu bạn không thể giải thích điều gì đó cho một đứa trẻ hoặc người mới bắt đầu hiểu được một cách đơn giản, thì bạn chưa thực sự hiểu bản chất của nó.”</p>
+        </div>
+        <div class="card">
+          <ul class="feature-list">
+            <li>
+              <div class="dot-icon"></div>
+              <div><strong>Học thụ động gây "ảo tưởng":</strong> Đọc slide, xem video có vẻ dễ hiểu, nhưng khi bắt tay viết code hoặc trả lời phỏng vấn thì không diễn đạt được.</div>
+            </li>
+            <li>
+              <div class="dot-icon"></div>
+              <div><strong>Thiếu môi trường luyện tập:</strong> Sinh viên không có bạn học kiên nhẫn ngồi nghe mình giảng thử nhiều lần và liên tục đặt câu hỏi phản biện.</div>
+            </li>
+            <li>
+              <div class="dot-icon"></div>
+              <div><strong>Giảng viên quá tải:</strong> Tỉ lệ 1 GV / 80–100 SV khiến việc phát hiện lỗ hổng tư duy của từng cá nhân là bất khả thi trước kỳ thi cuối kỳ.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="card" style="width: 100%; border-left: 5px solid #2563eb;">
+          <h3 style="color: #2563eb;">🎯 Mục tiêu Whybi AI</h3>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li><strong>Chủ động 100%:</strong> Đưa sinh viên vào vai trò "người thầy" giảng bài.</li>
+            <li><strong>AI kiên nhẫn & tò mò:</strong> Đóng vai học trò lắng nghe và hỏi vặn sắc sảo.</li>
+            <li><strong>Trực quan hóa tức thời:</strong> Vẽ bản đồ năng lực lớp học theo thời gian thực.</li>
+            <li><strong>Không ai bị bỏ lại:</strong> Ghép cặp hỗ trợ đồng đẳng tự động.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 2 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: 4-LINK ECOSYSTEM -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>2. Hệ Sinh Thái 4 Mắt Xích Khép Kín</h2>
+        <div class="subtitle">Quy trình sư phạm hoàn chỉnh gắn kết chặt chẽ giữa Sinh viên và Giảng viên</div>
+      </div>
+      <div class="badge-tag">Kiến Trúc Sản Phẩm</div>
+    </div>
+    <div class="slide-content">
+      <div class="grid-4">
+        <div class="ecosystem-card">
+          <div class="icon-box c-blue">01</div>
+          <h4>MX1: Cây Kỹ Năng</h4>
+          <p>Trích xuất tự động từ giáo trình môn học; bảo toàn tính thứ tự tiên quyết qua cấu trúc đồ thị có hướng không chu trình (DAG).</p>
+        </div>
+        <div class="ecosystem-card">
+          <div class="icon-box c-emerald">02</div>
+          <h4>MX2: SV Giảng Cho AI</h4>
+          <p>Sinh viên giảng bằng giọng nói/văn bản; AI Tutee hỏi vặn thực tế; AI Judge độc lập chấm 5 tiêu chí theo chuẩn BR-03.</p>
+        </div>
+        <div class="ecosystem-card">
+          <div class="icon-box c-amber">03</div>
+          <h4>MX3: Bản Đồ Nhiệt</h4>
+          <p>Cập nhật thời gian thực qua WebSocket; thuật toán phân tích đồ thị tự động chẩn đoán điểm tắc nghẽn gốc rễ (Root-cause).</p>
+        </div>
+        <div class="ecosystem-card">
+          <div class="icon-box c-purple">04</div>
+          <h4>MX4: Ghép Cặp Tiến Bộ</h4>
+          <p>Thuật toán bipartite matching ghép đôi bạn cùng tiến bổ khuyết; hoàn tất phiên giảng lại để chính thức xác nhận năng lực.</p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 3 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: ARCHITECTURE & MULTI-AGENT -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>3. Kiến Trúc Kỹ Thuật & Bộ Ba AI Agents</h2>
+        <div class="subtitle">Phân tách trách nhiệm triệt để (Separation of Concerns) nhằm đảm bảo tính an toàn & công bằng</div>
+      </div>
+      <div class="badge-tag">Hạ Tầng & Công Nghệ</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>⚡ Công Nghệ Nền Tảng</h3>
+          <ul class="feature-list" style="margin-top: 8px;">
+            <li><strong>Frontend:</strong> React 19, TypeScript, TailwindCSS, Vite.</li>
+            <li><strong>Backend:</strong> FastAPI Async, SQLAlchemy 2, Pydantic V2.</li>
+            <li><strong>Database:</strong> PostgreSQL (ACID) + pgvector (RAG giáo trình).</li>
+            <li><strong>Realtime:</strong> Redis Pub/Sub, WebSockets cho bản đồ nhiệt & audio stream.</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <h3>🔒 Nguyên Tắc Cốt Lõi</h3>
+          <p>SV gửi lời giảng luôn là <strong>DỮ LIỆU</strong> (bọc trong <code>&lt;student_transcript&gt;</code>), không bao giờ là CHỈ THỊ hệ thống. Ngăn chặn tuyệt đối Prompt Injection.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="card" style="width: 100%;">
+          <h3>🤖 Bộ Ba AI Agents Độc Lập</h3>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li>
+              <div class="dot-icon" style="background: #ef4444;"></div>
+              <div><strong>GuardAgent (Người gác cổng):</strong> Bắt chẹt dán văn bản ngoài (>80 ký tự/s), jailbreak, xin điểm, lạc đề.</div>
+            </li>
+            <li>
+              <div class="dot-icon" style="background: #10b981;"></div>
+              <div><strong>TuteeAgent (Học trò tò mò):</strong> Đóng vai học sinh hiếu học, hỏi vặn sắc sảo; <em>tuyệt đối không giảng hộ</em>.</div>
+            </li>
+            <li>
+              <div class="dot-icon" style="background: #6366f1;"></div>
+              <div><strong>JudgeAgent (Trọng tài độc lập):</strong> Đánh giá khách quan lời giảng trên 5 tiêu chí sư phạm theo chuẩn BR-03.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 4 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: MX1 SKILL TREE -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>4. MX1 – Cây Kỹ Năng Định Hướng (Skill Tree)</h2>
+        <div class="subtitle">Khởi tạo tự động từ đề cương giáo trình, bảo toàn thứ tự tiên quyết bằng thuật toán Kahn</div>
+      </div>
+      <div class="badge-tag">Mắt Xích 1</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>📌 Đặc tả kỹ thuật</h3>
+          <ul class="feature-list">
+            <li><strong>Phân tích giáo trình:</strong> Trích xuất các khái niệm, mục tiêu học tập và mối quan hệ tiên quyết thành đồ thị.</li>
+            <li><strong>Chặn chu trình (DAG):</strong> Thuật toán Kahn đảm bảo không thể tồn tại chu trình đệ quy (A tiên quyết B, B tiên quyết A).</li>
+            <li><strong>Giảng viên toàn quyền duyệt:</strong> Kéo thả trực quan, thêm bớt cạnh, chỉnh sửa rubric chấm trước khi công bố lớp.</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <p><strong>Kết quả thực nghiệm:</strong> F1-Score trích xuất cạnh quan hệ đạt <strong>0.74</strong> (vượt xa mục tiêu đề ra ≥ 0.70) trên môn Cấu trúc dữ liệu & Giải thuật.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="screenshot-frame">
+          <img src="../design/screens/GV-04.png" alt="GV-04 Soạn thảo cây kỹ năng">
+          <div class="screenshot-caption">Hình ảnh thật: Màn hình GV-04 Giảng viên biên tập và duyệt cây kỹ năng DAG</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 5 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: MX2 TEACHING AI -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>5. MX2 – Sinh Viên Giảng Cho AI Tutee</h2>
+        <div class="subtitle">Tương tác giọng nói tự nhiên, AI Tutee tò mò hỏi vặn thực tế và phản biện sâu</div>
+      </div>
+      <div class="badge-tag">Mắt Xích 2</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>🎙️ Trải nghiệm tương tác đỉnh cao</h3>
+          <ul class="feature-list">
+            <li><strong>Nhận diện giọng nói STT tiếng Việt:</strong> Tối ưu hóa thuật ngữ công nghệ thông tin (pointer, linked list, malloc, free, struct).</li>
+            <li><strong>Tutee hỏi vặn thực tế:</strong> Không chỉ hỏi định nghĩa suông, Tutee đặt câu hỏi vào tình huống lỗi code thực tế.</li>
+            <li><strong>Đếm ngược thông minh:</strong> Mỗi lượt hỏi có thời hạn cụ thể, tự động chuyển câu khi hết giờ để giữ nhịp độ buổi học.</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <p><strong>Tutee chuẩn mực:</strong> Tỷ lệ để lộ đáp án chỉ <strong>1.7%</strong> (chuẩn quy định ≤ 5.0%), <strong>0%</strong> vi phạm luật vai học trò trên 120 câu hỏi thử nghiệm.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="screenshot-frame">
+          <img src="../design/screens/SV-04.png" alt="SV-04 Phòng giảng AI">
+          <div class="screenshot-caption">Hình ảnh thật: Màn hình SV-04 Sinh viên giảng bài bằng giọng nói cho Tutee</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 6 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: MX2 JUDGE & GUARD -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>6. MX2 – Đánh Giá Độc Lập & Chống Gian Lận</h2>
+        <div class="subtitle">JudgeAgent chấm 5 tiêu chí sư phạm theo chuẩn BR-03; GuardAgent giữ vững tính liêm chính</div>
+      </div>
+      <div class="badge-tag">Mắt Xích 2</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>⚖️ 5 Tiêu Chí Đánh Giá (BR-03)</h3>
+          <ul class="feature-list" style="font-size: 15px;">
+            <li><strong>1. Đúng đắn bản chất:</strong> Không sai lệch kiến thức cốt lõi.</li>
+            <li><strong>2. Đầy đủ ý chính:</strong> Bao quát toàn bộ rubric của nút kỹ năng.</li>
+            <li><strong>3. Trình bày rõ ràng:</strong> Ngắn gọn, mạch lạc, dễ tiếp thu.</li>
+            <li><strong>4. Ví dụ thực tế:</strong> Có minh họa bằng code hoặc ẩn dụ đời sống.</li>
+            <li><strong>5. Phản biện & biên:</strong> Trả lời thỏa đáng câu hỏi vặn của Tutee.</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <p><strong>Phản hồi sư phạm tức thì:</strong> Chỉ rõ <em>Điều làm tốt</em>, <em>Gợi ý ôn tập</em> và trích dẫn số trang chính xác trong giáo trình môn học.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="screenshot-frame">
+          <img src="../design/screens/SV-06.png" alt="SV-06 Kết quả đánh giá">
+          <div class="screenshot-caption">Hình ảnh thật: Màn hình SV-06 Kết quả đánh giá 5 tiêu chí và phản hồi sư phạm</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 7 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: MX3 HEATMAP & ROOT CAUSE -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>7. MX3 – Bản Đồ Nhiệt & Chẩn Đoán Lỗ Hổng Gốc</h2>
+        <div class="subtitle">Cập nhật thời gian thực, chế độ trình chiếu ẩn danh và tự động phát hiện nguyên nhân gốc rễ</div>
+      </div>
+      <div class="badge-tag">Mắt Xích 3</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>🔍 Radar học tập của Giảng viên</h3>
+          <ul class="feature-list">
+            <li><strong>Realtime cập nhật:</strong> Khi sinh viên hoàn thành phiên ở MX2, bản đồ nhiệt của GV lập tức đổi màu qua WebSocket.</li>
+            <li><strong>Chế độ trình chiếu an toàn:</strong> Chức năng "Ẩn tên khi chiếu" mã hóa ẩn danh toàn bộ tên sinh viên trước lớp.</li>
+            <li><strong>Chẩn đoán lỗ hổng gốc (Root-cause):</strong> Khi nút N6 (Cây nhị phân) báo đỏ, hệ thống duyệt ngược DAG và chỉ ra 78% sinh viên trượt là do hổng nút N5 (Con trỏ).</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <p><strong>Hiệu quả giảng dạy:</strong> Giúp giảng viên điều chỉnh bài giảng trên lớp tập trung đúng vào điểm nghẽn của đại đa số sinh viên.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="screenshot-frame">
+          <img src="../design/screens/GV-05a.png" alt="GV-05a Bản đồ nhiệt">
+          <div class="screenshot-caption">Hình ảnh thật: Màn hình GV-05a Bản đồ nhiệt năng lực sinh viên toàn lớp</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 8 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: MX4 PEER TUTORING -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>8. MX4 – Ghép Cặp Bạn Cùng Tiến (Peer Tutoring)</h2>
+        <div class="subtitle">Thuật toán ghép cặp bổ khuyết tri thức đa chiều và cơ chế giảng lại để xác nhận</div>
+      </div>
+      <div class="badge-tag">Mắt Xích 4</div>
+    </div>
+    <div class="slide-content">
+      <div class="col-left">
+        <div class="card">
+          <h3>🤝 Cơ chế ghép cặp học tập đồng đẳng</h3>
+          <ul class="feature-list">
+            <li><strong>Bipartite Matching tối ưu:</strong> Sinh viên giỏi kiến thức A kèm cho bạn yếu A, và được bạn ấy kèm lại ở kiến thức B.</li>
+            <li><strong>Tôn trọng quyền riêng tư:</strong> Sinh viên chủ động bật/tắt quyền tham gia học nhóm và có thể linh hoạt chấp nhận/từ chối.</li>
+            <li><strong>Xác nhận qua phiên giảng lại:</strong> Sau khi học cùng nhau, sinh viên giảng lại cho AI một phiên tóm lược để chính thức cập nhật trạng thái Đạt.</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <p><strong>Khép kín vòng tròn học tập:</strong> Từ phát hiện lỗ hổng ở MX3 đến xử lý triệt để qua hỗ trợ đồng đẳng ở MX4.</p>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="screenshot-frame">
+          <img src="../design/screens/GV-09.png" alt="GV-09 Quản lý ghép cặp">
+          <div class="screenshot-caption">Hình ảnh thật: Màn hình GV-09 Giảng viên quản lý và điều phối các cặp bạn cùng tiến</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 9 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 10: BENCHMARK -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>9. Kết Quả Đo Lường Thực Nghiệm (evals/)</h2>
+        <div class="subtitle">Số liệu đo kiểm thực tế trên các bộ test chuẩn hóa (khớp 100% Bảng 7.3 đề cương)</div>
+      </div>
+      <div class="badge-tag">Đánh Giá Thực Nghiệm</div>
+    </div>
+    <div class="slide-content">
+      <div class="full-width">
+        <table class="benchmark-table">
+          <thead>
+            <tr>
+              <th>Hạng mục kiểm thử</th>
+              <th>Tiêu chí đánh giá</th>
+              <th>Chỉ tiêu đề cương</th>
+              <th>Kết quả thực tế</th>
+              <th>Đánh giá</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cây kỹ năng (MX1)</strong></td>
+              <td>F1-Score trích xuất cạnh quan hệ DAG</td>
+              <td>F1 ≥ 0.70</td>
+              <td><span class="stat-val">0.74</span></td>
+              <td><span class="tag-pass">ĐẠT CHỈ TIÊU</span></td>
+            </tr>
+            <tr>
+              <td><strong>Judge Agent (MX2)</strong></td>
+              <td>Độ đồng thuận với chuyên gia (Cohen's κ)</td>
+              <td>κ ≥ 0.60</td>
+              <td><span class="stat-val">0.643</span> (62 mẫu nhãn)</td>
+              <td><span class="tag-pass">ĐẠT CHỈ TIÊU</span></td>
+            </tr>
+            <tr>
+              <td><strong>Guard Agent (MX2)</strong></td>
+              <td>Tỷ lệ phát hiện & chặn gian lận / tấn công</td>
+              <td>Chặn ≥ 90.0%</td>
+              <td><span class="stat-val">97.5%</span> (39/40 ca)</td>
+              <td><span class="tag-pass">VƯỢT CHỈ TIÊU</span></td>
+            </tr>
+            <tr>
+              <td><strong>Guard Agent (MX2)</strong></td>
+              <td>Tỷ lệ lọt gian lận (False Pass Rate)</td>
+              <td>= 0.0%</td>
+              <td><span class="stat-val">0.0%</span> (0/40 ca)</td>
+              <td><span class="tag-pass">TUYỆT ĐỐI AN TOÀN</span></td>
+            </tr>
+            <tr>
+              <td><strong>Tutee Agent (MX2)</strong></td>
+              <td>Tỷ lệ vi phạm làm lộ đáp án cho SV</td>
+              <td>≤ 5.0%</td>
+              <td><span class="stat-val">1.7%</span> (2/120 câu)</td>
+              <td><span class="tag-pass">RẤT XUẤT SẮC</span></td>
+            </tr>
+            <tr>
+              <td><strong>Tutee Agent (MX2)</strong></td>
+              <td>Vi phạm vai học trò (Role Violation)</td>
+              <td>= 0.0%</td>
+              <td><span class="stat-val">0.0%</span> (0/120 câu)</td>
+              <td><span class="tag-pass">CHUẨN VAI 100%</span></td>
+            </tr>
+            <tr>
+              <td><strong>STT Nhận dạng giọng nói</strong></td>
+              <td>Word Error Rate (WER) tiếng Việt</td>
+              <td>WER ≤ 15.0%</td>
+              <td><span class="stat-val">11.8%</span></td>
+              <td><span class="tag-pass">ĐẠT CHỈ TIÊU</span></td>
+            </tr>
+            <tr>
+              <td><strong>STT Thuật ngữ CNTT</strong></td>
+              <td>Độ chính xác thuật ngữ chuyên ngành</td>
+              <td>≥ 90.0%</td>
+              <td><span class="stat-val">92.4%</span></td>
+              <td><span class="tag-pass">ĐẠT CHỈ TIÊU</span></td>
+            </tr>
+            <tr>
+              <td><strong>Tải đồng thời (20 phiên)</strong></td>
+              <td>Độ trễ p95 phản hồi toàn phiên</td>
+              <td>p95 ≤ 3,000 ms</td>
+              <td><span class="stat-val">1,070 ms</span> (0% lỗi)</td>
+              <td><span class="tag-pass">MƯỢT MÀ</span></td>
+            </tr>
+            <tr>
+              <td><strong>Tải đồng thời (50 phiên)</strong></td>
+              <td>Độ trễ p95 phản hồi toàn phiên</td>
+              <td>p95 ≤ 5,000 ms</td>
+              <td><span class="stat-val">3,751 ms</span> (0% lỗi)</td>
+              <td><span class="tag-pass">ĐẠT CHỈ TIÊU</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 10 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 11: RELIABILITY & CONTINGENCY -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>10. Phương Án Dự Phòng & Độ Tin Cậy (NFR-11, BR-04)</h2>
+        <div class="subtitle">Đảm bảo hệ thống hoạt động bền bỉ, không mất dữ liệu ngay cả khi gặp sự cố mạng hoặc AI</div>
+      </div>
+      <div class="badge-tag">Độ Bền Vững & Dự Phòng</div>
+    </div>
+    <div class="slide-content">
+      <div class="grid-2">
+        <div class="card">
+          <h3>🔄 Tự Phục Hồi Phiên (State Recovery)</h3>
+          <p style="margin-top: 8px;">Nếu sinh viên vô tình tải lại trang (F5) hoặc rớt mạng khi đang trả lời:</p>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li>Hệ thống tự động dựng lại toàn bộ lịch sử trao đổi từ cơ sở dữ liệu.</li>
+            <li>Đồng hồ đếm ngược được tính toán bù trừ thời gian chính xác theo <code>deadline</code>.</li>
+            <li>Khóa trạng thái gửi tránh gửi trùng lặp câu trả lời.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🛡️ Fallback AI Đa Cấp Độ</h3>
+          <ul class="feature-list" style="margin-top: 8px;">
+            <li><strong>Chuyển đổi nhà cung cấp:</strong> Cổng AI hỗ trợ chuyển đổi tức thì giữa Google Gemini, Anthropic Claude và OpenAI.</li>
+            <li><strong>Giao diện đổi model khẩn cấp:</strong> Giảng viên / Quản trị viên có thể đổi model dự phòng ngay trên màn hình GV-08.</li>
+            <li><strong>Chế độ DEMO_MODE:</strong> Kích hoạt bộ sinh dữ liệu ngoại tuyến dự phòng nếu rớt toàn bộ kết nối Internet.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🎙️ Dự Phòng Luồng Giọng Nói</h3>
+          <p style="margin-top: 8px;">Nếu dịch vụ nhận dạng giọng nói gặp sự cố mạng (503):</p>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li>Giao diện lập tức hiện gợi ý chuyển sang gõ phím.</li>
+            <li>Bản ghi âm vẫn được lưu tạm để xử lý lại khi có mạng.</li>
+            <li>Phiên học tuyệt đối không bị hủy giữa chừng.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>⚖️ Kiểm Thử Tự Động Toàn Diện</h3>
+          <ul class="feature-list" style="margin-top: 8px;">
+            <li><strong>1,359 Unit & Integration Tests:</strong> Bao phủ 100% các quy tắc nghiệp vụ và ràng buộc toàn vẹn cơ sở dữ liệu.</li>
+            <li><strong>302 Frontend Vitest Tests:</strong> Đảm bảo tính khả dụng và logic điều hướng trên mọi màn hình.</li>
+            <li><strong>CI/CD GitHub Actions:</strong> Kiểm tra tự động tại mỗi lượt commit trước khi merge.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 11 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 12: 7-MINUTE LIVE DEMO -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>11. Kịch Bản Trình Diễn Live Demo (7 Phút)</h2>
+        <div class="subtitle">Phân bổ nhịp nhàng các khoảnh khắc ấn tượng theo đúng Bảng 18 kế hoạch cuộc thi</div>
+      </div>
+      <div class="badge-tag">Kịch Bản Demo</div>
+    </div>
+    <div class="slide-content">
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-time">0:00–0:45</div>
+          <div class="timeline-title">Mở đầu & Vấn đề</div>
+          <div class="timeline-desc">Chiếu vòng lặp hiểu lướt, nêu bật nghịch lý học vẹt và giá trị của kỹ thuật Feynman.</div>
+          <div class="timeline-owner">Thắng</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">0:45–2:00</div>
+          <div class="timeline-title">MX1 – Cây Kỹ Năng</div>
+          <div class="timeline-desc">Tải đề cương CTDL&GT (GV-03), hiện cây nháp (GV-04), minh họa cơ chế chặn chu trình DAG và xuất bản cây.</div>
+          <div class="timeline-owner">Quyền</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">2:00–4:30</div>
+          <div class="timeline-title">MX2 – SV Giảng Cho AI</div>
+          <div class="timeline-desc">Mở nút "Con trỏ", giảng bằng giọng nói; AI hỏi vặn về <code>free()</code>; nhận kết quả 5 tiêu chí; gõ xin điểm để Guard bắt cờ.</div>
+          <div class="timeline-owner">Đăng</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">4:30–5:45</div>
+          <div class="timeline-title">MX3 – Bản Đồ Nhiệt</div>
+          <div class="timeline-desc">Kết quả phiên lập tức làm đổi màu bản đồ nhiệt lớp 30 SV (GV-05); chẩn đoán nút Con trỏ là nguyên nhân gốc rễ.</div>
+          <div class="timeline-owner">Quyền</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">5:45–6:30</div>
+          <div class="timeline-title">MX4 – Ghép Cặp</div>
+          <div class="timeline-desc">Chạy ghép cặp ở GV-09; cặp An ↔ Châu chấp nhận trên SV-07; Châu giảng lại nút N5 để xác nhận năng lực.</div>
+          <div class="timeline-owner">Quyền, Đăng</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">6:30–7:00</div>
+          <div class="timeline-title">Kết Luận</div>
+          <div class="timeline-desc">Tóm lược các chỉ số thực nghiệm đo được (MT1–MT6), khẳng định giá trị và lộ trình triển khai thực tế.</div>
+          <div class="timeline-owner">Thắng</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 12 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 13: IMPACT & ROADMAP -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <h2>12. Tác Động Thực Tiễn & Lộ Trình Phát Triển</h2>
+        <div class="subtitle">Đóng góp thiết thực cho chuyển đổi số giáo dục đại học và kế hoạch mở rộng bền vững</div>
+      </div>
+      <div class="badge-tag">Tác Động & Lộ Trình</div>
+    </div>
+    <div class="slide-content">
+      <div class="grid-2">
+        <div class="card" style="border-top: 4px solid #2563eb;">
+          <h3>🎓 Tác Động Cho Người Học & Nhà Trường</h3>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li><strong>Sinh viên:</strong> Chuyển từ "học vẹt thụ động" sang tự chủ xây dựng tri thức; rèn luyện khả năng tư duy logic và kỹ năng thuyết trình khoa học.</li>
+            <li><strong>Giảng viên:</strong> Tiết kiệm hơn 70% thời gian chấm bài thủ công; có dữ liệu định lượng chính xác để can thiệp đúng lúc.</li>
+            <li><strong>Nhà trường:</strong> Nâng cao tỷ lệ qua môn ngay từ lần thi đầu tiên; giảm tỉ lệ lưu ban trong các môn kỹ thuật nền tảng.</li>
+          </ul>
+        </div>
+        <div class="card" style="border-top: 4px solid #10b981;">
+          <h3>🚀 Lộ Trình Triển Khai Thực Tế</h3>
+          <ul class="feature-list" style="margin-top: 10px;">
+            <li><strong>Giai đoạn 1 (12/2026):</strong> Triển khai thí điểm tại Khoa CNTT - Đại học Sài Gòn (SGU) môn CTDL&GT với 3 lớp (150 SV).</li>
+            <li><strong>Giai đoạn 2 (03/2027):</strong> Tích hợp chuẩn LTI 1.3 Advantage vào hệ thống Canvas và Moodle LMS của trường.</li>
+            <li><strong>Giai đoạn 3 (06/2027):</strong> Mở rộng sang các môn Toán rời rạc, Cơ sở dữ liệu, Kiến trúc máy tính và Mạng máy tính.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Whybi AI · Đội WhyBloom</span>
+      <span>Trang 13 / 14</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 14: CONCLUSION & QA -->
+  <section class="slide title-slide">
+    <div class="title-badge">WHYBI AI · TƯƠNG LAI CỦA HỌC TẬP CHỦ ĐỘNG</div>
+    <h1 class="main-hero-title">CẢM ƠN HỘI ĐỒNG GIÁM KHẢO!</h1>
+    <p class="main-subtitle" style="font-size: 22px; max-width: 8in;">
+      “Khi một sinh viên giảng lại được bài học cho AI hiểu,<br>
+      đó là lúc tri thức thực sự thuộc về các em.”
+    </p>
+    <div style="margin-top: 28px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 16px 36px; display: inline-block;">
+      <h3 style="font-size: 22px; color: #93c5fd; margin-bottom: 6px;">KÍNH MỜI THẦY CÔ & BAN GIÁM KHẢO ĐẶT CÂU HỎI (Q&A)</h3>
+      <p style="color: #e2e8f0; font-size: 15px;">Đội WhyBloom rất sẵn sàng giải trình và trình diễn chi tiết mọi tính năng</p>
+    </div>
+  </section>
+
+</body>
+</html>
