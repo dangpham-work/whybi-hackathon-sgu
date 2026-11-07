@@ -44,3 +44,10 @@
 - C1-05: port Judge chấm 5 tiêu chí, BR-03, chấm nhiều lần và phản hồi từ whybi-ai@40ae7a7; chờ CI và Long duyệt.
 
 - C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.
+
+## C1-12 – nối API giọng nói sau port (#12)
+
+- POST /sessions/{id}/audio đã gọi SpeechService, kiểm chủ phiên/trạng thái trước STT, đọc tối đa MAX_AUDIO_BYTES + 1 và truyền consent; không đồng ý thì không lưu ghi âm.
+- Test đỏ: endpoint 501 thay vì kiểm phiên. Sau sửa nhóm audio_api/audio_db/speech có 71 passed trên Postgres riêng; Ruff xanh.
+- Tái dùng cách lấy nút hiện có của orchestrator; không sửa schema, quota C2-18 hoặc dịch vụ của Long. Không merge.
+- Chưa chứng minh p95 STT thật với ghi âm 60 giây; service hiện kiểm thời lượng WAV, định dạng nén chỉ kiểm chữ ký/dung lượng. Giữ PR draft cho tới khi hoàn tất phần kiểm chứng này.
