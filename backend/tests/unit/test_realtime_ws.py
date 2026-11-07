@@ -23,6 +23,8 @@ from app.services.auth import InMemoryRevocations
 LECTURER = _dev_user("dev-lecturer")
 CLASS_ID = uuid4()
 CHANNEL = gateway.channel_heatmap(CLASS_ID)
+JOB_ID = str(uuid4())
+SESSION_ID = uuid4()
 
 
 @pytest.fixture
@@ -33,9 +35,21 @@ def ws_client():
         if class_id != CLASS_ID:
             raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
 
+    def job_check(job_id: str, user) -> None:
+        if job_id != JOB_ID:
+            raise AppError(404, "JOB_NOT_FOUND", "Không tìm thấy job")
+
+    def session_check(session_id: UUID, user) -> None:
+        if session_id != SESSION_ID:
+            raise AppError(403, "FORBIDDEN", "Đây không phải phiên của bạn")
+
     app.dependency_overrides[realtime.get_class_owner_check] = lambda: owner_check
+    app.dependency_overrides[realtime.get_job_owner_check] = lambda: job_check
+    app.dependency_overrides[realtime.get_session_owner_check] = lambda: session_check
     yield TestClient(app)
     app.dependency_overrides.pop(realtime.get_class_owner_check, None)
+    app.dependency_overrides.pop(realtime.get_job_owner_check, None)
+    app.dependency_overrides.pop(realtime.get_session_owner_check, None)
 
 
 def sub(ws, channel=CHANNEL, token="dev-lecturer", action="subscribe"):
@@ -98,12 +112,31 @@ def test_gv_khong_phu_trach_lop_bi_403(ws_client):
         ("lung:tung", "UNKNOWN_CHANNEL"),
         (None, "UNKNOWN_CHANNEL"),
         (f"user:{uuid4()}", "FORBIDDEN"),  # kênh của người khác
-        (f"job:{uuid4()}", "NOT_IMPLEMENTED"),
+        (f"job:{uuid4()}", "JOB_NOT_FOUND"),  # job không phải của GV này / không tồn tại
+        ("job:khong-phai-uuid", "UNKNOWN_CHANNEL"),
+        (f"session:{uuid4()}", "FORBIDDEN"),  # không phải phiên của SV này
+        ("session:khong-phai-uuid", "UNKNOWN_CHANNEL"),
     ],
 )
 def test_kenh_khong_hop_le(ws_client, channel, code):
     with ws_client.websocket_connect("/api/v1/ws") as ws:
         assert sub(ws, channel=channel)["payload"]["code"] == code
+
+
+def test_kenh_job_gv_da_tai_nhan_tien_do(ws_client):
+    """C1-09: GV vừa tải giáo trình nghe job:{jobId} và nhận job.progress do worker phát."""
+    channel = gateway.channel_job(JOB_ID)
+    with ws_client.websocket_connect("/api/v1/ws") as ws:
+        assert sub(ws, channel=channel)["event"] == "subscribed"
+        gateway.broadcast(channel, "job.progress", {"percent": 40, "step": "OCR"})
+        msg = ws.receive_json()
+        assert msg == {"channel": channel, "event": "job.progress", "payload": {"percent": 40, "step": "OCR"}}
+
+
+def test_kenh_job_sv_bi_chan_theo_vai(ws_client):
+    with ws_client.websocket_connect("/api/v1/ws") as ws:
+        msg = sub(ws, channel=gateway.channel_job(JOB_ID), token="dev-student")
+        assert msg["payload"]["code"] == "FORBIDDEN"
 
 
 def test_kenh_user_cua_chinh_minh(ws_client):
@@ -233,3 +266,20 @@ def test_mt5_qua_redis_that_duoi_3_giay():
         assert time.perf_counter() - t0 <= 3.0
     finally:
         relay.stop()
+
+
+def test_kenh_phien_sv_chu_phien_nhan_cau_hoi_cua_tutee(ws_client):
+    """C1-07: SV chủ phiên nghe session:{id} và nhận session.question do Orchestrator phát."""
+    channel = gateway.channel_session(SESSION_ID)
+    with ws_client.websocket_connect("/api/v1/ws") as ws:
+        assert sub(ws, channel=channel, token="dev-student")["event"] == "subscribed"
+        payload = {"text": "Con trỏ khác biến thường ở chỗ nào?", "audioUrl": None, "deadline": None}
+        gateway.broadcast(channel, "session.question", payload)
+        assert ws.receive_json() == {"channel": channel, "event": "session.question", "payload": payload}
+
+
+def test_kenh_phien_gv_va_admin_khong_nghe_duoc(ws_client):
+    channel = gateway.channel_session(SESSION_ID)
+    with ws_client.websocket_connect("/api/v1/ws") as ws:
+        assert sub(ws, channel=channel, token="dev-lecturer")["payload"]["code"] == "FORBIDDEN"
+        assert sub(ws, channel=channel, token="dev-admin")["payload"]["code"] == "FORBIDDEN"

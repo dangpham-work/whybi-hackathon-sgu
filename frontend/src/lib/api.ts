@@ -32,6 +32,18 @@ export const FRIENDLY: Record<string, string> = {
   RATE_LIMITED: "Bạn thao tác quá nhanh, chờ một chút rồi thử lại.",
   QUOTA_EXCEEDED: "Bạn đã dùng hết lượt hôm nay. Hãy quay lại vào ngày mai.",
   NETWORK_ERROR: "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
+  // Bản đồ học tập & bắt đầu phiên – C2-10 (backend/app/models/schemas/mastery.py, api/trees.py)
+  NOT_ENROLLED: "Bạn chưa tham gia lớp này. Nhập mã lớp ở danh sách lớp để tham gia.",
+  TREE_NOT_PUBLISHED: "Giảng viên chưa phát hành cây kỹ năng cho lớp này. Hãy quay lại sau.",
+  NODE_NOT_FOUND: "Không tìm thấy nút kỹ năng này (cây có thể vừa được cập nhật).",
+  RETRY_COOLDOWN: "Bạn vừa giảng nút này. Nghỉ một chút rồi thử lại sau ít phút.",
+  NODE_ALREADY_MASTERED: "Bạn đã Đạt nút này rồi – hãy chọn nút khác để học tiếp.",
+  SESSION_IN_PROGRESS: "Bạn đang có một phiên giảng chưa xong ở nút này.",
+  // Phiên giảng lại (C1-07, GD-07)
+  SESSION_NOT_FOUND: "Không tìm thấy phiên giảng này.",
+  SESSION_NOT_ACTIVE: "Phiên này đã kết thúc – bạn không gửi thêm được. Hãy xem kết quả hoặc bắt đầu phiên mới.",
+  RESULT_NOT_READY: "Whybi vẫn đang chấm lời giảng của bạn, vui lòng chờ một chút.",
+  TOKEN_BUDGET_EXCEEDED: "Phiên đã dùng hết lượt trao đổi với Whybi. Hãy bắt đầu phiên mới.",
 };
 
 const BY_STATUS: [test: (s: number) => boolean, text: string][] = [

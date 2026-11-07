@@ -1,8 +1,8 @@
 """Cổng WebSocket (RealtimeGateway – Hình 5.11). Kênh theo Bảng 5.11:
-  job:{jobId}          job.progress, tree.generated            (C2-08, C1-09) – chưa mở
+  job:{jobId}          job.progress, tree.generated            (C2-08, C1-09) – chỉ GV phụ trách lớp của tài liệu
   class:{id}:heatmap   heatmap.cell, heatmap.node, heatmap.alert (C2-13) – chỉ GV phụ trách lớp
   user:{id}            notification                             (C2-19) – chỉ chính người đó
-  session:{id}         session.question                         (C1-07) – chưa mở
+  session:{id}         session.question                         (C1-07) – chỉ SV chủ phiên
 
 Client gửi (frontend/src/lib/ws.ts):
   {"action": "subscribe" | "unsubscribe", "channel": "class:<id>:heatmap", "token": "<jwt>"}  ·  {"action": "ping"}
@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import CurrentUser, get_revocations, user_from_token
-from app.core.errors import AppError, NotImplementedYet
+from app.core.errors import AppError
 from app.models.enums import Role
 from app.realtime import gateway
 from app.services.auth import Revocations
@@ -34,10 +34,13 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["realtime"])
 
 ClassOwnerCheck = Callable[[UUID, CurrentUser], None]
+JobOwnerCheck = Callable[[str, CurrentUser], None]
+SessionOwnerCheck = Callable[[UUID, CurrentUser], None]
 
 _HEATMAP = re.compile(r"^class:([0-9a-fA-F-]{36}):heatmap$")
 _USER = re.compile(r"^user:([0-9a-fA-F-]{36})$")
-_LATER = {"job": "C2-08", "session": "C1-07"}
+_JOB = re.compile(r"^job:([0-9a-fA-F-]{36})$")
+_SESSION = re.compile(r"^session:([0-9a-fA-F-]{36})$")
 
 
 def _check_class_owner(class_id: UUID, user: CurrentUser) -> None:
@@ -53,6 +56,36 @@ def get_class_owner_check() -> ClassOwnerCheck:
     return _check_class_owner
 
 
+def _check_job_owner(job_id: str, user: CurrentUser) -> None:
+    from app.db.session import SessionLocal
+    from app.services.syllabus import require_job_owner
+
+    with SessionLocal() as db:
+        require_job_owner(db, job_id, user)
+
+
+def get_job_owner_check() -> JobOwnerCheck:
+    """Dependency (test ghi đè): kiểm GV đã tải tài liệu của job – 404 JOB_NOT_FOUND / 403 NOT_CLASS_OWNER."""
+    return _check_job_owner
+
+
+def _check_session_owner(session_id: UUID, user: CurrentUser) -> None:
+    from app.db.session import SessionLocal
+    from app.models.session import TeachingSession
+
+    with SessionLocal() as db:
+        s = db.get(TeachingSession, session_id)
+        if s is None:
+            raise AppError(404, "SESSION_NOT_FOUND", "Không tìm thấy phiên", {"sessionId": str(session_id)})
+        if s.student_id != user.id:
+            raise AppError(403, "FORBIDDEN", "Đây không phải phiên của bạn")
+
+
+def get_session_owner_check() -> SessionOwnerCheck:
+    """Dependency (test ghi đè): kiểm SV là chủ phiên – 404 SESSION_NOT_FOUND / 403 FORBIDDEN."""
+    return _check_session_owner
+
+
 def _uuid(raw: str) -> UUID:
     try:
         return UUID(raw)
@@ -60,7 +93,13 @@ def _uuid(raw: str) -> UUID:
         raise AppError(400, "UNKNOWN_CHANNEL", "Kênh không hợp lệ") from None
 
 
-def authorize(user: CurrentUser, channel: object, owner_check: ClassOwnerCheck) -> None:
+def authorize(
+    user: CurrentUser,
+    channel: object,
+    owner_check: ClassOwnerCheck,
+    job_check: JobOwnerCheck,
+    session_check: SessionOwnerCheck = _check_session_owner,
+) -> None:
     """Ném AppError nếu `user` không được nghe `channel` (chặn theo vai trước khi chạm CSDL)."""
     if not isinstance(channel, str):
         raise AppError(400, "UNKNOWN_CHANNEL", "Thiếu kênh")
@@ -70,13 +109,22 @@ def authorize(user: CurrentUser, channel: object, owner_check: ClassOwnerCheck) 
             raise AppError(403, "FORBIDDEN", "Vai trò không được phép")
         owner_check(class_id, user)
         return
+    if m := _JOB.match(channel):
+        job_id = str(_uuid(m.group(1)))
+        if user.role != Role.LECTURER:
+            raise AppError(403, "FORBIDDEN", "Vai trò không được phép")
+        job_check(job_id, user)
+        return
     if m := _USER.match(channel):
         if _uuid(m.group(1)) != user.id:
             raise AppError(403, "FORBIDDEN", "Chỉ nghe được kênh của chính mình")
         return
-    prefix = channel.split(":", 1)[0]
-    if prefix in _LATER and ":" in channel:
-        raise NotImplementedYet(_LATER[prefix])
+    if m := _SESSION.match(channel):
+        session_id = _uuid(m.group(1))
+        if user.role != Role.STUDENT:
+            raise AppError(403, "FORBIDDEN", "Vai trò không được phép")
+        session_check(session_id, user)  # session.question của Tutee: chỉ SV chủ phiên nghe
+        return
     raise AppError(400, "UNKNOWN_CHANNEL", "Kênh không hợp lệ", {"channel": channel})
 
 
@@ -96,6 +144,8 @@ async def ws_endpoint(
     ws: WebSocket,
     revocations: Revocations = Depends(get_revocations),
     owner_check: ClassOwnerCheck = Depends(get_class_owner_check),
+    job_check: JobOwnerCheck = Depends(get_job_owner_check),
+    session_check: SessionOwnerCheck = Depends(get_session_owner_check),
 ) -> None:
     await ws.accept()
     gateway.ensure_relay()
@@ -131,7 +181,7 @@ async def ws_endpoint(
             return
         try:
             user = user_from_token(msg.get("token"), revocations)
-            await run_in_threadpool(authorize, user, channel, owner_check)
+            await run_in_threadpool(authorize, user, channel, owner_check, job_check, session_check)
         except AppError as exc:
             conn.push(_error(channel, exc))
             return

@@ -17,6 +17,12 @@
   - Người có quyền admin repo: tạo bảng GitHub Projects theo mục 4 `docs/bug-triage.md`
   - GV / thư viện: giáo trình mẫu theo `seed/syllabi/README.md`
 
+## KT-12 – bộ đo Tutee 30 phiên
+
+- C1-06 đã merge. Chuyển runner/test và 30 kịch bản nháp từ whybi-ai@162062f; không sửa prompt, Guard hoặc API nghiệp vụ.
+- Workflow riêng chạy 30 phiên fake trên GitHub, lưu artifact kt12-tutee-simulation gồm hội thoại, provenance, summary và nhãn null chờ chấm độc lập.
+- Không tự điền nhãn không lộ đáp án; chưa đo chất lượng model thật, không ghi số liệu simulation thành kết quả thực nghiệm. Còn cần model thật và người chấm.
+- Không test local; theo Quyền, PR thường và đóng #51 khi toàn bộ check CI pass. Không xác nhận CD/VM.
 ## KT-04 – bộ dữ liệu và kiểm schema
 
 - Đã chuyển từ nguồn `whybi-ai` tại `f88c288`: 58 ca Guard, 62 lời giảng nháp AI, 30 mục manifest STT và 3 cây chuẩn.
@@ -25,3 +31,17 @@
 - Giữ ba ca hồi quy luật Guard AT01/AT02/AT07; test với LLM giả luôn VALID không đại diện cho hiệu quả của toàn bộ corpus mới. KT-07 phải đo toàn bộ ca với Guard thật, không coi test đơn vị xanh là đạt mục tiêu 90%.
 - Cần: người gán nhãn độc lập cho 62 lời giảng; 30 file ghi âm có đồng ý sử dụng; GV xác nhận cây chuẩn và giáo trình đi kèm.
 - Chờ CI của PR KT-04 và Long duyệt; Đăng rà thay đổi giới hạn test Guard về các ca hồi quy ban đầu. Không đổi code Guard hoặc kết quả đánh giá thực nghiệm.
+## KT-05 – giả lập qua API phiên thật
+
+- Tiên quyết C1-01, C2-05 và API C1-07 (PR #119) đã merge. Script chuyển từ whybi-ai bcf5f1d.
+- Khôi phục phần seed DB của KT-02 còn là stub trên main: scripts/seed_db.py nạp 32 tài khoản, lớp và cây trong CSDL demo; băm mật khẩu và chạy lại không xóa dữ liệu.
+- Script simulate_students.py đăng nhập riêng từng SV, gửi phiên/lượt/result, đợi my-map xác nhận MasteryService; N5 mặc định 9 MASTERED / 21 NOT_PASSED. Chạy lại không tạo phiên khi dữ liệu đã đúng, dừng khi xung đột.
+- Demo riêng: APP_ENV=dev, LLM_MODE=fake, DEMO_MODE=1; sau migration chạy seed_db.py, mastery_listener và simulate_students.py --serve-demo; gọi simulate_students.py --prepare-demo để nạp rubric minh họa và phát hành cây qua API GV. Chỉ dùng CSDL demo riêng; đây là dữ liệu giả lập, không phải kết quả đo AI.
+- C2-13 chưa merge: nếu heatmap trả đúng 501 NOT_IMPLEMENTED của C2-13, trả heatmapVerified=false và weakColor=null sau khi kiểm my-map đủ 30 SV. Mọi lỗi heatmap khác vẫn fail.
+- Test Postgres thật dùng schema/transaction riêng trong CI để xác nhận đủ 330 ô, 30 SV, phiên/evaluation hoàn tất và N5 9/21. Đang chờ CI trên PR; theo yêu cầu không chạy thêm test local.
+## KT-07 – bộ chạy Guard và báo cáo CI
+
+- C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
+- CI chạy 58 kịch bản với Guard thật và FakeProvider, tạo artifact kt07-guard-report. --ci-smoke chỉ kiểm >=50 ca không lỗi; chất lượng vẫn có thể chưa đạt và được ghi rõ trong báo cáo.
+- Repo không có Actions secrets để chạy model thật. Chưa đo Đạt sai qua phiên; --judge hiện chấm trực tiếp, không đại diện toàn bộ C1-07. Dữ liệu còn cần rà độc lập. Giữ PR draft, chưa đóng #46 khi chưa đủ bằng chứng.
+- Không chạy test hoặc evaluation local theo yêu cầu. Long duyệt thay đổi workflow; chỉ chạy lại CI nếu có lỗi.
