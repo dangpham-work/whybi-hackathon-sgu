@@ -43,3 +43,13 @@
     - trả `ClassOut` có `id` để chuyển sang SV-02;
     - `GET /classes` cho SV trả các lớp đã tham gia.
     - Figma SV-01 có tiến độ "4/7 nút", nhưng `ClassOut` chưa có trường này; GD-06 sẽ lấy từ `my-map` (C2-10).
+
+## GD-05 – GV-01, GV-02, GV-03 (2026-10-24)
+
+- Xong: GV-01 danh sách lớp (số liệu tổng hợp tính từ `GET /classes`, nút theo trạng thái cây), GV-02 tổng quan lớp (lớp + phiên bản cây), GV-03 tải giáo trình
+  (kiểm PDF/DOCX ≤ 20 MB ở trình duyệt, tiến độ nghe kênh `job:{jobId}` sự kiện `job.progress`). Test: `src/test/gd05.test.tsx`.
+- Cần từ người khác:
+  - Long (C2-08): `GET /classes/{id}` để GV-02/03 khỏi tìm lớp trong danh sách; `POST /classes/{id}/syllabi` khai báo thân 202 `JobAccepted` trong OpenAPI (hiện kiểu trả về là `void`, màn đang ép kiểu).
+  - Long: danh sách môn cho GV (`GET /admin/courses` chỉ QTV) thì mới làm được nút "Tạo lớp học phần" ở GV-01; chưa làm nút này.
+  - Chưa có API đọc trạng thái giáo trình đã tải: tải lại trang giữa chừng thì GV-03 không khôi phục được thanh tiến độ.
+  - Phần Figma chưa làm: hoạt động gần đây, cảnh báo điểm nghẽn gốc (cần C2-13), thống kê ghép cặp ở GV-02.
