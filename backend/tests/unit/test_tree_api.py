@@ -13,6 +13,18 @@ STUDENT = {"Authorization": "Bearer dev-student"}
 ADMIN = {"Authorization": "Bearer dev-admin"}
 
 
+@pytest.fixture(scope="module", autouse=True)
+def seed_only_service():
+    """Test này chỉ kiểm nhánh đọc seed (C2-02), không cần CSDL. Nhánh CSDL: test_tree_edit_db.py (C2-09)."""
+    from app.api.trees import get_tree_service
+    from app.main import app
+    from app.services.skill_tree import SkillTreeService
+
+    app.dependency_overrides[get_tree_service] = lambda: SkillTreeService(None)
+    yield
+    app.dependency_overrides.pop(get_tree_service, None)
+
+
 @pytest.fixture(scope="module")
 def tree_json(client):
     r = client.get(URL, headers=LECTURER)
