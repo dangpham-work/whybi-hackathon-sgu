@@ -14,6 +14,7 @@ from app.models import tree as orm
 from app.models.enums import Role, TreeStatus
 from app.models.schemas.session import DEFAULT_CRITERION_WEIGHTS
 from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeVersion
+from app.models.session import TeachingSession
 from app.models.users import ClassSection, Course, User
 from app.services import skill_tree as module
 from app.services.skill_tree import SkillTreeService
@@ -35,6 +36,7 @@ def committed_world():
         yield engine, world, user
     finally:
         with Session(engine) as db:
+            db.execute(delete(TeachingSession).where(TeachingSession.class_id == world.class_id))
             db.execute(delete(ClassSection).where(ClassSection.id == world.class_id))
             db.execute(delete(Course).where(Course.id == course_id))
             db.execute(delete(User).where(User.id.in_(world.roles)))

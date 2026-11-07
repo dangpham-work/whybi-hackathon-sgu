@@ -12,6 +12,7 @@ Bên gọi:
     kết quả chấm đi qua sự kiện `session.completed` → `apply_result(SessionResult)` (`register_handlers`).
 - Tham gia lớp sau khi đã phát hành (C2-08) → `ensure_student(class_id, student_id)` (my_map cũng tự tạo ô còn thiếu).
 - GET /classes/{id}/my-map → `my_map(class_id, student_id)`.
+- HeatmapService (C2-11) → `columns(class_id, node_ids)` (chỉ đọc).
 
 Quy ước:
 - Mỗi (SV, key nút) có đúng một dòng; phát hành phiên bản mới thì CHUYỂN dòng sang nút cùng key ở phiên bản mới
@@ -28,10 +29,11 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from redis.exceptions import RedisError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.algorithms.dag import build_graph, frontier
+from app.algorithms.heatmap import Cell
 from app.core.errors import AppError
 from app.models import tree as orm
 from app.models.enums import MasteryChangeReason, MasteryState, Verdict
@@ -61,6 +63,16 @@ R = MasteryChangeReason
 DONE = frozenset({S.MASTERED, S.NEEDS_REVERIFY})  # tính là đã Đạt khi xét tiên quyết
 STARTABLE = frozenset({S.AVAILABLE, S.NOT_PASSED, S.NEEDS_REVERIFY})
 COOLDOWN = timedelta(minutes=RETRY_COOLDOWN_MINUTES)
+
+
+@dataclass(frozen=True)
+class NodeColumn:
+    """Một cột M[·, nút] của SV đang ghi danh (C2-11)."""
+
+    node_id: UUID
+    node_key: str
+    enrolled: int
+    cells: list[Cell]
 
 
 @dataclass
@@ -210,12 +222,16 @@ class MasteryService:
         return changes
 
     def init_or_migrate(self, class_id: UUID, version_id: UUID) -> list[MasteryChanged]:
-        """Gọi khi phát hành `version_id` (đã là bản đang phát hành của lớp). Commit rồi phát sự kiện."""
+        """Phát hành `version_id`: đồng bộ ma trận + thống kê cùng giao dịch, commit rồi phát sự kiện."""
+        from app.services.heatmap import HeatmapService
+
         students = self._enrolled(class_id)
         t = self._tree(class_id)
         if t.schema.id != version_id:
             raise AppError(409, "VERSION_NOT_PUBLISHED", "Phiên bản chưa phải bản đang phát hành của lớp")
         changes = self._sync(t, students)
+        # node_id đổi dù trạng thái giữ nguyên; lớp rỗng cũng cần đủ thống kê nút mới.
+        HeatmapService(self.db).recompute_class(class_id)
         return self._commit(changes)
 
     def ensure_student(self, class_id: UUID, student_id: UUID) -> list[MasteryChanged]:
@@ -320,6 +336,29 @@ class MasteryService:
         # Dựng response khi còn giữ khóa: phát hành sau commit có thể di chuyển các dòng sang node_id mới.
         self._commit(changes)
         return result
+
+    def columns(self, class_id: UUID, node_ids: Iterable[UUID] | None = None) -> list["NodeColumn"]:
+        """Cột ma trận theo nút của bản đang phát hành – đầu vào cho HeatmapService (C2-11). Chỉ đọc, không khóa.
+
+        Chỉ tính SV đang ghi danh. `node_ids` lọc nút; id không thuộc bản đang phát hành bị bỏ qua
+        (sự kiện cũ đến sau khi GV phát hành bản mới)."""
+        # Không dựng cả TreeVersion như _tree(): mỗi sự kiện gọi một lần, phát hành 30 SV × 11 nút = 330 lần.
+        wanted_ids = None if node_ids is None else list(node_ids)
+        key_of = SkillTreeService(self.db).published_node_keys(class_id, wanted_ids)
+        wanted = list(key_of)
+        if not wanted:
+            return []
+        enrolled = select(Enrollment.student_id).where(Enrollment.class_id == class_id)
+        enrolled_count = self.db.scalar(select(func.count()).select_from(enrolled.subquery())) or 0
+        cells: dict[UUID, list[Cell]] = {n: [] for n in wanted}
+        q = select(MasteryRecord.node_id, MasteryRecord.state, MasteryRecord.attempts, MasteryRecord.prev_state).where(
+            MasteryRecord.class_id == class_id,
+            MasteryRecord.node_id.in_(wanted),
+            MasteryRecord.student_id.in_(enrolled),
+        )
+        for node_id, state, attempts, prev in self.db.execute(q):
+            cells[node_id].append(Cell(S(state), attempts or 0, S(prev) if prev else None))
+        return [NodeColumn(n, key_of[n], enrolled_count, cells[n]) for n in wanted]
 
     # ------------------------------------------------------------------ phiên (Bảng 4.8)
 
@@ -446,7 +485,8 @@ class MasteryService:
     def _commit(self, changes: list[MasteryChanged]) -> list[MasteryChanged]:
         """Commit rồi mới phát – bên nghe (heatmap, matching) đọc lại CSDL phải thấy dữ liệu mới.
         Lỗi kết nối khi phát (Redis rớt) không hoàn tác ma trận đã ghi: ghi log ERROR đủ ngữ cảnh.
-        TODO(C2-11): tổng hợp heatmap định kỳ theo CSDL để bù sự kiện mất. Lỗi khác (payload sai kiểu) vẫn ném."""
+        Sự kiện mất: heatmap được bù bởi task định kỳ `aggregation.reconcile_all` (C2-11).
+        Lỗi khác (payload sai kiểu) vẫn ném."""
         self.db.commit()
         for ev in changes:
             try:

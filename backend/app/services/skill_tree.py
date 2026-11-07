@@ -262,6 +262,25 @@ class SkillTreeService:
 
     # ------------------------------------------------------------------ đọc
 
+    def published_node_keys(self, class_id: UUID, node_ids: list[UUID] | None = None) -> dict[UUID, str]:
+        """id nút → key của bản đang phát hành, theo thứ tự key – lời gọi nội bộ (MasteryService.columns C2-11).
+
+        `node_ids` lọc nút; id không thuộc bản đang phát hành bị bỏ qua. Lớp chưa phát hành ⇒ {}."""
+        self._class(class_id)
+        published = select(orm.SkillTree.published_version_id).where(orm.SkillTree.class_id == class_id)
+        q = select(orm.ConceptNode.id, orm.ConceptNode.key).where(
+            orm.ConceptNode.version_id == published.scalar_subquery()
+        )
+        if node_ids is not None:
+            q = q.where(orm.ConceptNode.id.in_(node_ids))
+        return {nid: key for nid, key in self.db.execute(q.order_by(orm.ConceptNode.key))}
+
+    def published_class_ids(self) -> list[UUID]:
+        """Lớp đã phát hành cây – lời gọi nội bộ (đối soát heatmap C2-11), không kiểm quyền."""
+        return list(
+            self.db.scalars(select(orm.SkillTree.class_id).where(orm.SkillTree.published_version_id.is_not(None)))
+        )
+
     def statuses_for(self, class_ids: list[UUID]) -> dict[UUID, str]:
         """Trạng thái cây theo lớp cho danh sách lớp (C2-08).
         Đã phát hành ⇒ PUBLISHED; chưa ⇒ trạng thái phiên bản mới nhất; chưa có cây ⇒ không có khóa."""

@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.algorithms.heatmap import ColorRule
 from app.core.errors import AppError
 from app.models.enums import Role
 from app.models.users import ClassSection, Course, Enrollment
@@ -59,6 +60,13 @@ class ClassService:
 
     def _view(self, cls: ClassSection) -> ClassView:
         return self._views([cls])[0]
+
+    def color_rule(self, class_id: UUID) -> ColorRule:
+        """Ngưỡng màu heatmap của lớp (BR-06) – lời gọi nội bộ (HeatmapService C2-11), không kiểm quyền."""
+        cls = self.db.get(ClassSection, class_id)
+        if cls is None:
+            raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
+        return ColorRule.from_class(cls.color_thresholds, cls.min_sample)
 
     def list_for(self, user: "CurrentUser") -> list[ClassView]:
         """GV-01: lớp GV phụ trách (mới tạo trước). SV-01: lớp SV đã tham gia (mới tham gia trước)."""
