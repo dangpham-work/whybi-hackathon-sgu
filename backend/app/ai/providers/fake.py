@@ -1,6 +1,7 @@
 """LLM_MODE=fake – trả JSON mẫu theo schema để Thắng và Quyền chạy luồng phiên trước khi prompt
 hoàn thiện (mục 3.3 kế hoạch). Mở rộng mẫu trả về trong thẻ C1-02."""
 
+import zlib
 from typing import Any
 
 from app.ai.providers.base import LLMResult
@@ -47,4 +48,13 @@ class FakeProvider:
         return LLMResult(data=_sample(schema), model="fake")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 768 for _ in texts]
+        return [_hash_embedding(text) for text in texts]
+
+
+def _hash_embedding(text: str, dim: int = 768) -> list[float]:
+    """Embedding băm xác định cho test RAG fake, không mô phỏng ngữ nghĩa thật."""
+    vector = [0.0] * dim
+    for word in text.lower().split():
+        vector[zlib.crc32(word.encode()) % dim] += 1.0
+    norm = sum(value * value for value in vector) ** 0.5 or 1.0
+    return [value / norm for value in vector]

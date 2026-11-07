@@ -44,3 +44,10 @@
 - C1-05: port Judge chấm 5 tiêu chí, BR-03, chấm nhiều lần và phản hồi từ whybi-ai@40ae7a7; chờ CI và Long duyệt.
 
 - C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.
+
+## C1-18 / #145 – embedding fake sau port
+
+- Đã khôi phục embedding băm 768 chiều, xác định và chuẩn hóa cho FakeProvider; helper _hash_embedding đáp ứng test RAG/cây đã port.
+- Hồi quy trước sửa: test_fake_embeddings_are_normalized_and_deterministic đỏ vì vector toàn 0. Sau sửa: test_fake_gateway.py + test_tree_builder.py có 18 passed; Ruff check/format xanh.
+- Toàn bộ tests/ai: 275 passed, 3 failed trong test_demo_mode.py do phần nối fallback C1-13 còn thiếu ở Tutee/Judge. Không quy số liệu fake thành đánh giá AI thật.
+- #145 chưa xong: còn phần nối C1-09/STT/TTS/timer và phụ thuộc C2. Nhánh này không thay schema, migration hay code của thành viên khác; không merge.
