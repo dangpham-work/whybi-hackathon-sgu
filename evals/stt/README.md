@@ -142,3 +142,14 @@ npx.cmd playwright test tests/voice-flow.spec.ts --project=gv-desktop --workers=
 
 Test trình duyệt tự dùng microphone giả và API có kịch bản; không gọi micro người dùng và không ghi dữ liệu vào lớp thật.
 Xem kết quả thực chạy trong [trạng thái Quyền](../../docs/status/quyen.md).
+
+## Ghi âm bằng trình duyệt (`ghi_am.html`)
+
+```bash
+cd evals/stt && python -m http.server 8765      # mở http://localhost:8765/ghi_am.html (Chrome / Edge)
+```
+
+Nhập mã giả danh (vd. `NN01`), tick đồng ý, ghi từng câu (Ghi → Dừng → nghe lại → Tải tệp âm thanh).
+Đọc thêm cho đủ 30–120 giây thì sửa ô "Lời thực nói" đúng nội dung đã đọc.
+Xong: chép `Sxx.webm` vào `audio/`, bấm **Tải manifest.jsonl** và ghi đè `manifest.jsonl`. Người thứ hai làm tiếp với mã khác
+(mở lại trang sẽ đọc manifest mới, câu đã ghi của người trước vẫn giữ).

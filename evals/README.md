@@ -27,6 +27,15 @@ cd backend && uv run python ../evals/run.py check   # đọc mọi bộ theo sch
 - `stt/manifest.jsonl` có 30 kịch bản đọc; file `audio/Sxx.webm` chưa ghi. Ghi xong và người nói đồng ý → `consent: true`.
 - `tree/*.gold.json`: `ctdl_gt` lấy từ cây mẫu seed; `ktlt`, `csdl` là nháp chờ GV xác nhận và chưa có giáo trình kèm.
 
+## Chạy đo chi phí AI (tiêu chí VI)
+
+```bash
+cd backend
+LLM_MODE=real uv run python ../evals/cost.py --phien=6 --cau-hinh=openai_compat:gpt-4o-mini,gemini:gemini-3.5-flash-lite --ghi   # token, chi phí, thời gian mỗi phiên theo từng bước → results/cost.md (tiêu chí VI)
+```
+
+- Cần khóa LLM thật (`GEMINI_API_KEY` hoặc `OPENAI_COMPAT_*`). `LLM_MODE=fake` chỉ chạy thử luồng, **không ghi** `results/`.
+
 ## Định dạng
 
 ```jsonc
