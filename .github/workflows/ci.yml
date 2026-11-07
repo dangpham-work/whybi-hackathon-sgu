@@ -51,6 +51,14 @@ jobs:
           uv run alembic upgrade head
       - name: Pytest
         run: uv run pytest -q
+      - name: KT-07 runner health (fake; quality remains unverified)
+        run: uv run python ../evals/run.py guard --judge --ci-smoke --write
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kt07-guard-report
+          path: evals/results/guard.md
+          retention-days: 14
+          if-no-files-found: error
 
   frontend:
     runs-on: ubuntu-latest
