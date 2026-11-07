@@ -180,15 +180,7 @@ def followup(k, who, item):
     "pass_threshold,expected",
     [
         (70, "PASSED"),
-        pytest.param(
-            90,
-            "FAILED",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="lỗi của Đăng (C1): services/session_orchestrator.py gọi Judge không truyền pass_threshold của "
-                "lớp ⇒ ngưỡng GV đặt (FR-HM-08) bị bỏ qua. Sửa xong thì bỏ dấu xfail.",
-            ),
-        ),
+        (90, "FAILED"),
     ],
 )
 def test_followup_sessions_update_matching_and_heatmap_consistently(k, pass_threshold, expected):
