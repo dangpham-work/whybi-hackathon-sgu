@@ -39,6 +39,7 @@ def _sample(schema: dict[str, Any], defs: dict[str, Any] | None = None) -> Any:
 
 class FakeProvider:
     name = "fake"
+    model = "fake"
 
     def complete(
         self, messages: list[dict[str, str]], schema: dict[str, Any], *, model: str = "fake", temperature: float = 0

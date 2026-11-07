@@ -4,8 +4,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, File, UploadFile
 
+from app.ai.gateway import configure_llm
 from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin
-from app.core.errors import NotImplementedYet
+from app.core.errors import AppError, NotImplementedYet
 from app.models.enums import ProviderKind
 from app.models.schemas.common import ApiModel
 
@@ -43,7 +44,10 @@ def resolve_flag(flag_id: UUID, user: CurrentUser = LecturerOrAdmin) -> dict:
 @router.put("/admin/ai-config", response_model=AIConfig)
 def put_ai_config(body: AIConfig, user: CurrentUser = Admin) -> AIConfig:
     """Cấu hình nhà cung cấp LLM/STT/TTS và model dự phòng (FR-AD-05) – thẻ của Đăng."""
-    raise NotImplementedYet("C1-02")
+    if body.llm.kind != ProviderKind.LLM:
+        raise AppError(422, "INVALID_PROVIDER_KIND", "llm.kind phải là LLM")
+    configure_llm(body.llm.provider, body.llm.model, body.llm.fallback_provider, body.llm.fallback_model)
+    return body
 
 
 @router.get("/admin/users")

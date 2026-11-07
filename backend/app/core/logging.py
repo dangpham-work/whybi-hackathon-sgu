@@ -14,7 +14,20 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": record.getMessage(),
         }
-        for key in ("latency_ms", "event", "session_id", "class_id", "card"):
+        for key in (
+            "latency_ms",
+            "event",
+            "session_id",
+            "class_id",
+            "card",
+            # lời gọi LLM (C1-02)
+            "provider",
+            "model",
+            "outcome",
+            "attempt",
+            "input_tokens",
+            "output_tokens",
+        ):
             if hasattr(record, key):
                 payload[key] = getattr(record, key)
         if record.exc_info:
