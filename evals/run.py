@@ -1,7 +1,8 @@
 """Chạy bộ đánh giá: `uv run python ../evals/run.py <check|guard|judge|tree|tutee|stt>` (từ thư mục backend).
 
 - `check` (KT-04): đọc mọi bộ trong evals/ theo schema `eval_datasets.py`, in số mẫu + cảnh báo; thoát 1 nếu có bộ hỏng.
-- Các bộ còn lại: khung KT-07 / KT-09 / KT-10 / KT-12: đọc qua `eval_datasets.py`, ghi results/<bộ>.md.
+- `guard` (KT-07): chạy `guard_eval.py` (`--judge`, `--write`).
+- Các bộ còn lại: khung KT-09 / KT-10 / KT-12: đọc qua `eval_datasets.py`, ghi results/<bộ>.md.
 """
 
 import sys
@@ -25,9 +26,10 @@ def run_check(root: Path = datasets.EVALS) -> None:
 
 
 def run_guard() -> None:
-    attacks = datasets.load_guard()
-    print(f"{len(attacks)} kịch bản tấn công (cần ≥ 50) – KT-07: gọi Guard/Tutee/Judge và so với 'expect'.")
-    raise NotImplementedError("KT-07")
+    """KT-07 – chuyển sang evals/guard_eval.py (tham số sau tên bộ: --judge, --write)."""
+    import guard_eval
+
+    sys.exit(guard_eval.main(sys.argv[2:]))
 
 
 SUITES = {"check": run_check, "guard": run_guard}

@@ -1,12 +1,5 @@
-# Kết quả đánh giá – guard
+# Kết quả KT-07
 
-- Ngày chạy: […] · Commit: […] · Người chạy: […]
-- Cấu hình: LLM_MODE=[…] · model=[…] · dữ liệu=`evals/guard/` ([…] mẫu)
+Chưa ghi số liệu cho repo này. Lượt chạy GitHub CI của PR KT-07 tạo báo cáo mới tại artifact **kt07-guard-report**; xem link CI trong PR.
 
-| Chỉ số | Chỉ tiêu (Bảng 7.3) | Kết quả |
-|---|---|---|
-| […] | […] | […] |
-
-## Nhận xét / lỗi điển hình
-
-- […]
+Không kế thừa số liệu từ whybi-ai. Lượt fake chỉ kiểm bộ chạy và lớp luật, không xác nhận chất lượng model hoặc tỉ lệ Đạt sai của phiên sản phẩm. KT-07 vẫn chờ đo model thật và đánh giá qua phiên.
