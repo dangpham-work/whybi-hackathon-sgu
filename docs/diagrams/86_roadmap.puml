@@ -1,0 +1,15 @@
+' Hình 8.1. Lộ trình phát triển sau Hackathon
+@startuml roadmap
+!include common.iuml
+left to right direction
+skinparam nodesep 20
+skinparam ranksep 50
+title Lộ trình phát triển sau Hackathon
+rectangle "<b>GIAI ĐOẠN 0</b>\nHackathon MVP\n\n• 4 mắt xích chạy được\n• 1 môn mẫu (CTDL&GT)\n• Giọng nói + văn bản\n• Demo dữ liệu giả lập" as G0 #E3F2FD
+rectangle "<b>GIAI ĐOẠN 1</b>\nThí điểm 1 lớp\n(4 – 6 tuần)\n\n• 1 GV, 40 – 60 SV thật\n• Thu dữ liệu chấm\n  để hiệu chỉnh Judge\n• Khảo sát trải nghiệm" as G1 #E8F5E9
+rectangle "<b>GIAI ĐOẠN 2</b>\nMở rộng trong khoa\n(1 học kỳ)\n\n• 3 – 5 môn kỹ thuật\n• Ngân hàng rubric dùng chung\n• Thống kê misconception\n  qua nhiều khóa" as G2 #FFF8E1
+rectangle "<b>GIAI ĐOẠN 3</b>\nTích hợp & mở rộng\n\n• Tích hợp LMS (Moodle,\n  SSO trường)\n• Ôn tập ngắt quãng\n• Ứng dụng di động\n• Môn ngoài CNTT" as G3 #FCE4EC
+G0 --> G1
+G1 --> G2
+G2 --> G3
+@enduml

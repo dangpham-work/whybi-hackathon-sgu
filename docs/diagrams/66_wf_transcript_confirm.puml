@@ -1,0 +1,19 @@
+' Hình 5.20. Wireframe SV-05 – Xác nhận bản chép lời khi độ tin cậy STT thấp
+@startsalt wf_transcript_confirm
+skinparam dpi 200
+title SV-05 – Hộp thoại xác nhận bản chép lời (khi độ tin cậy STT thấp)
+{+
+  <b>Kiểm tra bản chép lời trước khi gửi</b>
+  Hệ thống chưa chắc chắn ở một vài từ (được gạch chân). Bạn chỉ cần sửa lỗi nhận dạng,
+  không nên viết lại nội dung – các chỉnh sửa lớn sẽ được ghi nhận.
+  ==
+  {+
+    Con trỏ là một biến đặc biệt, nó không lưu giá trị mà lưu <u>địa chỉ</u> của một ô nhớ khác.
+    Khi mình gọi <u>phờ ri</u> thì vùng nhớ được trả lại cho hệ điều hành nhưng con trỏ
+    vẫn giữ địa chỉ cũ, gọi là con trỏ <u>treo</u>…
+  }
+  { Độ tin cậy: 0,71 (ngưỡng 0,80) | Gợi ý sửa: "phờ ri" → <b>free()</b> | [Áp dụng gợi ý] }
+  ==
+  { [▶ Nghe lại] | [↺ Ghi âm lại] | . | [Hủy] | [<b>Xác nhận và gửi</b>] }
+}
+@endsalt

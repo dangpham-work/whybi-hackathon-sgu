@@ -1,0 +1,51 @@
+' Hình 6.8. Pipeline xử lý giọng nói (STT) và đọc câu hỏi (TTS)
+@startuml voice_pipeline
+!include common.iuml
+skinparam ActivityFontSize 11
+title Pipeline xử lý giọng nói (STT) và đọc câu hỏi (TTS)
+|Trình duyệt|
+start
+:Xin quyền micro (getUserMedia);
+:Ghi âm bằng MediaRecorder
+(webm/opus, 16 kHz, tối đa 3 phút);
+:Hiển thị dạng sóng & đồng hồ;
+:Gửi tệp âm thanh (multipart);
+|Speech Service|
+:Kiểm tra định dạng, thời lượng;
+:Chuyển về WAV mono 16 kHz (ffmpeg);
+:Cắt khoảng lặng đầu/cuối (VAD);
+:Lấy danh sách thuật ngữ của nút
+(glossary: "con trỏ", "pointer",
+"malloc", "free", "NULL"…);
+|STT Provider|
+:Nhận dạng tiếng Việt
+(Whisper / API) với gợi ý thuật ngữ;
+:Trả văn bản + độ tin cậy từng đoạn;
+|Speech Service|
+:Chuẩn hóa: sửa thuật ngữ bằng
+so khớp mờ ("phờ ri" → free()),
+thêm dấu câu, viết hoa;
+:Tính độ tin cậy trung bình;
+if (Độ tin cậy < 0,80?) then (có)
+  |Trình duyệt|
+  :Hiện hộp thoại xác nhận,
+  gạch chân từ không chắc;
+  :SV chỉnh nhỏ / nghe lại / ghi lại;
+  :Ghi nhận tỉ lệ chỉnh sửa
+  (transcript_edited);
+else (không)
+endif
+|Speech Service|
+:Lưu ghi âm vào Object Storage
+(thời hạn lưu theo chính sách);
+:Trả transcript cho Session Service;
+if (SV bật đọc câu hỏi?) then (có)
+  |STT Provider|
+  :TTS: tổng hợp giọng đọc
+  cho câu hỏi của AI;
+  |Trình duyệt|
+  :Phát âm thanh câu hỏi;
+else (không)
+endif
+stop
+@enduml

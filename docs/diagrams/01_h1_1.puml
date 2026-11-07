@@ -1,0 +1,36 @@
+' Hình 1.1. Vòng lặp “hiểu lướt” hiện nay và vòng lặp “hiểu thật” đề xuất
+@startuml h1_1
+!include common.iuml
+skinparam nodesep 40
+skinparam ranksep 40
+title Vòng lặp "hiểu lướt" hiện nay và vòng lặp "hiểu thật" đề xuất
+package "HIỆN TRẠNG: vòng lặp hiểu lướt" #FFF5F5 {
+  rectangle "Gặp bài khó /\nkhái niệm mới" as a1
+  rectangle "Hỏi AI" as a2
+  rectangle "Nhận ngay\nlời giải hoàn chỉnh" as a3
+  rectangle "Đọc thấy hợp lý" as a4
+  rectangle "**Tưởng đã hiểu**\n(ảo giác hiểu bài)" as a5 #FFEBEE
+  rectangle "**Lỗ hổng nền tảng tích lũy**\nkhông ai phát hiện\n(SV lẫn GV)" as a6 #FFCDD2
+  a1 --> a2
+  a2 --> a3
+  a3 --> a4
+  a4 --> a5
+  a5 --> a6
+  a6 -up-> a1 : bài sau dựa trên\nphần đã hổng\n→ càng khó hơn
+}
+package "ĐỀ XUẤT: vòng lặp hiểu thật" #F1F8E9 {
+  rectangle "Chọn một nút khái niệm\ntrên cây kỹ năng" as b1
+  rectangle "Tự giảng lại cho AI\nbằng lời của mình\n(giọng nói / văn bản)" as b2
+  rectangle "AI “học trò tò mò”\nhỏi vặn tình huống khó" as b3
+  rectangle "**Lộ ra chỗ chưa hiểu**\n(ý thiếu, quan niệm sai)" as b4 #FFF8E1
+  rectangle "Học lại / học cùng bạn\nđược ghép bù trừ" as b5
+  rectangle "**Giảng lại và đứng vững**\n→ nút chuyển xanh\n(hiểu thật)" as b6 #C8E6C9
+  b1 --> b2
+  b2 --> b3
+  b3 --> b4
+  b4 --> b5
+  b5 --> b2 : thử lại
+  b3 --> b6 : trả lời vững
+  b6 -up-> b1 : mở khóa\nnút tiếp theo
+}
+@enduml

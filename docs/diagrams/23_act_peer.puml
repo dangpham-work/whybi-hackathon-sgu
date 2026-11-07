@@ -1,0 +1,57 @@
+' Hình 4.14. Biểu đồ hoạt động – Ghép cặp bạn cùng tiến và xác nhận lại
+@startuml act_peer
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Ghép cặp bạn cùng tiến và xác nhận lại
+|Hệ thống|
+start
+if (Nguồn kích hoạt?) then (GV nhấn)
+else (lịch định kỳ)
+endif
+:Lấy SV đã bật ghép cặp,
+chưa có cặp hoạt động;
+:Đọc ma trận thành thạo
+& chỉ số nút;
+:Tính Đạt(A), Biên(A)
+cho từng SV;
+:Tính trọng số w(A,B)
+(ưu tiên nút đỏ);
+:Loại cặp w = 0 hoặc
+đã ghép trong N ngày;
+:Ghép cặp trọng số
+cực đại (Blossom);
+if (Còn SV lẻ?) then (có)
+  :Ghép một chiều với SV
+  đã Đạt / nhóm 3;
+else (không)
+endif
+:Chọn ≤ 2 nút mỗi chiều;
+:Tạo gợi ý (hạn 48 giờ),
+gửi thông báo;
+|Sinh viên A & B|
+if (Cả hai chấp nhận?) then (có)
+  :Xem liên hệ & nội dung
+  dạy / học;
+  :Học cùng nhau;
+  :Đánh dấu "Đã học cùng";
+  |Hệ thống|
+  :Mở yêu cầu xác nhận lại;
+  |Sinh viên A & B|
+  :Giảng lại cho AI
+  nút vừa học;
+  |Hệ thống|
+  if (Đạt?) then (có)
+    :Mục ghép cặp
+    → Đã xác nhận;
+  else (không)
+    :Ưu tiên ghép
+    bạn khác vòng sau;
+  endif
+else (từ chối / hết hạn)
+  |Hệ thống|
+  :Gợi ý → Từ chối /
+  Hết hạn;
+  :Đưa về hàng chờ;
+endif
+stop
+@enduml

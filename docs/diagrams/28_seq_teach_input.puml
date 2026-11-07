@@ -1,0 +1,48 @@
+' Hình 4.19. Biểu đồ tuần tự – Phiên giảng lại (2/4): giảng giải bằng giọng nói hoặc văn bản
+@startuml seq_teach_input
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Phiên giảng lại (2/4): giảng giải bằng giọng nói hoặc văn bản
+actor "Sinh viên" as SV
+participant "Màn hình\nphiên giảng" as UI
+participant "Session\nService" as SO
+participant "Speech\nService" as SP
+participant "STT\nProvider" as STT
+participant "Guard\nAgent" as GD
+participant "LLM\nProvider" as LLM
+database "PostgreSQL" as DB
+alt nhập bằng giọng nói
+  SV -> UI : Nhấn ghi âm, nói
+  UI -> UI : MediaRecorder\n(webm/opus)
+  UI -> SO : POST /sessions/{id}/audio
+  SO -> SP : transcribe(audio,\nglossary)
+  SP -> STT : nhận dạng (vi,\ngợi ý thuật ngữ)
+  STT --> SP : văn bản +\nđộ tin cậy
+  SP -> SP : chuẩn hóa thuật ngữ,\nthêm dấu câu
+  SP --> SO : transcript, conf,\naudioRef
+  SO --> UI : bản chép lời
+  opt conf < ngưỡng
+    UI --> SV : Yêu cầu kiểm tra
+    SV -> UI : Chỉnh nhỏ, xác nhận
+  end
+  UI -> SO : POST /turns\n{text, VOICE, edits}
+else nhập bằng văn bản
+  SV -> UI : Gõ lời giảng
+  UI -> UI : ghi nhận sự kiện dán,\ntốc độ gõ
+  UI -> SO : POST /turns\n{text, TEXT, pasteStats}
+end
+SO -> GD : checkInput(text)
+GD -> LLM : phân loại: hợp lệ /\njailbreak / lạc đề
+LLM --> GD : nhãn
+alt vi phạm
+  GD --> SO : FLAG(type)
+  SO -> DB : INSERT security_flag
+  SO --> UI : phản hồi trung lập
+else hợp lệ
+  GD --> SO : OK
+  SO -> DB : INSERT turn\n(EXPLANATION)
+  SO --> UI : sang vòng phản biện
+end
+@enduml

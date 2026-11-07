@@ -1,0 +1,64 @@
+' Hình 5.13. Sơ đồ điều hướng màn hình (Screen Flow)
+@startuml screen_flow
+!include common.iuml
+hide empty description
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam StateFontStyle normal
+title Sơ đồ điều hướng màn hình (Screen Flow)
+state "Đăng nhập" as Login #ECEFF1
+state "Thông báo" as Noti #ECEFF1
+state "Hồ sơ cá nhân" as Prof #ECEFF1
+state "GIẢNG VIÊN" as GVZ #F5F9FF {
+  state "GV-01 Danh sách lớp" as G1
+  state "GV-02 Tổng quan lớp" as G2
+  state "GV-03 Tải giáo trình\n& tiến độ phân tích" as G3
+  state "GV-04 Trình sửa cây\n& rubric" as G4
+  state "GV-05 Dashboard\nbản đồ nhiệt" as G5
+  state "GV-06 Chi tiết nút\n/ điểm nghẽn" as G6
+  state "GV-07 Hồ sơ năng lực SV" as G7
+  state "GV-08 Xem lại transcript\n& nghe ghi âm" as G8
+  state "GV-09 Quản lý ghép cặp" as G9
+  state "GV-10 Cấu hình ngưỡng" as G10
+  G1 --> G2
+  G2 --> G3
+  G3 --> G4 : cây nháp sẵn sàng
+  G2 --> G4
+  G2 --> G5
+  G5 --> G6 : nhấn nút
+  G6 --> G7 : nhấn tên SV
+  G5 --> G7 : nhấn ô lưới
+  G7 --> G8
+  G2 --> G9
+  G5 --> G9 : "Ghép cặp ưu tiên nút"
+  G2 --> G10
+}
+state "SINH VIÊN" as SVZ #F1F8E9 {
+  state "SV-01 Danh sách lớp\n/ nhập mã tham gia" as S1
+  state "SV-02 Bản đồ học tập" as S2
+  state "SV-03 Chi tiết nút" as S3
+  state "SV-04 Phiên giảng lại\n(chat + ghi âm)" as S4
+  state "SV-05 Xác nhận\nbản chép lời" as S5
+  state "SV-06 Kết quả & phản hồi" as S6
+  state "SV-07 Bạn cùng tiến" as S7
+  state "SV-08 Lịch sử phiên" as S8
+  S1 --> S2
+  S2 --> S3 : nhấn nút
+  S3 --> S4 : "Bắt đầu giảng"
+  S4 --> S5 : độ tin cậy STT thấp
+  S5 --> S4
+  S4 --> S6 : kết thúc phiên
+  S6 --> S2 : quay lại bản đồ
+  S6 --> S4 : "Thử lại"
+  S2 --> S7
+  S7 --> S4 : xác nhận lại
+  S2 --> S8
+}
+[*] --> Login
+Login --> G1 : vai trò GV
+Login --> S1 : vai trò SV
+G1 --> Noti
+S1 --> Noti
+G1 --> Prof
+S1 --> Prof
+@enduml

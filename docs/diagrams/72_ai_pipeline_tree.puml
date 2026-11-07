@@ -1,0 +1,40 @@
+' Hình 6.1. Pipeline trích xuất cây kỹ năng (a): tiền xử lý và trích xuất khái niệm
+@startuml ai_pipeline_tree
+!include common.iuml
+skinparam ActivityFontSize 11
+title Pipeline trích xuất cây kỹ năng (a): tiền xử lý và trích xuất khái niệm
+start
+partition "① TIỀN XỬ LÝ TÀI LIỆU" {
+  :Nhận tệp PDF / DOCX;
+  if (Loại tệp?) then (DOCX)
+    :python-docx: đọc đoạn,
+    heading, bảng;
+  else (PDF)
+    :PyMuPDF: trích văn bản
+    theo trang, giữ cỡ chữ;
+    if (Tỉ lệ ký tự / trang < ngưỡng?) then (bản quét)
+      :OCR Tesseract (vie);
+    else (văn bản số)
+    endif
+  endif
+  :Nhận diện cấu trúc:
+  chương / mục / CLO
+  (regex "Chương", "CLO", cỡ chữ);
+  :Chia đoạn theo mục
+  (~500 token, chồng lấn 50);
+  :Tạo embedding,
+  lưu document_chunks;
+}
+partition "② TRÍCH XUẤT KHÁI NIỆM" {
+  :Với mỗi chương: prompt LLM
+  + JSON schema
+  {key, title, description,
+  chapter_ref, bloom_level};
+  :Kiểm tra JSON hợp lệ
+  (thử lại tối đa 2 lần);
+  :Gộp trùng: cosine(title+desc)
+  ≥ 0,9 → LLM xác nhận gộp;
+}
+:→ (P) sang bước ③;
+stop
+@enduml

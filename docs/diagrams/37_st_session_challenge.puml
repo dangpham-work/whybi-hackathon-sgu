@@ -1,0 +1,29 @@
+' Hình 4.28. Trạng thái con của ĐANG PHẢN BIỆN
+@startuml st_session_challenge
+!include common.iuml
+hide empty description
+skinparam nodesep 40
+skinparam ranksep 40
+title Trạng thái con của ĐANG PHẢN BIỆN (CHALLENGING)
+state "ĐANG PHẢN BIỆN (CHALLENGING)" as CHALLENGING #F5F9FF {
+  state "Phân tích độ bao phủ" as Cov
+  state "Sinh câu hỏi" as Gen
+  Gen : do / chọn chiến lược
+  state "Kiểm tra lộ đáp án" as Guard2
+  state "Chờ trả lời" as Wait
+  Wait : do / đếm giờ
+  Wait : do / ghi âm hoặc gõ
+  state "Phân tích câu trả lời" as Ana
+  [*] --> Cov
+  Cov --> Gen
+  Gen --> Guard2
+  Guard2 --> Gen : lộ đáp án / sinh lại
+  Guard2 --> Wait : đạt
+  Wait --> Ana : nhận câu trả lời
+  Wait --> Ana : hết giờ
+  Ana --> Cov : còn ý cần kiểm chứng\n∧ số câu < N
+  Ana --> [*] : đủ ý / hết lượt
+}
+[*] --> CHALLENGING
+CHALLENGING --> [*] : sang ĐANG CHẤM
+@enduml

@@ -1,0 +1,57 @@
+' Hình 5.2. Biểu đồ thành phần – tầng AI và các giao diện cung cấp / yêu cầu
+@startuml comp_ai
+!include common.iuml
+skinparam nodesep 30
+skinparam ranksep 55
+title Biểu đồ thành phần – Tầng AI và các giao diện cung cấp / yêu cầu
+component "SessionOrchestrator" as SO
+component "TuteeAgent" as TA
+component "JudgeAgent" as JA
+component "GuardAgent" as GA
+component "RetrievalService" as RS
+component "SpeechService" as SP
+component "LLMGateway" as LG
+component "PromptRegistry\n(mẫu prompt có phiên bản)" as PRG
+component "MasteryService" as MS
+component "EventBus\n(Redis Pub/Sub)" as EB
+interface "ITutor" as ITA
+interface "IJudge" as IJA
+interface "IGuard" as IGA
+interface "IRetriever" as IRS
+interface "ISpeech" as ISP
+interface "ILLMProvider" as ILLM
+interface "IPromptStore" as IPR
+interface "IMastery" as IMS
+interface "IEventPublisher" as IEP
+TA - ITA
+JA - IJA
+GA - IGA
+RS - IRS
+SP - ISP
+LG - ILLM
+PRG - IPR
+MS - IMS
+EB - IEP
+SO ..> ITA : dùng
+SO ..> IJA : dùng
+SO ..> IGA : dùng
+SO ..> IRS : dùng
+SO ..> ISP : dùng
+SO ..> IMS : dùng
+TA ..> ILLM
+JA ..> ILLM
+GA ..> ILLM
+TA ..> IPR
+JA ..> IPR
+GA ..> IPR
+RS ..> ILLM : embed()
+MS ..> IEP
+component "GeminiProvider" as GP
+component "OpenAICompatProvider" as OP
+component "WhisperSTT" as WS
+component "CloudSTT / CloudTTS" as CS
+LG --> GP : adapter
+LG --> OP : adapter
+SP --> WS : adapter
+SP --> CS : adapter
+@enduml

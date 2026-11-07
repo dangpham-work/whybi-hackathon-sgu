@@ -1,0 +1,34 @@
+' Hình 4.29. Biểu đồ trạng thái – TreeVersion
+@startuml st_tree
+!include common.iuml
+hide empty description
+skinparam nodesep 45
+skinparam ranksep 50
+title Vòng đời phiên bản cây kỹ năng (TreeVersion)
+state "ĐANG SINH\n(GENERATING)" as GEN #FFF8E1
+state "LỖI\n(FAILED)" as FAILED #FFCDD2
+state "BẢN NHÁP\n(DRAFT)" as DRAFT
+state "ĐANG CHỈNH SỬA\n(EDITING)" as EDITING
+state "ĐANG KIỂM TRA\n(VALIDATING)" as VALIDATING
+state "ĐÃ PHÁT HÀNH\n(PUBLISHED)" as PUBLISHED #C8E6C9
+state "LƯU TRỮ\n(ARCHIVED)" as ARCHIVED #ECEFF1
+GEN : do / trích xuất, suy luận, sinh rubric
+EDITING : do / sửa nút, cạnh, rubric
+EDITING : do / kiểm tra chu trình mỗi thao tác
+VALIDATING : do / DAG, rubric đã duyệt, nút gốc
+PUBLISHED : entry / khởi tạo hoặc di chuyển\ntrạng thái thành thạo của SV
+PUBLISHED : entry / thông báo cho lớp
+[*] --> GEN : GV tải giáo trình
+[*] --> DRAFT : GV tạo phiên bản mới\n(sao chép bản đang phát hành)
+GEN --> FAILED : lỗi trích xuất / quá thời gian
+FAILED --> GEN : thử lại
+FAILED --> [*] : hủy
+GEN --> DRAFT : sinh xong
+DRAFT --> EDITING : GV mở trình sửa
+EDITING --> VALIDATING : nhấn "Phát hành"
+VALIDATING --> EDITING : còn lỗi
+VALIDATING --> PUBLISHED : hợp lệ
+PUBLISHED --> ARCHIVED : phiên bản khác\nđược phát hành
+ARCHIVED --> DRAFT : khôi phục\n(tạo bản sao)
+ARCHIVED --> [*]
+@enduml

@@ -1,0 +1,53 @@
+' Hình 6.7. Luồng chấm điểm mức độ hiểu của Judge Agent
+@startuml scoring_flow
+!include common.iuml
+skinparam ActivityFontSize 11
+title Luồng chấm điểm mức độ hiểu (Judge Agent)
+start
+:Đầu vào: transcript đầy đủ (lời giảng + Q&A),
+rubric của nút (5 tiêu chí, trọng số, ý chính,
+quan niệm sai), ngưỡng Đạt;
+fork
+  :Lần chấm 1
+  (temperature 0, JSON);
+fork again
+  :Lần chấm 2
+  (đảo thứ tự tiêu chí,
+  đảo thứ tự ý chính);
+end fork
+if (Hai lần cùng kết luận Đạt / Chưa đạt?) then (có)
+  :Lấy trung bình điểm từng tiêu chí;
+else (không)
+  :Chấm lần 3;
+  :Kết luận theo đa số,
+  điểm tiêu chí = trung vị;
+endif
+:Tổng điểm = Σ (điểm tiêu chí × trọng số);
+if (Tổng ≥ ngưỡng (mặc định 70)?) then (có)
+  if (Đủ mọi ý chính bắt buộc?) then (có)
+    if (Vượt ≥ k câu phản biện?) then (có)
+      if (Không còn quan niệm sai nghiêm trọng?) then (có)
+        :<b>ĐẠT</b>;
+      else (còn)
+        :<b>CHƯA ĐẠT</b>
+        (lý do: quan niệm sai);
+      endif
+    else (chưa)
+      :<b>CHƯA ĐẠT</b>
+      (lý do: chưa vững phản biện);
+    endif
+  else (thiếu)
+    :<b>CHƯA ĐẠT</b>
+    (lý do: thiếu ý chính);
+  endif
+else (không)
+  :<b>CHƯA ĐẠT</b>
+  (lý do: điểm thấp);
+endif
+:Sinh phản hồi cho SV:
+điểm mạnh + ý cần ôn dạng câu hỏi gợi mở
+(không chứa đáp án), kèm trang giáo trình;
+:Lưu evaluation, criterion_score,
+judge_runs, lý do từng tiêu chí;
+stop
+@enduml

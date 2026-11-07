@@ -1,0 +1,96 @@
+' Hình 4.33. Biểu đồ lớp phân tích (2) – Cây kỹ năng và rubric
+@startuml cls_tree
+!include common.iuml
+skinparam nodesep 40
+skinparam ranksep 50
+title Biểu đồ lớp phân tích (2) – Cây kỹ năng và rubric
+class SkillTree {
+  - id : UUID
+  - title : String
+  - status : TreeStatus
+  + generateDraft(doc) : TreeVersion
+  + newVersionFrom(v) : TreeVersion
+  + getPublished() : TreeVersion
+}
+class TreeVersion {
+  - id : UUID
+  - versionNo : Integer
+  - status : TreeStatus
+  - changeNote : String
+  - createdAt : DateTime
+  - publishedAt : DateTime
+  + validateDAG() : ValidationResult
+  + topologicalOrder() : ConceptNode[*]
+  + roots() : ConceptNode[*]
+  + diff(other : TreeVersion) : VersionDiff
+  + publish()
+}
+class ConceptNode {
+  - id : UUID
+  - key : String
+  - title : String
+  - description : Text
+  - chapterRef : String
+  - bloomLevel : BloomLevel
+  - positionX : Float
+  - positionY : Float
+  - minChallenges : Integer
+  + prerequisites() : ConceptNode[*]
+  + dependents() : ConceptNode[*]
+  + isRoot() : Boolean
+}
+class PrerequisiteEdge {
+  - id : UUID
+  - source : EdgeSource
+  - confidence : Float
+}
+class Rubric {
+  - id : UUID
+  - passThreshold : Integer
+  - status : RubricStatus
+  - approvedAt : DateTime
+  + approve(by : Lecturer)
+  + regenerate()
+}
+class RubricCriterion {
+  - id : UUID
+  - code : CriterionCode
+  - name : String
+  - description : String
+  - weight : Float
+  - maxScore : Integer
+}
+class KeyPoint {
+  - id : UUID
+  - content : Text
+  - isRequired : Boolean
+  - sourceChunkId : UUID
+}
+class Misconception {
+  - id : UUID
+  - content : Text
+  - probeQuestion : Text
+  - isCritical : Boolean
+}
+class ChallengeScenario {
+  - id : UUID
+  - scenario : Text
+  - bloomLevel : BloomLevel
+  - expectedPoints : Text
+}
+SkillTree "1" *-- "1..*" TreeVersion
+TreeVersion "1" *-- "1..*" ConceptNode
+TreeVersion "1" *-- "0..*" PrerequisiteEdge
+PrerequisiteEdge "0..*" --> "1" ConceptNode : from (tiên quyết)
+PrerequisiteEdge "0..*" --> "1" ConceptNode : to (phụ thuộc)
+ConceptNode "1" *-- "1" Rubric
+Rubric "1" *-- "1..*" RubricCriterion
+ConceptNode "1" *-- "1..*" KeyPoint
+ConceptNode "1" *-- "0..*" Misconception
+ConceptNode "1" *-- "1..*" ChallengeScenario
+note right of PrerequisiteEdge
+  Ràng buộc: các cạnh của một
+  TreeVersion tạo thành DAG
+  (không có chu trình).
+end note
+@enduml

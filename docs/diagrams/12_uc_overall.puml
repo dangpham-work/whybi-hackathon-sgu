@@ -1,0 +1,91 @@
+' Hình 4.3. Biểu đồ Use Case tổng quát
+@startuml uc_overall
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 8
+skinparam ranksep 45
+skinparam UsecaseFontSize 11
+title Biểu đồ Use Case tổng quát
+actor "Giảng viên" as GV
+actor "Quản trị viên" as QTV
+actor "Sinh viên" as SV
+actor "Bộ hẹn giờ\n«thời gian»" as TM
+rectangle "HỆ THỐNG [TÊN HỆ THỐNG]" {
+  package "Chung (mọi người dùng)" {
+    usecase "UC01 Đăng nhập / Đăng xuất" as UC01
+    usecase "UC02 Cập nhật hồ sơ" as UC02
+    usecase "UC03 Xem thông báo" as UC03
+  }
+  package "Môn học & Cây kỹ năng" {
+    usecase "UC04 Quản lý lớp học phần" as UC04
+    usecase "UC05 Tải giáo trình lên" as UC05
+    usecase "UC06 Sinh cây kỹ năng tự động" as UC06
+    usecase "UC07 Chỉnh sửa cây kỹ năng" as UC07
+    usecase "UC08 Duyệt / chỉnh rubric" as UC08
+    usecase "UC09 Phát hành cây kỹ năng" as UC09
+  }
+  package "Bản đồ nhiệt lớp học" {
+    usecase "UC10 Xem bản đồ nhiệt lớp" as UC10
+    usecase "UC11 Xem chi tiết nút & điểm nghẽn gốc" as UC11
+    usecase "UC12 Xem hồ sơ năng lực SV" as UC12
+    usecase "UC13 Xem lại transcript phiên" as UC13
+    usecase "UC14 Cấu hình ngưỡng" as UC14
+    usecase "UC16 Xuất báo cáo lớp" as UC16
+  }
+  package "Quản trị" {
+    usecase "UC24 Quản lý tài khoản" as UC24
+    usecase "UC25 Quản lý môn học" as UC25
+    usecase "UC26 Cấu hình AI & hạn mức" as UC26
+    usecase "UC27 Xem nhật ký & cờ vi phạm" as UC27
+  }
+  package "Giảng lại cho AI" {
+    usecase "UC17 Tham gia lớp bằng mã" as UC17
+    usecase "UC18 Xem bản đồ học tập cá nhân" as UC18
+    usecase "UC19 Thực hiện phiên giảng lại\n(giọng nói / văn bản)" as UC19
+    usecase "UC20 Xem kết quả & phản hồi" as UC20
+  }
+  package "Ghép cặp bạn cùng tiến" {
+    usecase "UC15 Chạy vòng ghép cặp" as UC15
+    usecase "UC21 Thiết lập tham gia ghép cặp" as UC21
+    usecase "UC22 Phản hồi gợi ý ghép cặp" as UC22
+    usecase "UC23 Xác nhận lại sau học cặp" as UC23
+  }
+}
+GV --> UC04
+GV --> UC05
+GV --> UC06
+GV --> UC07
+GV --> UC08
+GV --> UC09
+GV --> UC10
+GV --> UC11
+GV --> UC12
+GV --> UC13
+GV --> UC14
+GV --> UC16
+GV --> UC15
+UC24 <-- QTV
+UC25 <-- QTV
+UC26 <-- QTV
+UC27 <-- QTV
+UC01 <-- QTV
+UC01 <-- SV
+UC02 <-- SV
+UC03 <-- SV
+UC02 <-- QTV
+UC03 <-- QTV
+UC17 <-- SV
+UC18 <-- SV
+UC19 <-- SV
+UC20 <-- SV
+UC21 <-- SV
+UC22 <-- SV
+UC23 <-- SV
+UC15 <-- TM
+UC04 -[hidden]-> UC17
+UC10 -[hidden]-> UC24
+UC09 -[hidden]-> UC01
+note "Giảng viên cũng sử dụng\nUC01–UC03 (nhóm Chung)" as N1
+N1 .. UC01
+@enduml

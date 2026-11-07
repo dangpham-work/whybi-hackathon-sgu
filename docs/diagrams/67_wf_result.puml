@@ -1,0 +1,24 @@
+' Hình 5.21. Wireframe SV-06 – Kết quả và phản hồi sau phiên
+@startsalt wf_result
+skinparam dpi 200
+title SV-06 – Kết quả và phản hồi sau phiên
+{+
+  { <b>Kết quả: N5 Con trỏ</b> | <back:#C8E6C9> <b>ĐẠT – 78/100</b> </back> | Ngưỡng: 70 | Lượt thứ 2 }
+  ==
+  {#
+    <b>Tiêu chí</b>                          | <b>Trọng số</b> | <b>Điểm</b> | <b>Nhận xét</b>
+    Đúng đắn (Correctness)              | 25% | 22/25 | Định nghĩa chính xác
+    Bao phủ ý chính (Coverage)          | 25% | 20/25 | Thiếu: con trỏ có kiểu
+    Bản chất – vì sao (Essence)         | 20% | 15/20 | Giải thích tốt vai trò địa chỉ
+    Đứng vững trước phản biện           | 20% | 14/20 | Vượt 3/4 câu; câu 4 còn lúng túng
+    Diễn đạt mạch lạc (Clarity)         | 10% | 7/10  | Ví dụ minh họa rõ
+  }
+  {^"Điều bạn làm tốt"
+    • Giải thích đúng con trỏ treo (dangling) khi bị hỏi về free()
+  }
+  {^"Nên ôn thêm (không lộ đáp án)"
+    • Vì sao con trỏ cần có kiểu dữ liệu? Thử nghĩ về phép cộng con trỏ.
+  }
+  { 🎉 Đã mở khóa: <b>N6 Cấp phát động</b> | [Xem bản đồ] | [Giảng nút tiếp theo ▶] }
+}
+@endsalt

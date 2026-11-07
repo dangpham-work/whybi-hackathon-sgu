@@ -1,0 +1,86 @@
+' Hình 4.31. Biểu đồ lớp phân tích – tổng quan quan hệ giữa các lớp
+@startuml cls_overview
+!include common.iuml
+hide members
+hide circle
+skinparam nodesep 30
+skinparam ranksep 45
+title Biểu đồ lớp phân tích – tổng quan quan hệ giữa các lớp
+package "Người dùng & Lớp học" #F5F9FF {
+  abstract class User
+  class Lecturer
+  class Student
+  class Admin
+  class Course
+  class ClassSection
+  class Enrollment
+  class Notification
+}
+package "Tài liệu" #FFFBF2 {
+  class SyllabusDocument
+  class DocumentChunk
+}
+package "Cây kỹ năng" #F3FFF3 {
+  class SkillTree
+  class TreeVersion
+  class ConceptNode
+  class PrerequisiteEdge
+  class Rubric
+  class RubricCriterion
+  class KeyPoint
+  class Misconception
+  class ChallengeScenario
+}
+package "Phiên giảng lại & Thành thạo" #FFF5F5 {
+  class TeachingSession
+  class SessionTurn
+  class Evaluation
+  class CriterionScore
+  class MasteryRecord
+  class SecurityFlag
+}
+package "Bản đồ nhiệt & Ghép cặp" #FBF5FF {
+  class ClassNodeStat
+  class MatchingRound
+  class PeerMatch
+  class PeerMatchItem
+}
+User <|-- Lecturer
+User <|-- Student
+User <|-- Admin
+User "1" -- "0..*" Notification
+Course "1" -- "0..*" ClassSection
+Lecturer "1" -- "0..*" ClassSection
+ClassSection "1" *-- "0..*" Enrollment
+Student "1" -- "0..*" Enrollment
+ClassSection "1" o-- "0..*" SyllabusDocument
+SyllabusDocument "1" *-- "1..*" DocumentChunk
+ClassSection "1" -- "0..1" SkillTree
+SkillTree "1" *-- "1..*" TreeVersion
+TreeVersion "1" *-- "1..*" ConceptNode
+TreeVersion "1" *-- "0..*" PrerequisiteEdge
+PrerequisiteEdge "0..*" --> "2" ConceptNode
+ConceptNode "1" *-- "1" Rubric
+Rubric "1" *-- "1..*" RubricCriterion
+ConceptNode "1" *-- "1..*" KeyPoint
+ConceptNode "1" *-- "0..*" Misconception
+ConceptNode "1" *-- "1..*" ChallengeScenario
+ConceptNode ..> DocumentChunk : trích dẫn
+Student "1" -- "0..*" TeachingSession
+ConceptNode "1" -- "0..*" TeachingSession
+TeachingSession "1" *-- "1..*" SessionTurn
+TeachingSession "1" *-- "0..1" Evaluation
+TeachingSession "1" -- "0..*" SecurityFlag
+Evaluation "1" *-- "1..*" CriterionScore
+CriterionScore "0..*" --> "1" RubricCriterion
+Student "1" -- "0..*" MasteryRecord
+ConceptNode "1" -- "0..*" MasteryRecord
+ClassSection "1" *-- "0..*" ClassNodeStat
+ClassNodeStat "0..*" --> "1" ConceptNode
+ClassSection "1" *-- "0..*" MatchingRound
+MatchingRound "1" *-- "0..*" PeerMatch
+PeerMatch "0..*" --> "2" Student
+PeerMatch "1" *-- "1..*" PeerMatchItem
+PeerMatchItem "0..*" --> "1" ConceptNode
+TeachingSession "0..*" --> "0..1" PeerMatchItem : xác nhận lại
+@enduml

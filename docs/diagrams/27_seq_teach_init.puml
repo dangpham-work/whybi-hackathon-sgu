@@ -1,0 +1,40 @@
+' Hình 4.18. Biểu đồ tuần tự – Phiên giảng lại (1/4): khởi tạo phiên
+@startuml seq_teach_init
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Phiên giảng lại (1/4): khởi tạo phiên
+actor "Sinh viên" as SV
+participant "Màn hình\nphiên giảng" as UI
+participant "Session\nService" as SO
+participant "Mastery\nService" as MS
+participant "Retrieval\nService" as RAG
+participant "Tutee\nAgent" as TA
+participant "LLM\nProvider" as LLM
+database "PostgreSQL\n+ pgvector" as DB
+SV -> UI : Chọn nút "Con trỏ",\n"Bắt đầu giảng"
+UI -> SO : POST /sessions {nodeId}
+SO -> MS : canStart(sv, node)
+MS -> DB : SELECT mastery_record
+alt trạng thái không cho phép
+  MS --> SO : false + tiên quyết thiếu
+  SO --> UI : 409 NODE_LOCKED
+  UI --> SV : Hiện nút cần Đạt trước
+else AVAILABLE / NOT_PASSED /\nNEEDS_REVERIFY
+  MS --> SO : true
+  SO -> DB : INSERT session\n(CREATED)
+  SO -> MS : setState(IN_PROGRESS)
+  SO -> DB : SELECT rubric, key_point,\nmisconception, scenario
+  SO -> RAG : retrieve(node, k = 5)
+  RAG -> DB : tìm vector,\nlọc theo nút
+  DB --> RAG : đoạn + số trang
+  RAG --> SO : ngữ cảnh
+  SO -> TA : openingLine(node)
+  TA -> LLM : prompt vai\n"học trò tò mò"
+  LLM --> TA : lời mở đầu
+  TA --> SO : lời mở đầu
+  SO --> UI : 201 {sessionId, message}
+  UI --> SV : "Mình chưa biết con trỏ\nlà gì, bạn giảng giúp nhé!"
+end
+@enduml

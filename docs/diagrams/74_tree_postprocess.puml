@@ -1,0 +1,39 @@
+' Hình 6.3. Ví dụ hậu xử lý cây: gộp trùng, phá chu trình và rút gọn bắc cầu
+@startuml tree_postprocess
+!include common.iuml
+skinparam nodesep 30
+skinparam ranksep 40
+title Ví dụ hậu xử lý cây: trước và sau
+package "TRƯỚC – đầu ra thô của LLM" #FFF5F5 {
+  rectangle "Con trỏ" as A1
+  rectangle "Pointer" as A1b #FFCDD2
+  rectangle "Cấp phát động" as A2
+  rectangle "Danh sách liên kết" as A3
+  rectangle "Cây nhị phân" as A4
+  A1 --> A2 : 0,92
+  A1b --> A3 : 0,70
+  A2 --> A3 : 0,88
+  A3 --> A1 : 0,35
+  A1 --> A4 : 0,64
+  A3 --> A4 : 0,90
+  note bottom of A1b
+    (1) "Pointer" trùng nghĩa "Con trỏ"
+    (2) Chu trình Con trỏ → … → DSLK → Con trỏ
+    (3) Cạnh bắc cầu Con trỏ → Cây nhị phân
+  end note
+}
+package "SAU – đã gộp, phá chu trình, rút gọn bắc cầu" #F1F8E9 {
+  rectangle "Con trỏ\n(gộp: Pointer)" as B1 #C8E6C9
+  rectangle "Cấp phát động" as B2
+  rectangle "Danh sách liên kết" as B3
+  rectangle "Cây nhị phân" as B4
+  B1 --> B2
+  B2 --> B3
+  B3 --> B4
+  note bottom of B4
+    • Gộp "Pointer" vào "Con trỏ"
+    • Bỏ DSLK → Con trỏ (độ tin cậy 0,35, thấp nhất)
+    • Bỏ Con trỏ → Cây nhị phân (đã suy ra qua DSLK)
+  end note
+}
+@enduml

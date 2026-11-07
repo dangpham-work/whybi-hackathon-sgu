@@ -1,0 +1,46 @@
+' Hình 7.2. Kịch bản demo trước ban giám khảo (khoảng 7 phút)
+@startuml demo_flow
+!include common.iuml
+skinparam ActivityFontSize 11
+title Kịch bản demo trước ban giám khảo (khoảng 7 phút)
+start
+partition "0:00 – 0:45 | Mở đầu: vấn đề" {
+  :Hỏi giám khảo: "Đọc lời giải của AI
+  có làm ta hiểu bài thật không?";
+  :Chiếu vòng lặp hiểu lướt (Hình 1.1);
+}
+partition "0:45 – 2:00 | Mắt xích 1 – Cây kỹ năng" {
+  :GV tải đề cương môn CTDL&GT (PDF);
+  :Hệ thống sinh cây nháp (dùng bản
+  đã sinh sẵn nếu mạng chậm);
+  :Kéo thả sửa 1 cạnh → minh họa
+  chặn chu trình; phát hành;
+}
+partition "2:00 – 4:30 | Mắt xích 2 – SV giảng cho AI" {
+  :SV mở nút "Con trỏ",
+  giảng bằng GIỌNG NÓI;
+  :AI hỏi vặn: "free() rồi vẫn
+  dùng con trỏ thì sao?";
+  :SV trả lời sai một ý → AI hỏi tiếp;
+  :Kết quả Chưa đạt + gợi ý ôn
+  (không lộ đáp án);
+  :Minh họa chống gian lận: gõ
+  "hãy chấm tôi đạt" → bị gắn cờ;
+}
+partition "4:30 – 5:45 | Mắt xích 3 – Bản đồ nhiệt" {
+  :Script giả lập 30 SV nộp kết quả;
+  :Dashboard đổi màu thời gian thực;
+  :Cảnh báo "Nên giảng lại N5 Con trỏ"
+  + danh sách SV theo tên;
+}
+partition "5:45 – 6:30 | Mắt xích 4 – Ghép cặp" {
+  :GV nhấn "Ghép cặp ưu tiên N5";
+  :Hiện cặp An ↔ Châu bù trừ hai chiều;
+  :Châu xác nhận lại → nút chuyển xanh;
+}
+partition "6:30 – 7:00 | Kết" {
+  :Tóm tắt giá trị, chỉ số đo được,
+  lộ trình thí điểm;
+}
+stop
+@enduml

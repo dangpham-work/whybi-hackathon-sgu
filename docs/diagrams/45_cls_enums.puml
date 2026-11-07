@@ -1,0 +1,102 @@
+' Hình 4.36. Các kiểu liệt kê (enumeration) dùng trong mô hình
+@startuml cls_enums
+!include common.iuml
+skinparam nodesep 20
+skinparam ranksep 20
+title Các kiểu liệt kê (enumeration) dùng trong mô hình
+enum Role {
+  LECTURER
+  STUDENT
+  ADMIN
+}
+enum MasteryState {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  MASTERED
+  NOT_PASSED
+  NEEDS_REVERIFY
+}
+enum SessionStatus {
+  CREATED
+  EXPLAINING
+  CHALLENGING
+  EVALUATING
+  COMPLETED
+  ABANDONED
+  FLAGGED
+}
+enum InputMode {
+  TEXT
+  VOICE
+}
+enum TurnType {
+  OPENING
+  EXPLANATION
+  QUESTION
+  ANSWER
+  SYSTEM_NOTICE
+}
+enum QuestionStrategy {
+  MISSING_KEY_POINT
+  MISCONCEPTION_PROBE
+  EDGE_CASE
+  TRANSFER
+}
+enum Verdict {
+  PASSED
+  FAILED
+}
+enum TreeStatus {
+  GENERATING
+  FAILED
+  DRAFT
+  EDITING
+  VALIDATING
+  PUBLISHED
+  ARCHIVED
+}
+enum HeatColor {
+  GREY
+  GREEN
+  YELLOW
+  RED
+}
+enum MatchStatus {
+  PROPOSED
+  WAITING_OTHER
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  STUDIED
+  VERIFIED
+  PARTIALLY_VERIFIED
+  UNVERIFIED
+}
+enum CriterionCode {
+  CORRECTNESS
+  COVERAGE
+  ESSENCE
+  ROBUSTNESS
+  CLARITY
+}
+enum FlagType {
+  PASTE_SUSPECTED
+  JAILBREAK
+  OFF_TOPIC
+  LOW_STT_CONFIDENCE
+  ANSWER_LEAK
+}
+enum BloomLevel {
+  REMEMBER
+  UNDERSTAND
+  APPLY
+  ANALYZE
+  EVALUATE
+  CREATE
+}
+enum EdgeSource {
+  AI
+  LECTURER
+}
+@enduml

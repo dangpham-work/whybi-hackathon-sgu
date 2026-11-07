@@ -1,0 +1,47 @@
+' Hình 4.21. Biểu đồ tuần tự – Phiên giảng lại (4/4): chấm điểm và cập nhật thành thạo
+@startuml seq_teach_eval
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Phiên giảng lại (4/4): chấm điểm và cập nhật thành thạo
+actor "Sinh viên" as SV
+participant "Màn hình\nphiên giảng" as UI
+participant "Session\nService" as SO
+participant "Judge\nAgent" as JA
+participant "LLM\nProvider" as LLM
+participant "Mastery\nService" as MS
+queue "EventBus" as EB
+database "PostgreSQL" as DB
+SO -> JA : evaluate(transcript,\nrubric)
+JA -> LLM : chấm 5 tiêu chí\n(temp 0, JSON) lần 1
+LLM --> JA : điểm + lý do
+JA -> LLM : chấm lần 2\n(đảo thứ tự tiêu chí)
+LLM --> JA : điểm + lý do
+opt 2 lần lệch kết luận
+  JA -> LLM : chấm lần 3
+  LLM --> JA : điểm + lý do
+  JA -> JA : lấy đa số,\nđiểm trung vị
+end
+JA --> SO : evaluation
+SO -> SO : áp dụng BR-03
+SO -> DB : INSERT evaluation,\ncriterion_score
+SO -> MS : applyResult(verdict)
+alt PASSED
+  MS -> DB : state = MASTERED
+  loop từng nút con
+    opt đủ tiên quyết
+      MS -> DB : LOCKED → AVAILABLE
+    end
+  end
+else FAILED
+  MS -> DB : NOT_PASSED,\nattempts + 1
+end
+opt phiên xác nhận lại\nsau học cặp
+  MS -> DB : peer_match_item\n→ verified
+end
+MS -> EB : publish\n"mastery.updated"
+SO -> DB : session → COMPLETED
+SO --> UI : kết quả
+UI --> SV : Điểm từng tiêu chí,\nkết luận, gợi ý ôn,\nnút mới mở khóa
+@enduml

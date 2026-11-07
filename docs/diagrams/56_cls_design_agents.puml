@@ -1,0 +1,73 @@
+' Hình 5.10. Biểu đồ lớp thiết kế (2) – Các tác tử AI, chiến lược câu hỏi và chuỗi kiểm duyệt
+@startuml cls_design_agents
+!include common.iuml
+skinparam nodesep 22
+skinparam ranksep 45
+title Biểu đồ lớp thiết kế (2) – Các tác tử AI, chiến lược câu hỏi và chuỗi kiểm duyệt
+class SessionOrchestrator <<Facade>> {
+  + startSession(studentId, nodeId) : Session
+  + handleExplanation(turn) : Reply
+  + handleAnswer(turn) : Reply
+  + finish(sessionId) : Evaluation
+}
+abstract class Agent {
+  # gateway : LLMGateway
+  # prompts : PromptRegistry
+  # render(template, vars) : Prompt
+}
+class TuteeAgent {
+  - strategies : QuestionStrategy[*]
+  - maxQuestions : Integer
+  + openingLine(node) : String
+  + analyzeCoverage(transcript, rubric) : Coverage
+  + nextQuestion(ctx) : Question
+}
+class JudgeAgent {
+  - runs : Integer = 2
+  + evaluate(transcript, rubric) : Evaluation
+  - aggregate(results) : Evaluation
+}
+class GuardAgent {
+  - chain : GuardHandler
+  + checkInput(text) : GuardResult
+  + checkOutput(question, keyPoints) : GuardResult
+}
+class RetrievalService {
+  + retrieve(nodeId, query, k) : Chunk[*]
+}
+Agent <|-- TuteeAgent
+Agent <|-- JudgeAgent
+Agent <|-- GuardAgent
+SessionOrchestrator --> TuteeAgent
+SessionOrchestrator --> JudgeAgent
+SessionOrchestrator --> GuardAgent
+SessionOrchestrator --> RetrievalService
+interface QuestionStrategy <<Strategy>> {
+  + priority() : Integer
+  + applicable(c : Coverage) : Boolean
+  + buildPrompt(ctx) : Prompt
+}
+class MissingKeyPoint
+class MisconceptionProbe
+class EdgeCase
+class Transfer
+QuestionStrategy <|.. MissingKeyPoint
+QuestionStrategy <|.. MisconceptionProbe
+QuestionStrategy <|.. EdgeCase
+QuestionStrategy <|.. Transfer
+TuteeAgent o-- "1..*" QuestionStrategy
+abstract class GuardHandler <<Chain of Responsibility>> {
+  - next : GuardHandler
+  + handle(req) : GuardResult
+}
+class InjectionDetector
+class OffTopicDetector
+class AnswerLeakDetector
+class PasteHeuristic
+GuardHandler <|-- InjectionDetector
+GuardHandler <|-- OffTopicDetector
+GuardHandler <|-- AnswerLeakDetector
+GuardHandler <|-- PasteHeuristic
+GuardAgent o-- GuardHandler
+GuardHandler --> GuardHandler : next
+@enduml

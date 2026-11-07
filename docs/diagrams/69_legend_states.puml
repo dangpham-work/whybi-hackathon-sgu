@@ -1,0 +1,36 @@
+' Hình 5.23. Quy ước màu, biểu tượng và ý nghĩa trạng thái
+@startuml legend_states
+!include common.iuml
+skinparam nodesep 12
+skinparam ranksep 12
+skinparam RectangleFontSize 12
+title Quy ước trực quan: màu, biểu tượng và ý nghĩa trạng thái
+rectangle "<b>BẢN ĐỒ NHIỆT LỚP (theo nút)</b>" as H #FFFFFF {
+  rectangle "<b>✓ XANH</b>\ntỉ lệ Đạt ≥ 70%\n(mặc định, GV cấu hình được)" as C1 #C8E6C9
+  rectangle "<b>! VÀNG</b>\n40% ≤ tỉ lệ Đạt < 70%" as C2 #FFF59D
+  rectangle "<b>✗ ĐỎ</b>\ntỉ lệ Đạt < 40%" as C3 #EF9A9A
+  rectangle "<b>XÁM</b>\nsố SV đã thử\n< cỡ mẫu tối thiểu" as C4 #ECEFF1
+  rectangle "<b>◎ GỐC</b>\nđiểm nghẽn gốc\n(viền đậm, nhấp nháy)" as C5 #FFFFFF
+}
+rectangle "<b>TRẠNG THÁI CỦA MỘT SV TẠI MỘT NÚT</b>" as S #FFFFFF {
+  rectangle "<b>✓ Đạt</b>" as T1 #C8E6C9
+  rectangle "<b>✗n Chưa đạt</b>\n(n = số lượt)" as T2 #EF9A9A
+  rectangle "<b>… Đang giảng</b>" as T3 #FFF59D
+  rectangle "<b>○ Sẵn sàng</b>" as T4 #FFFFFF
+  rectangle "<b>⊘ Khóa</b>" as T5 #ECEFF1
+  rectangle "<b>↻ Cần xác nhận lại</b>" as T6 #FFE0B2
+}
+C1 -[hidden]right- C2
+C2 -[hidden]right- C3
+C3 -[hidden]right- C4
+C4 -[hidden]right- C5
+T1 -[hidden]right- T2
+T2 -[hidden]right- T3
+T3 -[hidden]right- T4
+T4 -[hidden]right- T5
+T5 -[hidden]right- T6
+H -[hidden]down- S
+legend bottom
+  Khả năng tiếp cận: mọi màu luôn đi kèm biểu tượng (✓ ! ✗ ○ ⊘ ↻) để người mù màu đỏ–lục vẫn phân biệt được.
+endlegend
+@enduml

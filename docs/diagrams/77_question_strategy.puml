@@ -1,0 +1,45 @@
+' Hình 6.6. Lưu đồ chọn câu hỏi phản biện tiếp theo
+@startuml question_strategy
+!include common.iuml
+skinparam ActivityFontSize 11
+title Lưu đồ chọn câu hỏi phản biện tiếp theo
+start
+:Nhận coverage map của lượt mới nhất;
+if (Số câu đã hỏi ≥ N tối đa?) then (có)
+  :Dừng vòng phản biện;
+  stop
+else (chưa)
+endif
+if (Còn ý chính BẮT BUỘC chưa nêu?) then (có)
+  :Chiến lược MISSING_KEY_POINT:
+  hỏi "ngây thơ" để SV tự nói ra ý đó
+  (vd "Vậy con trỏ có biết nó trỏ
+  vào kiểu dữ liệu gì không?");
+elseif (Phát hiện quan niệm sai?) then (có)
+  :Chiến lược MISCONCEPTION_PROBE:
+  đưa tình huống làm lộ mâu thuẫn
+  của quan niệm sai;
+elseif (Còn tình huống biên chưa thử?) then (có)
+  :Chiến lược EDGE_CASE:
+  "Nếu … thì sao?" (vd free rồi
+  vẫn dùng con trỏ);
+elseif (SV đã vững ở mức Bloom hiện tại?) then (có)
+  :Chiến lược TRANSFER:
+  áp dụng sang ngữ cảnh mới
+  (Bloom cao hơn: Áp dụng / Phân tích);
+else (không còn gì cần kiểm chứng)
+  :Dừng sớm vòng phản biện;
+  stop
+endif
+:Sinh câu hỏi theo cấu trúc prompt (Hình 6.5);
+:Guard đầu ra kiểm tra lộ đáp án;
+if (Đạt?) then (có)
+  :Gửi câu hỏi, ghi strategy
+  vào session_turn;
+else (không)
+  :Sinh lại (tối đa 2 lần),
+  nếu vẫn lỗi dùng câu hỏi mẫu
+  từ ngân hàng tình huống;
+endif
+stop
+@enduml

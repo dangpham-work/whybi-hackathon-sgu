@@ -1,0 +1,55 @@
+' Hình 4.13. Biểu đồ hoạt động – Tổng hợp bản đồ nhiệt và cảnh báo điểm nghẽn
+@startuml act_heatmap
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Tổng hợp bản đồ nhiệt và cảnh báo điểm nghẽn
+|Hệ thống|
+start
+:Nhận sự kiện "mastery.updated"
+(lớp, nút, SV, kết luận);
+:Cập nhật ô (SV, nút)
+trong lưới SV × Nút;
+:Tính lại chỉ số nút:
+- tỉ lệ đã thử
+- tỉ lệ Đạt / đã thử
+- số lượt trung bình
+- quan niệm sai phổ biến;
+:Phân màu theo ngưỡng:
+XÁM (chưa đủ mẫu) / XANH /
+VÀNG / ĐỎ;
+if (Nút có màu ĐỎ?) then (có)
+  :Truy vết điểm nghẽn gốc
+  trên các nút tiên quyết;
+  if (Tìm thấy nút gốc X?) then (có)
+    :Cảnh báo
+    "Nên giảng lại X";
+  else (không)
+    :Cảnh báo
+    "Nút Y là điểm nghẽn";
+  endif
+else (không)
+endif
+:Lưu snapshot chỉ số;
+:Đẩy cập nhật qua WebSocket
+tới kênh của lớp;
+|Giảng viên|
+:Bảng điều khiển đổi màu
+tức thì (cây + lưới
+có tên SV);
+if (Có cảnh báo mới?) then (có)
+  :Mở chi tiết nút:
+  SV đang kẹt, quan niệm sai,
+  nút gốc gợi ý;
+  if (Cách can thiệp?) then (giảng lại)
+    :Giảng kỹ nút gốc
+    trong tiết học;
+    :Nhắc SV kẹt
+    thử lại;
+  else (ghép cặp)
+    :Kích hoạt ghép cặp
+    ưu tiên nút này;
+  endif
+else (không)
+endif
+stop
+@enduml

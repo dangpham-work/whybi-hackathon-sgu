@@ -1,0 +1,38 @@
+' Hình 5.15. Wireframe GV-05a – Dashboard bản đồ nhiệt (chế độ cây)
+@startsalt wf_heatmap_tree
+skinparam dpi 200
+title GV-05a – Dashboard bản đồ nhiệt (chế độ cây)
+{+
+  {* <b>[TÊN HỆ THỐNG]</b> | Lớp: CTDL&GT – Nhóm 02 | Cây kỹ năng | <b>Bản đồ nhiệt</b> | Ghép cặp | Cấu hình }
+  { <b>Sĩ số: 42</b> | Đang trực tuyến: 38 | Phiên đang diễn ra: 11 | Cập nhật: thời gian thực ● | [Trình chiếu ⛶] }
+  {/ <b>Chế độ cây</b> | Lưới SV × Nút | Điểm nghẽn | Ghép cặp }
+  {
+    {+
+      {
+        . | <back:#C8E6C9> N1 Biến & bộ nhớ 95% ✓ </back> | .
+        ↙ | ↓ | ↘
+        <back:#C8E6C9> N2 Mảng 88% ✓ </back> | <back:#C8E6C9> N3 Hàm 81% ✓ </back> → | <back:#EF9A9A> <b>N5 Con trỏ 32% ✗ ◎GỐC</b> </back>
+        ↓ | ↓ | ↓
+        <back:#FFF59D> N8 Ngăn xếp 55% ! </back> | <back:#ECEFF1> N4 Đệ quy (3 SV thử) </back> | <back:#EF9A9A> N6 Cấp phát động 25% ✗ </back>
+      }
+      Nhấn vào nút để xem chi tiết; viền đậm = điểm nghẽn gốc
+    } | {+
+      <b>⚠ CẢNH BÁO ĐIỂM NGHẼN</b>
+      <color:#C62828><b>Nên giảng lại: N5 Con trỏ</b></color>
+      • 17/25 SV đã thử chưa Đạt (68%)
+      • 82% SV trượt N6 cũng chưa Đạt N5
+      • Quan niệm sai phổ biến:
+        "con trỏ chứa giá trị" (9 SV)
+        "free xong con trỏ thành NULL" (6 SV)
+      [Xem chi tiết] | [Ghép cặp ưu tiên N5]
+      --
+      <b>Chú giải</b>
+      <back:#C8E6C9> ✓ ≥ 70% Đạt </back>
+      <back:#FFF59D> ! 40–70% </back>
+      <back:#EF9A9A> ✗ < 40% </back>
+      <back:#ECEFF1> chưa đủ mẫu </back>
+      ◎GỐC = điểm nghẽn gốc
+    }
+  }
+}
+@endsalt

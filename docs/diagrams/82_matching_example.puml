@@ -1,0 +1,40 @@
+' Hình 6.11. Ví dụ ghép cặp bù trừ: ma trận năng lực → trọng số → kết quả
+@startuml matching_example
+!include common.iuml
+left to right direction
+skinparam nodesep 30
+skinparam ranksep 80
+title Ví dụ ghép cặp bù trừ: ma trận năng lực → đồ thị trọng số → kết quả
+rectangle T #FFFFFF [
+<b>① Ma trận (rút gọn) – Đ = Đạt, B = thuộc Biên (vừa tầm), K = Khóa</b>
+|= SV |= N2 Mảng |= N4 Đệ quy |= N5 Con trỏ |= N6 Cấp phát |
+| An | Đ | B | Đ | B |
+| Châu | Đ | Đ | B | K |
+| Hà | B | B | B | K |
+| Dũng | Đ | Đ | Đ | B |
+| Khang | Đ | K | K | K |
+----
+<b>② Trọng số</b> w(A,B) = min( Σp(n), n ∈ Đạt(A) ∩ Biên(B) ; Σp(n), n ∈ Đạt(B) ∩ Biên(A) )
+với p(n) = 1 + α·(1 − tỉ lệ Đạt của n), α = 1; p(N5) = 1,68; p(N4) = 1,33; p(N2) = 1,12; p(N6) = 1,75
+• An–Châu: An→Châu {N5} = 1,68 ; Châu→An {N4} = 1,33 → <b>w = 1,33</b>
+• Dũng–Hà: Dũng→Hà {N2, N4, N5} = 4,13 ; Hà→Dũng {} = 0 → w = 0 (một chiều)
+• An–Hà: An→Hà {N2, N5} = 2,80 ; Hà→An {} = 0 → w = 0
+• Dũng–An, Dũng–Châu: chiều ngược = 0 → w = 0
+]
+rectangle "An" as A #E3F2FD
+rectangle "Châu" as C #E3F2FD
+rectangle "Hà" as H #FFEBEE
+rectangle "Dũng" as D #E8F5E9
+rectangle "Khang" as K #ECEFF1
+A -- C : <b>w = 1,33</b>\n(ghép)
+D .. H : một chiều\n(fallback cho SV lẻ)
+note bottom of K
+  ③ Kết quả vòng ghép:
+  • Cặp hai chiều: An ↔ Châu
+    (An dạy N5, Châu dạy N4)
+  • Hà (lẻ) được ghép một chiều với Dũng
+  • Khang: chưa có nút Biên chung,
+    chờ vòng sau (cần Đạt N3 trước)
+end note
+T -[hidden]-> A
+@enduml

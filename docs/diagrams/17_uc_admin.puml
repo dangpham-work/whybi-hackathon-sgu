@@ -1,0 +1,49 @@
+' Hình 4.8. Use Case phân rã – Quản trị hệ thống và chức năng chung
+@startuml uc_admin
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 12
+skinparam ranksep 60
+skinparam UsecaseFontSize 11
+title Use Case phân rã – Quản trị hệ thống & chức năng chung
+actor "Người dùng" as ND
+actor "Quản trị viên" as QTV
+ND <|-- QTV
+rectangle "Phân hệ Tài khoản & Quản trị" {
+  usecase "UC01 Đăng nhập / Đăng xuất" as UC01
+  usecase "Quên / đặt lại mật khẩu" as UC01a
+  usecase "UC02 Cập nhật hồ sơ" as UC02
+  usecase "UC03 Xem thông báo" as UC03
+  usecase "UC24 Quản lý tài khoản" as UC24
+  usecase "Tạo / sửa tài khoản" as UC24a
+  usecase "Nhập danh sách từ CSV" as UC24b
+  usecase "Khóa / mở khóa tài khoản" as UC24c
+  usecase "Phân quyền vai trò" as UC24d
+  usecase "UC25 Quản lý môn học" as UC25
+  usecase "UC26 Cấu hình AI & hạn mức" as UC26
+  usecase "Chọn nhà cung cấp LLM" as UC26a
+  usecase "Chọn nhà cung cấp STT/TTS" as UC26b
+  usecase "Đặt hạn mức token / phút ghi âm" as UC26c
+  usecase "Chính sách lưu trữ ghi âm" as UC26d
+  usecase "UC27 Xem nhật ký & cờ vi phạm" as UC27
+  usecase "Xử lý cờ vi phạm" as UC27a
+}
+ND --> UC01
+ND --> UC02
+ND --> UC03
+QTV --> UC24
+QTV --> UC25
+QTV --> UC26
+QTV --> UC27
+UC01a .up.> UC01 : <<extend>>
+UC24a .up.> UC24 : <<extend>>
+UC24b .up.> UC24 : <<extend>>
+UC24c .up.> UC24 : <<extend>>
+UC24d .up.> UC24 : <<extend>>
+UC26a .up.> UC26 : <<extend>>
+UC26b .up.> UC26 : <<extend>>
+UC26c .up.> UC26 : <<extend>>
+UC26d .up.> UC26 : <<extend>>
+UC27a .up.> UC27 : <<extend>>
+@enduml

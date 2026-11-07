@@ -1,0 +1,58 @@
+' Hình 4.11. Biểu đồ hoạt động – Phiên giảng lại (a): khởi tạo và giảng giải bằng giọng nói / văn bản
+@startuml act_teach_a
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Phiên giảng lại (a): khởi tạo và giảng giải
+|Sinh viên|
+start
+:Mở bản đồ học tập,
+chọn nút;
+|Hệ thống|
+if (Trạng thái nút là Sẵn sàng /
+Chưa đạt / Cần xác nhận lại?) then (không)
+  :Báo nút đang khóa,
+  chỉ ra tiên quyết
+  còn thiếu;
+  stop
+else (có)
+endif
+:Tạo phiên,
+nút → Đang giảng;
+:Nạp rubric + ngữ cảnh
+giáo trình (RAG);
+|AI (LLM)|
+:Học trò tò mò chào,
+nhờ SV giảng
+khái niệm;
+|Sinh viên|
+:Chọn chế độ nhập;
+if (Giọng nói?) then (có)
+  :Ghi âm lời giảng
+  (tối đa 3 phút);
+  |Hệ thống|
+  :STT → văn bản,
+  chuẩn hóa thuật ngữ;
+  if (Độ tin cậy < ngưỡng?) then (có)
+    |Sinh viên|
+    :Xem & chỉnh nhỏ
+    bản chép lời;
+  else (không)
+  endif
+else (văn bản)
+  |Sinh viên|
+  :Gõ lời giảng
+  (ghi nhận sự kiện dán);
+endif
+|Hệ thống|
+:Kiểm tra an toàn
+đầu vào (Guard);
+if (Jailbreak / lạc đề?) then (có)
+  :Gắn cờ vi phạm;
+  :AI phản hồi trung lập,
+  nhắc quay lại chủ đề;
+else (không)
+endif
+:Lưu lượt giảng;
+:(C) Sang vòng phản biện;
+stop
+@enduml

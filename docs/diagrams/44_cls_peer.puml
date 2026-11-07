@@ -1,0 +1,64 @@
+' Hình 4.35. Biểu đồ lớp phân tích (4) – Bản đồ nhiệt và ghép cặp
+@startuml cls_peer
+!include common.iuml
+skinparam nodesep 40
+skinparam ranksep 50
+title Biểu đồ lớp phân tích (4) – Bản đồ nhiệt và ghép cặp
+class ClassSection <<tham chiếu>>
+class ConceptNode <<tham chiếu>>
+class Student <<tham chiếu>>
+class TeachingSession <<tham chiếu>>
+class ClassNodeStat {
+  - id : UUID
+  - enrolledCount : Integer
+  - attemptedCount : Integer
+  - passedCount : Integer
+  - attemptedRate : Float
+  - passRate : Float
+  - avgAttempts : Float
+  - color : HeatColor
+  - topMisconceptions : JSON
+  - rootCauseScore : Float
+  - updatedAt : DateTime
+  + recompute()
+  + classify(thresholds) : HeatColor
+}
+class MatchingRound {
+  - id : UUID
+  - triggerType : TriggerType
+  - algorithm : String
+  - participantCount : Integer
+  - totalWeight : Float
+  - createdAt : DateTime
+  + run() : PeerMatch[*]
+}
+class PeerMatch {
+  - id : UUID
+  - weight : Float
+  - status : MatchStatus
+  - acceptedByA : Boolean
+  - acceptedByB : Boolean
+  - expiresAt : DateTime
+  + accept(s : Student)
+  + decline(s : Student)
+  + markStudied(s : Student)
+  + refreshVerification()
+}
+class PeerMatchItem {
+  - id : UUID
+  - verified : Boolean
+  - verifiedAt : DateTime
+}
+ClassSection "1" *-- "0..*" ClassNodeStat
+ClassNodeStat "0..*" --> "1" ConceptNode : thống kê cho
+ClassNodeStat "0..*" --> "0..1" ConceptNode : rootCauseNode
+ClassSection "1" *-- "0..*" MatchingRound
+MatchingRound "1" *-- "0..*" PeerMatch
+PeerMatch "0..*" --> "1" Student : studentA
+PeerMatch "0..*" --> "1" Student : studentB
+PeerMatch "1" *-- "1..*" PeerMatchItem
+PeerMatchItem "0..*" --> "1" Student : teacher
+PeerMatchItem "0..*" --> "1" Student : learner
+PeerMatchItem "0..*" --> "1" ConceptNode : node
+TeachingSession "0..*" --> "0..1" PeerMatchItem : xác nhận lại
+@enduml

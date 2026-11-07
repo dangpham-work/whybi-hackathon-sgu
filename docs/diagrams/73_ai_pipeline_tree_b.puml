@@ -1,0 +1,38 @@
+' Hình 6.2. Pipeline trích xuất cây kỹ năng (b): suy luận tiên quyết, hậu xử lý và sinh rubric
+@startuml ai_pipeline_tree_b
+!include common.iuml
+skinparam ActivityFontSize 11
+title Pipeline trích xuất cây kỹ năng (b): suy luận tiên quyết, hậu xử lý và sinh rubric
+start
+:(P) Danh sách khái niệm đã gộp trùng;
+partition "③ SUY LUẬN QUAN HỆ TIÊN QUYẾT" {
+  :Sinh cặp ứng viên (A, B):
+  - A xuất hiện trước B
+  - hoặc B nhắc tới A
+  - hoặc tương đồng cao;
+  :LLM phán đoán "A cần cho B?"
+  + độ tin cậy 0–1;
+  :Giữ cạnh có độ tin cậy ≥ 0,6;
+}
+partition "④ HẬU XỬ LÝ ĐỒ THỊ" {
+  while (Còn chu trình? (DFS)) is (có)
+    :Bỏ cạnh có độ tin cậy
+    thấp nhất trong chu trình;
+  endwhile (không)
+  :Rút gọn bắc cầu
+  (bỏ A→C nếu có A→B→C);
+  :Xếp tầng theo thứ tự topo,
+  tính tọa độ hiển thị;
+}
+partition "⑤ SINH RUBRIC" {
+  :Truy hồi top-k đoạn giáo trình
+  của từng nút (RAG);
+  :LLM sinh: ý chính bắt buộc,
+  quan niệm sai, tình huống
+  phản biện, mức Bloom;
+  :Gắn trích dẫn (chunk_id, trang);
+}
+:Lưu phiên bản cây ở trạng thái
+Bản nháp để GV duyệt;
+stop
+@enduml

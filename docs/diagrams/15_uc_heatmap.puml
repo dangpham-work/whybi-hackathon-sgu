@@ -1,0 +1,39 @@
+' Hình 4.6. Use Case phân rã – Theo dõi lớp học (bản đồ nhiệt)
+@startuml uc_heatmap
+!include common.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 12
+skinparam ranksep 60
+skinparam UsecaseFontSize 11
+title Use Case phân rã – Theo dõi lớp học (Bản đồ nhiệt)
+actor "Giảng viên" as GV
+rectangle "Phân hệ Bản đồ nhiệt lớp học" {
+  usecase "UC10 Xem bản đồ nhiệt lớp" as UC10
+  usecase "Chế độ dạng cây\n(màu theo tỉ lệ đạt)" as UC10a
+  usecase "Chế độ lưới SV × Nút\n(hiển thị tên SV)" as UC10b
+  usecase "Lọc theo trạng thái / nhóm /\ntìm theo tên" as UC10c
+  usecase "Trình chiếu toàn màn hình\ntrên lớp" as UC10d
+  usecase "UC11 Xem chi tiết nút &\nđiểm nghẽn gốc" as UC11
+  usecase "Xem danh sách SV theo trạng thái" as UC11a
+  usecase "Xem quan niệm sai phổ biến" as UC11b
+  usecase "Xem gợi ý nút gốc cần giảng lại" as UC11c
+  usecase "UC12 Xem hồ sơ năng lực SV" as UC12
+  usecase "UC13 Xem lại transcript phiên\n(nghe lại ghi âm)" as UC13
+  usecase "UC14 Cấu hình ngưỡng\n(màu, điểm Đạt, số câu phản biện)" as UC14
+  usecase "UC16 Xuất báo cáo lớp\n(CSV / PDF)" as UC16
+}
+GV --> UC10
+GV --> UC11
+GV --> UC12
+GV --> UC14
+GV --> UC16
+UC10a .up.> UC10 : <<extend>>
+UC10b .up.> UC10 : <<extend>>
+UC10c .up.> UC10 : <<extend>>
+UC10d .up.> UC10 : <<extend>>
+UC11 ..> UC11a : <<include>>
+UC11b .up.> UC11 : <<extend>>
+UC11c .up.> UC11 : <<extend>>
+UC13 .up.> UC12 : <<extend>>
+@enduml

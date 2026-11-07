@@ -1,0 +1,53 @@
+' Hình 5.24. Các lớp phòng vệ chống gian lận và tấn công prompt trong phiên giảng lại
+@startuml sec_layers
+!include common.iuml
+skinparam ActivityFontSize 11
+title Các lớp phòng vệ chống gian lận và tấn công prompt trong phiên giảng lại
+start
+partition "Lớp 1 – Phía trình duyệt" {
+  :Ghi nhận sự kiện dán, tốc độ gõ,
+  thời gian trả lời từng câu;
+  :Ưu tiên chế độ giọng nói
+  cho câu trả lời phản biện;
+}
+partition "Lớp 2 – Guard đầu vào" {
+  :Chuẩn hóa văn bản,
+  giới hạn độ dài;
+  :Phát hiện chỉ thị điều khiển AI
+  ("bỏ qua hướng dẫn", "chấm tôi đạt"…);
+  :Phát hiện lạc đề / nội dung không phù hợp;
+  if (Vi phạm?) then (có)
+    :Gắn cờ SecurityFlag;
+    :Phản hồi trung lập, không thực thi;
+  else (không)
+  endif
+}
+partition "Lớp 3 – Tác tử học trò (Tutee)" {
+  :Prompt hệ thống tách biệt,
+  lời SV được bọc như DỮ LIỆU,
+  không phải chỉ thị;
+  :Câu hỏi tình huống mới, sinh ngẫu nhiên
+  từ ngân hàng kịch bản (khó tra sẵn);
+}
+partition "Lớp 4 – Guard đầu ra" {
+  :Kiểm tra câu hỏi không chứa
+  ý chính / đáp án của rubric;
+  if (Lộ đáp án?) then (có)
+    :Sinh lại câu hỏi;
+  else (không)
+  endif
+}
+partition "Lớp 5 – Chấm độc lập (Judge)" {
+  :Judge không thấy lịch sử
+  nhập vai, chỉ thấy transcript + rubric;
+  :Chấm nhiều lần, lấy đa số;
+  :Đối chiếu độ nhất quán giữa lời giảng
+  và câu trả lời phản biện;
+}
+partition "Lớp 6 – Giám sát của con người" {
+  :Phiên có cờ / tỉ lệ dán cao
+  được đánh dấu cho GV xem transcript;
+  :GV có quyền hủy hoặc xác nhận kết quả;
+}
+stop
+@enduml

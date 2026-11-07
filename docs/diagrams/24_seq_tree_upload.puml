@@ -1,0 +1,29 @@
+' Hình 4.15. Biểu đồ tuần tự – Tải giáo trình lên (UC05)
+@startuml seq_tree_upload
+!include common.iuml
+autonumber "<b>00"
+hide footbox
+skinparam maxMessageSize 170
+title Tuần tự – Tải giáo trình lên (UC05)
+actor "Giảng viên" as GV
+participant "Web App" as UI
+participant "Syllabus\nService" as SS
+database "Object\nStorage" as OS
+database "PostgreSQL" as DB
+queue "Hàng đợi\n(Redis)" as Q
+GV -> UI : Chọn tệp,\nnhấn "Tạo cây"
+UI -> SS : POST /classes/{id}/syllabi\n(multipart)
+SS -> SS : kiểm tra định dạng,\ndung lượng, mã độc
+alt tệp không hợp lệ
+  SS --> UI : 422 INVALID_FILE
+  UI --> GV : Thông báo lỗi
+else hợp lệ
+  SS -> OS : lưu tệp gốc
+  OS --> SS : fileUrl
+  SS -> DB : INSERT syllabus_document\n(UPLOADED)
+  SS -> Q : enqueue(parse_and_extract,\ndocId)
+  SS --> UI : 202 Accepted {jobId}
+  UI -> UI : mở WebSocket\ntheo dõi tiến độ
+  UI --> GV : Thanh tiến độ\n"Đang phân tích…"
+end
+@enduml

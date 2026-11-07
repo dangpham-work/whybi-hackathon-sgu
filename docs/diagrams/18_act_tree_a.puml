@@ -1,0 +1,51 @@
+' Hình 4.9. Biểu đồ hoạt động – Sinh cây kỹ năng tự động (a)
+@startuml act_tree_a
+!include common.iuml
+skinparam ActivityFontSize 11
+title Hoạt động – Sinh cây kỹ năng tự động (a)
+|Giảng viên|
+start
+:Nhấn "Tạo cây kỹ năng",
+chọn tệp giáo trình;
+|Hệ thống|
+if (PDF/DOCX và ≤ 20 MB?) then (hợp lệ)
+else (không)
+  :Báo lỗi định dạng
+  / dung lượng;
+  stop
+endif
+:Lưu tệp (UPLOADED), đưa
+tác vụ vào hàng đợi;
+:Trích xuất văn bản;
+if (Bản quét (ít văn bản)?) then (có)
+  :OCR tiếng Việt;
+else (không)
+endif
+:Nhận diện chương / mục,
+chia đoạn, embedding;
+|AI (LLM)|
+repeat
+  :Trích xuất khái niệm
+  của chương i
+  (JSON theo schema);
+repeat while (Còn chương?) is (còn) not (hết)
+:Gộp khái niệm
+trùng / gần nghĩa;
+:Suy luận quan hệ
+tiên quyết + độ tin cậy;
+|Hệ thống|
+:Dựng đồ thị có hướng;
+while (Có chu trình?) is (có)
+  :Bỏ cạnh có độ tin cậy
+  thấp nhất trong chu trình;
+endwhile (không)
+:Rút gọn bắc cầu,
+tính bố cục phân tầng;
+|AI (LLM)|
+:Sinh rubric từng nút,
+kèm trích dẫn giáo trình;
+|Hệ thống|
+:Lưu Bản nháp, thông báo GV
+→ (B) bước duyệt;
+stop
+@enduml

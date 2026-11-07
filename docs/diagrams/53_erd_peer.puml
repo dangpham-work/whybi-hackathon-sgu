@@ -1,0 +1,101 @@
+' Hình 5.7. ERD chi tiết (4) – Thống kê bản đồ nhiệt, ghép cặp, cấu hình và nhật ký
+@startuml erd_peer
+!include common.iuml
+hide circle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+title ERD chi tiết (4) – Thống kê bản đồ nhiệt, ghép cặp, cấu hình và nhật ký
+entity "class_sections" as class_sections <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "concept_nodes" as concept_nodes <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "students" as students <<tham chiếu>> {
+  * user_id : uuid <<PK>>
+}
+entity "teaching_sessions" as teaching_sessions <<tham chiếu>> {
+  * id : uuid <<PK>>
+}
+entity "class_node_stats" as class_node_stats {
+  * id : uuid <<PK>>
+  --
+  * class_id : uuid <<FK>>
+  * node_id : uuid <<FK>>
+  * enrolled_count : int
+  * attempted_count : int
+  * passed_count : int
+  pass_rate : real
+  avg_attempts : real
+  * color : varchar(8)
+  top_misconceptions : jsonb
+  root_cause_node_id : uuid <<FK>>
+  root_cause_score : real
+  * updated_at : timestamptz
+  UQ(class_id, node_id)
+}
+entity "matching_rounds" as matching_rounds {
+  * id : uuid <<PK>>
+  --
+  * class_id : uuid <<FK>>
+  * trigger_type : varchar(12)
+  triggered_by : uuid <<FK>>
+  * algorithm : varchar(24)
+  participant_count : int
+  total_weight : real
+  * created_at : timestamptz
+}
+entity "peer_matches" as peer_matches {
+  * id : uuid <<PK>>
+  --
+  * round_id : uuid <<FK>>
+  * student_a_id : uuid <<FK>>
+  * student_b_id : uuid <<FK>>
+  * weight : real
+  * status : varchar(24)
+  * accepted_by_a : boolean
+  * accepted_by_b : boolean
+  * expires_at : timestamptz
+  * created_at : timestamptz
+}
+entity "peer_match_items" as peer_match_items {
+  * id : uuid <<PK>>
+  --
+  * match_id : uuid <<FK>>
+  * teacher_id : uuid <<FK>>
+  * learner_id : uuid <<FK>>
+  * node_id : uuid <<FK>>
+  * verified : boolean
+  verified_at : timestamptz
+}
+entity "ai_provider_configs" as ai_provider_configs {
+  * id : uuid <<PK>>
+  --
+  * kind : varchar(8)  -- LLM/STT/TTS
+  * provider : varchar(40)
+  * model : varchar(80)
+  params : jsonb
+  quota : jsonb
+  * is_active : boolean
+}
+entity "audit_logs" as audit_logs {
+  * id : bigserial <<PK>>
+  --
+  user_id : uuid <<FK>>
+  * action : varchar(40)
+  * entity : varchar(40)
+  entity_id : uuid
+  payload : jsonb
+  * created_at : timestamptz
+}
+class_sections ||--o{ class_node_stats
+concept_nodes ||--o{ class_node_stats
+class_sections ||--o{ matching_rounds
+matching_rounds ||--o{ peer_matches
+students ||--o{ peer_matches
+peer_matches ||--|{ peer_match_items
+concept_nodes ||--o{ peer_match_items
+students ||--o{ peer_match_items
+peer_match_items |o--o{ teaching_sessions
+@enduml

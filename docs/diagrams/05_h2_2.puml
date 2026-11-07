@@ -1,0 +1,41 @@
+' Hình 2.2. Ví dụ đồ thị tiên quyết (DAG) cho môn Cấu trúc dữ liệu và Giải thuật
+@startuml h2_2
+!include common.iuml
+skinparam nodesep 35
+skinparam ranksep 45
+title Ví dụ đồ thị tiên quyết (DAG) – môn Cấu trúc dữ liệu & Giải thuật
+rectangle "N1\nBiến, kiểu dữ liệu\n& bộ nhớ" as N1
+rectangle "N2\nMảng" as N2
+rectangle "N3\nHàm & tham số" as N3
+rectangle "N4\nĐệ quy" as N4
+rectangle "N5\nCon trỏ" as N5
+rectangle "N6\nCấp phát động\n(malloc/free, new/delete)" as N6
+rectangle "N7\nDanh sách liên kết" as N7
+rectangle "N8\nNgăn xếp & Hàng đợi" as N8
+rectangle "N9\nCây nhị phân" as N9
+rectangle "N10\nCây nhị phân tìm kiếm (BST)" as N10
+rectangle "N11\nCây AVL" as N11
+N1 --> N2
+N1 --> N3
+N1 --> N5
+N3 --> N4
+N3 --> N5
+N5 --> N6
+N6 --> N7
+N2 --> N8
+N7 --> N8
+N7 --> N9
+N4 --> N9
+N9 --> N10
+N10 --> N11
+note right of N11
+  <b>Quy ước:</b> mũi tên X → Y nghĩa là
+  "phải hiểu X trước khi học Y".
+  <b>Một thứ tự topo hợp lệ:</b>
+  N1, N2, N3, N4, N5, N6, N7, N8, N9, N10, N11
+  <b>Nút gốc</b> (không có tiên quyết): N1
+  → mở sẵn cho SV ngay khi phát hành.
+  <b>Biên</b> của SV đã đạt {N1, N3, N5}:
+  {N2, N4, N6} (đủ tiên quyết, chưa đạt).
+end note
+@enduml
