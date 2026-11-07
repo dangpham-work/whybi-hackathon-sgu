@@ -1,0 +1,33 @@
+# CD – build và triển khai lên VM qua SSH khi merge main (C2-04, mục 5.7).
+# Cần secrets: VM_HOST, VM_USER, VM_SSH_KEY. Trên VM: repo đã clone ở ~/whybi-ai và có file .env.
+# Chưa cấu hình secrets thì job tự bỏ qua.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - name: Kiểm tra secrets
+        id: check
+        env:
+          HOST: ${{ secrets.VM_HOST }}
+        run: echo "ready=$([ -n "$HOST" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Triển khai qua SSH
+        if: steps.check.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd ~/whybi-ai
+            git fetch --all && git reset --hard origin/main
+            docker compose up -d --build
+            docker image prune -f
+            curl -fsS http://localhost/health

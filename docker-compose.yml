@@ -1,6 +1,9 @@
 # Whybi AI – Docker Compose theo Bảng 5.15 của đề cương (chủ sở hữu: Long / C2-03)
 #   docker compose up -d --build          # 7 dịch vụ chính
 #   docker compose --profile stt up -d    # thêm faster-whisper tự host (tùy chọn)
+#   docker compose up -d --build --wait   # chờ tới khi mọi dịch vụ healthy (máy mới, CI)
+# Cổng host đổi được qua biến môi trường khi máy đã bận cổng (NGINX_PORT, API_PORT, POSTGRES_PORT, REDIS_PORT,
+# MINIO_PORT, MINIO_CONSOLE_PORT, STT_PORT). Trong mạng compose các dịch vụ luôn gọi nhau bằng cổng container.
 name: whybi
 
 # api, worker, beat dùng chung một image: chỉ api build, hai dịch vụ còn lại dùng lại (tránh build 3 lần).
@@ -20,7 +23,7 @@ x-backend: &backend
     redis:
       condition: service_healthy
     minio:
-      condition: service_started
+      condition: service_healthy
   restart: unless-stopped
 
 services:
@@ -29,10 +32,16 @@ services:
       context: .
       dockerfile: nginx/Dockerfile
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
       # - "443:443"   # bật khi có chứng chỉ TLS trên VM (C2-04)
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   api:
@@ -43,7 +52,7 @@ services:
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers"
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
       interval: 10s
@@ -65,7 +74,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whybi}
       POSTGRES_DB: ${POSTGRES_DB:-whybi}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -78,7 +87,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -95,17 +104,22 @@ services:
       RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-whybi-minio-secret}
       RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "9000:9000"
-      - "9001:9001"   # console
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"   # console
     volumes:
       - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   stt:
     profiles: ["stt"]
     image: fedirz/faster-whisper-server:latest-cpu
     ports:
-      - "9100:8000"
+      - "${STT_PORT:-9100}:8000"   # trong mạng compose: http://stt:8000
     restart: unless-stopped
 
 volumes:
