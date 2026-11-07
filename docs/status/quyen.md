@@ -94,3 +94,13 @@
 - Đã hoàn tất merge do pull đang dở và giữ các thay đổi của cộng tác viên trên remote KT-08.
 - Sửa get_settings dùng mặc định 3 câu khi model ClassSection chưa có challenge_count; nếu thuộc tính đã có thì giữ giá trị cấu hình. Thêm hai ca hồi quy cho cả hai dạng model.
 - Tiếp tục theo dõi GitHub CI đến khi backend/E2E/Docker pass; không chạy test local. Không xử lý KT-12 vì người khác đang phụ trách.
+## Tình trạng các thẻ KT còn mở (cập nhật 2026-11-08)
+
+- **PR đã mở, chờ merge:** KT-08 (#135), KT-09 (#159), KT-10 (#160), KT-11 (#161), KT-02 (#164), KT-13 (#165). Bản draft chờ các thẻ cùng đợt: KT-14 (#166, cần KT-08), KT-16 (#167, cần route `GET /sessions/{id}`), KT-17 (#168). KT-15 (#54) nằm chung commit với KT-14.
+- **CI:** backend của các PR trên chỉ đỏ đúng 3 test `tests/unit/test_admin_db.py` về hạn mức phút ghi âm; bản sửa ở PR #170 (Closes #145). Sau khi #170 vào main thì chạy lại CI.
+- **Test đánh dấu xfail strict / `test.fail`** (tự đỏ khi lỗi được sửa, lúc đó người sửa bỏ dấu):
+  - Long (C2): `services/mastery.py` `my_map` gọi `_tree()` trước `_require_enrolled` nên SV ngoài lớp thấy 404 `TREE_NOT_PUBLISHED` thay vì 403; API lớp chưa trả `enrollmentId` cho SV (công tắc peer-opt-in).
+  - Đăng (C1): lời gọi Judge trong `session_orchestrator.py` thiếu `pass_threshold` nên ngưỡng GV đặt bị bỏ qua (FR-HM-08); `POST /nodes/{id}/rubric/regenerate` còn 501 `C1-11`; chưa có `GET /sessions/{id}`.
+  - Thắng (GD): `SV07.tsx` gắn cứng `disabled` cho công tắc tham gia ghép cặp; nút Chấp nhận/Từ chối không hiện ở trạng thái `WAITING_OTHER`.
+- Các bản sửa Quyền từng viết trong code của người khác (`reserve_audio`, nối regenerate, `pass_threshold`) đã gỡ khỏi PR; chủ file đưa vào bằng PR riêng, nội dung còn trong lịch sử nhánh KT-09/KT-10/KT-11.
+- Chưa có số liệu đo thật cho KT-09/10/11/13; không ghi kết quả giả lập thành kết quả thực nghiệm.
