@@ -51,3 +51,9 @@
 - Test đỏ: endpoint 501 thay vì kiểm phiên. Sau sửa nhóm audio_api/audio_db/speech có 71 passed trên Postgres riêng; Ruff xanh.
 - Tái dùng cách lấy nút hiện có của orchestrator; không sửa schema, quota C2-18 hoặc dịch vụ của Long. Không merge.
 - Chưa chứng minh p95 STT thật với ghi âm 60 giây; service hiện kiểm thời lượng WAV, định dạng nén chỉ kiểm chữ ký/dung lượng. Giữ PR draft cho tới khi hoàn tất phần kiểm chứng này.
+
+## C1-14 – nối TTS cho câu hỏi (#14)
+
+- Chỉ phát Question.audioUrl khi bật ttsEnabled, gồm opening, câu tiếp và câu hỏi lại khi Guard chặn; endpoint audio kiểm chủ phiên và chỉ đọc lượt Tutee, cache private.
+- Bổ sung 2 hồi quy hỏi lại; đã kiểm mutation bỏ audioUrl khiến test đỏ. Nhóm audio/speech/TTS/schema/orchestrator có 158 passed trên Postgres riêng; Ruff check/format và diff-check xanh.
+- PR xếp trên nhánh C1-12; cần review C1-12 trước. Không sửa model, migration, cấu hình C2 hoặc timer; không merge.
