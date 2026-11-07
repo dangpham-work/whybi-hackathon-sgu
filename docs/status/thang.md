@@ -69,3 +69,12 @@
   - Long: danh sách môn cho GV (`GET /admin/courses` chỉ QTV) thì mới làm được nút "Tạo lớp học phần" ở GV-01; chưa làm nút này.
   - Chưa có API đọc trạng thái giáo trình đã tải: tải lại trang giữa chừng thì GV-03 không khôi phục được thanh tiến độ.
   - Phần Figma chưa làm: hoạt động gần đây, cảnh báo điểm nghẽn gốc (cần C2-13), thống kê ghép cặp ở GV-02.
+
+## GD-08 – SV-05, SV-06 (2026-10-24)
+
+- Xong: SV-05 bảng xác nhận bản chép lời hiện trong phiên khi `Transcript.needsConfirmation` (gạch chân `lowConfidenceWords`, cho sửa nhỏ,
+  sửa > 20% số từ thì chặn gửi và bảo ghi âm lại, gửi `transcriptEdited`); `/sv/sessions/:id/transcript` chuyển về phiên.
+  SV-06 kết quả: đủ 5 tiêu chí, điều làm tốt, gợi ý ôn, trang giáo trình, cờ dán; gặp 409 `RESULT_NOT_READY` thì tự hỏi lại mỗi 3 giây. Test: `src/test/gd08.test.tsx`.
+- Cần từ người khác:
+  - Đăng (C1-12): gợi ý sửa thuật ngữ ("phờ ri" → free()) ở Figma SV-05 cần API trả gợi ý; chưa làm nút "Áp dụng".
+  - SV-06: Figma có "Lượt thứ 2" và "Vượt 3/4 câu phản biện"; `SessionResult` chưa có hai trường này nên chưa hiện.

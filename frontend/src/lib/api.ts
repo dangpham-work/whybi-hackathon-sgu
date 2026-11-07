@@ -42,6 +42,7 @@ export const FRIENDLY: Record<string, string> = {
   // Phiên giảng lại (C1-07, GD-07)
   SESSION_NOT_FOUND: "Không tìm thấy phiên giảng này.",
   SESSION_NOT_ACTIVE: "Phiên này đã kết thúc – bạn không gửi thêm được. Hãy xem kết quả hoặc bắt đầu phiên mới.",
+  RESULT_NOT_READY: "Whybi vẫn đang chấm lời giảng của bạn, vui lòng chờ một chút.",
   TOKEN_BUDGET_EXCEEDED: "Phiên đã dùng hết lượt trao đổi với Whybi. Hãy bắt đầu phiên mới.",
 };
 
