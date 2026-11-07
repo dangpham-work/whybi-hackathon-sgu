@@ -88,3 +88,13 @@
 - Sinh lại `src/lib/api-types.ts` từ OpenAPI hiện tại của backend (bản cũ thiếu các trường C2-13); không có lỗi kiểu ở màn cũ.
 - Cần từ Long (C2-13): `NodeDetail.topMisconceptions` là `list[dict]` – màn đang đọc `content` / `count`; xin chốt tên trường. Payload `heatmap.cell|node` không có trong OpenAPI nên frontend tự khai báo kiểu (khớp `schemas/mastery.py`).
 - Chưa làm: tab "Điểm nghẽn", "Ghép cặp", danh sách "Đang diễn ra", nút "Nhắc SV thử lại", "Xuất danh sách" (cần API); ẩn tên khi chiếu, lọc, xuất báo cáo thuộc GD-14 / GD-16.
+
+## GD-11 – GV-09, SV-07 (2026-10-24)
+
+- Xong: GV-09 chạy vòng ghép cặp (có chọn nút ưu tiên), danh sách cặp (A/B, nút dạy–học, trọng số, trạng thái), thống kê `matching-stats`;
+  SV-07 liệt kê gợi ý với tên nút từ `my-map`, hạn còn lại (BR-09), chấp nhận / từ chối / "Đã học cùng", nút "Giảng lại … để xác nhận" mở phiên có `peerMatchItemId`.
+  Test: `src/test/gd11.test.tsx`. Sinh lại `api-types.ts` từ OpenAPI hiện tại (trùng bản ở PR GD-10).
+- Cần từ Long (C2-14):
+  - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
+  - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
+- Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.

@@ -6,9 +6,6 @@ HỢP ĐỒNG (C1-07) – JSON camelCase, lỗi {"error": {code, message, detail
     · 409 NODE_LOCKED, details = NodeLockedDetails {nodeId, state: LOCKED, missingPrerequisites: key[]}
     · 409 NODE_ALREADY_MASTERED, details = NodeAlreadyMasteredDetails {nodeId, state: MASTERED} (mã C2-10)
     (chỉ bắt đầu khi ô ở AVAILABLE / NOT_PASSED / NEEDS_REVERIFY).
-- POST /sessions/{id}/audio (SV chủ phiên, C1-12) multipart file + consent → 200 Transcript.
-    Lỗi như /turns; 413 AUDIO_TOO_LARGE / AUDIO_TOO_LONG · 415 UNSUPPORTED_AUDIO_FORMAT · 422 EMPTY_AUDIO /
-    NO_SPEECH_DETECTED · 503 STT_UNAVAILABLE / AUDIO_STORE_UNAVAILABLE.
 - POST /sessions/{id}/turns (SV chủ phiên) body Turn → 200 TurnReply.
     Lượt đầu là lời giảng, sau đó là câu trả lời.
     Guard chặn ⇒ question = câu đang hỏi (hỏi lại), kèm notice trung lập và flags.
@@ -38,7 +35,6 @@ from app.models.schemas.session import (
     SessionCreated,
     SessionResult,
     SessionStart,
-    SessionState,
     Transcript,
     Turn,
     TurnReply,
@@ -51,6 +47,14 @@ router = APIRouter(tags=["sessions"])
 
 def get_orchestrator(db: Session = Depends(get_db)) -> SessionOrchestrator:
     return SessionOrchestrator(db)
+
+
+def get_speech_service() -> SpeechService:
+    return SpeechService()
+
+
+def get_tts_service() -> TtsService:
+    return TtsService()
 
 
 class NodeLockedErrorBody(ApiModel):
@@ -102,20 +106,7 @@ def start_session(
     return orch.start_session(user.id, body)
 
 
-_AUDIO_ERRORS = {
-    **_SESSION_ERRORS,
-    413: {"model": ErrorResponse, "description": "AUDIO_TOO_LARGE (> 12 MB) · AUDIO_TOO_LONG (> 3 phút)"},
-    415: {"model": ErrorResponse, "description": "UNSUPPORTED_AUDIO_FORMAT – chỉ webm, ogg, wav, mp3, m4a"},
-    422: {"model": ErrorResponse, "description": "EMPTY_AUDIO · NO_SPEECH_DETECTED · VALIDATION_ERROR"},
-    503: {"model": ErrorResponse, "description": "STT_UNAVAILABLE · AUDIO_STORE_UNAVAILABLE"},
-}
-
-
-def get_speech_service() -> SpeechService:
-    return SpeechService()
-
-
-@router.post("/sessions/{session_id}/audio", response_model=Transcript, responses=_AUDIO_ERRORS)
+@router.post("/sessions/{session_id}/audio", response_model=Transcript, responses=_SESSION_ERRORS)
 def upload_audio(
     session_id: UUID,
     file: UploadFile = File(...),
@@ -124,24 +115,19 @@ def upload_audio(
     orch: SessionOrchestrator = Depends(get_orchestrator),
     speech: SpeechService = Depends(get_speech_service),
 ) -> Transcript:
-    """Ghi âm ≤ 3 phút (multipart: `file`, `consent`) → STT tiếng Việt, chuẩn hóa thuật ngữ theo nút, độ tin cậy
-    từng từ (FR-TB-05…07). `consent=true` (BR-13) mới lưu ghi âm vào MinIO, `audioRef = "s3://audio/…"`;
-    không đồng ý ⇒ không lưu, `audioRef = "unsaved:<uuid>"`. Gửi lượt: POST /turns với inputMode=VOICE, audioRef."""
+    """Transcribe the owner's active session; save recording only with consent (BR-13)."""
     node = orch.audio_node(user.id, session_id)
-    audio = file.file.read(MAX_AUDIO_BYTES + 1)  # đọc tối đa giới hạn + 1 byte, không nạp tệp khổng lồ vào RAM
+    audio = file.file.read(MAX_AUDIO_BYTES + 1)
     return speech.transcribe(audio, node, session_id=session_id, consent=consent)
-
-
-def get_tts_service() -> TtsService:
-    return TtsService()
 
 
 @router.get(
     "/sessions/{session_id}/turns/{turn_no}/tts",
     responses={
-        200: {"content": {"audio/mpeg": {}, "audio/wav": {}}, "description": "Giọng đọc câu hỏi"},
-        **_SESSION_ERRORS,
-        503: {"model": ErrorResponse, "description": "TTS_UNAVAILABLE – phiên vẫn chạy, đọc bằng chữ"},
+        200: {"content": {"audio/mpeg": {}, "audio/wav": {}}, "description": "Question audio"},
+        403: _SESSION_ERRORS[403],
+        404: {"model": ErrorResponse, "description": "SESSION_NOT_FOUND / TTS_NOT_ENABLED / TURN_NOT_FOUND"},
+        503: {"model": ErrorResponse, "description": "TTS_UNAVAILABLE"},
     },
 )
 def question_audio(
@@ -151,26 +137,10 @@ def question_audio(
     orch: SessionOrchestrator = Depends(get_orchestrator),
     tts: TtsService = Depends(get_tts_service),
 ) -> Response:
-    """Đọc to câu hỏi của Tutee (FR-TB-10): địa chỉ này nằm ở `Question.audioUrl` khi SV bật `ttsEnabled`.
-    Tổng hợp lần đầu rồi lưu đệm; cần Bearer như mọi API (client tải blob rồi phát)."""
+    """Read a question for the session owner; synthesize on first playback, then cache."""
     text = orch.question_text_for_tts(user.id, session_id, turn_no)
     audio, content_type = tts.audio_for(session_id, turn_no, text)
     return Response(audio, media_type=content_type, headers={"Cache-Control": "private, max-age=3600"})
-
-
-@router.get(
-    "/sessions/{session_id}",
-    response_model=SessionState,
-    responses={k: v for k, v in _SESSION_ERRORS.items() if k != 409},
-)
-def get_session(
-    session_id: UUID,
-    user: CurrentUser = Student,
-    orch: SessionOrchestrator = Depends(get_orchestrator),
-) -> SessionState:
-    """Khôi phục màn SV-04 sau khi tải lại trang: hội thoại đã có, câu Tutee đang chờ (hạn, audioUrl), tiến độ.
-    Chỉ SV chủ phiên (người khác ⇒ 403); phiên đã kết thúc vẫn xem được (question = null)."""
-    return orch.get_state(user.id, session_id)
 
 
 @router.post("/sessions/{session_id}/turns", response_model=TurnReply, responses=_SESSION_ERRORS)

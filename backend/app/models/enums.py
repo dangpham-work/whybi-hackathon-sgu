@@ -90,11 +90,11 @@ class HeatColor(StrEnum):
 
 
 class HeatSample(StrEnum):
-    """Sample sufficiency for heatmap classification (C2-11)."""
+    """Đủ mẫu để kết luận màu chưa (FR-HM-04: tách "chưa đủ mẫu / chưa thử" khỏi "chưa đạt") – C2-11."""
 
-    NO_ATTEMPT = "NO_ATTEMPT"
-    INSUFFICIENT = "INSUFFICIENT"
-    SUFFICIENT = "SUFFICIENT"
+    NO_ATTEMPT = "NO_ATTEMPT"  # chưa SV nào thử
+    INSUFFICIENT = "INSUFFICIENT"  # 0 < số đã thử < cỡ mẫu tối thiểu ⇒ XÁM
+    SUFFICIENT = "SUFFICIENT"  # đủ mẫu ⇒ XANH / VÀNG / ĐỎ theo p(n)
 
 
 class MatchStatus(StrEnum):

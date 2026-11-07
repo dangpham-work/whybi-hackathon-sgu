@@ -45,10 +45,15 @@
 
 - C1-06: port Guard từ whybi-ai@b40440d: mở rộng luật injection, cờ GUARD_UNCHECKED khi LLM sập, kiểm câu dự phòng. Kèm ngưỡng dán/tốc độ gõ là phụ thuộc của Guard nguồn; chưa nối orchestrator C1-08. Local 394 passed, 14 skipped; chờ CI và Long duyệt enum/config.
 
-## C1-09 – hoàn thiện phần nối xử lý giáo trình sau port (#9)
+## C1-12 – nối API giọng nói sau port (#12)
 
-- Bổ sung DocumentRef, pages_key, SyllabusProcessingRepo và kiểm chủ job; jobId trả từ upload bằng documentId để kênh tiến độ xác thực đúng tài liệu.
-- Giữ khóa dòng + populate_existing và không ghi đè PARSED khi job giao lại/lỗi đến muộn; mark_failed rollback trước ghi.
-- Test hồi quy đỏ xác nhận jobId lệch documentId/JOB_NOT_FOUND; sau sửa PostgreSQL riêng có 82 passed, 2 skipped (Tesseract thật, MinIO thật); realtime job có 4 passed. Ruff check/format và diff-check xanh.
-- Không thay worker, schema, model, migration hay realtime. Không merge.
-- Cần Long: class challenge_count (C2-17) và helper tra nút của SkillTreeService để hoàn thiện tiếp pipeline C1-10/11; ngoài phạm vi còn lỗi heatmap nodeKey trong test_realtime_ws.
+- POST /sessions/{id}/audio đã gọi SpeechService, kiểm chủ phiên/trạng thái trước STT, đọc tối đa MAX_AUDIO_BYTES + 1 và truyền consent; không đồng ý thì không lưu ghi âm.
+- Test đỏ: endpoint 501 thay vì kiểm phiên. Sau sửa nhóm audio_api/audio_db/speech có 71 passed trên Postgres riêng; Ruff xanh.
+- Tái dùng cách lấy nút hiện có của orchestrator; không sửa schema, quota C2-18 hoặc dịch vụ của Long. Không merge.
+- Chưa chứng minh p95 STT thật với ghi âm 60 giây; service hiện kiểm thời lượng WAV, định dạng nén chỉ kiểm chữ ký/dung lượng. Giữ PR draft cho tới khi hoàn tất phần kiểm chứng này.
+
+## C1-14 – nối TTS cho câu hỏi (#14)
+
+- Chỉ phát Question.audioUrl khi bật ttsEnabled, gồm opening, câu tiếp và câu hỏi lại khi Guard chặn; endpoint audio kiểm chủ phiên và chỉ đọc lượt Tutee, cache private.
+- Bổ sung 2 hồi quy hỏi lại; đã kiểm mutation bỏ audioUrl khiến test đỏ. Nhóm audio/speech/TTS/schema/orchestrator có 158 passed trên Postgres riêng; Ruff check/format và diff-check xanh.
+- PR xếp trên nhánh C1-12; cần review C1-12 trước. Không sửa model, migration, cấu hình C2 hoặc timer; không merge.

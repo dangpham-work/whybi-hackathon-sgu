@@ -1,24 +1,21 @@
-"""KT-08: settings must work before the per-class challenge-count migration is ported."""
+"""KT-08: cấu hình lớp trả đúng số câu phản biện GV đặt (cột challenge_count đã có trên main)."""
 
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
-import pytest
-
 from app.services.classes import ClassService
 
 
-@pytest.mark.parametrize("configured", [False, True])
-def test_challenge_count_supports_current_and_extended_class_models(configured):
-    section = SimpleNamespace(pass_threshold=80, color_thresholds={"green": 0.8, "yellow": 0.4}, min_sample=5)
-    if configured:
-        section.challenge_count = 5
+def test_cau_hinh_lop_tra_so_cau_phan_bien_da_dat():
+    section = SimpleNamespace(
+        pass_threshold=80, color_thresholds={"green": 0.8, "yellow": 0.4}, min_sample=5, challenge_count=5
+    )
     database = Mock()
     database.get.return_value = section
 
     settings = ClassService(database).get_settings(uuid4())
 
-    assert settings.challenge_count == (5 if configured else 3)
+    assert settings.challenge_count == 5
     assert settings.pass_threshold == 80
     assert settings.green_threshold == 0.8

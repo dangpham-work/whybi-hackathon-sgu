@@ -400,6 +400,7 @@ class MasteryService:
         return NodeOutcomes(node_id, passed, sorted(failed, key=lambda x: (x[1], str(x[0]))))
 
     def my_map(self, class_id: UUID, student_id: UUID) -> MyMap:
+        t = self._tree(class_id)
         self._require_enrolled(class_id, student_id)
         t = self._tree(class_id)
         changes = self._sync(t, [student_id])

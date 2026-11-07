@@ -29,23 +29,17 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     openai_compat_base_url: str = ""
     openai_compat_api_key: str = ""
-    openai_compat_json_mode: Literal["json_schema", "json_object"] = "json_schema"
     llm_session_token_budget: int = 20_000
-    llm_timeout_s: float = 30  # timeout mỗi lời gọi (C1-02)
-    llm_max_retries: int = 2  # thử lại khi JSON hỏng / sai schema
-    llm_transient_retries: int = 1  # thử lại khi lỗi tạm thời (timeout, 429, 5xx) trước khi chuyển dự phòng
-    llm_cache_size: int = 256  # số kết quả cache trong bộ nhớ; 0 = tắt
+    paste_ratio_threshold: float = 0.6
+    paste_min_chars: int = 120
+    typing_cps_max: float = 20.0
+    llm_timeout_s: float = 30
+    llm_max_retries: int = 2
+    llm_transient_retries: int = 1
+    llm_cache_size: int = 256
     llm_embedding_model: str = "gemini-embedding-001"
+    openai_compat_json_mode: Literal["json_schema", "json_object"] = "json_schema"
     embedding_dim: int = 768
-
-    # Chống dán lời giải – FR-TB-04, FR-TB-14, AT04 (C1-08). Chỉ gắn cờ PASTE_SUSPECTED, không chặn lượt.
-    paste_ratio_threshold: float = 0.6  # tỉ lệ ký tự đến từ sự kiện dán ≥ ngưỡng ⇒ bất thường
-    paste_min_chars: int = 120  # đoạn ngắn hơn không xét (dán vài chữ là bình thường)
-    typing_cps_max: float = 20.0  # > 20 ký tự/giây (~240 từ/phút) vượt tốc độ gõ người ⇒ bất thường
-
-    # Hạn trả lời mỗi câu phản biện – FR-TB-11 (C1-15). Câu mở đầu (SV tự giảng) không có hạn.
-    answer_time_limit_s: int = 120
-    answer_grace_s: int = 10  # thời gian trễ mạng được châm chước khi đối chiếu hạn ở máy chủ
 
     # Giọng nói – mục 6.4
     stt_provider: str = "cloud"

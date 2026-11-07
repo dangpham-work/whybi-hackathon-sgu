@@ -283,13 +283,6 @@ class SkillTreeService:
             self.db.scalars(select(orm.SkillTree.class_id).where(orm.SkillTree.published_version_id.is_not(None)))
         )
 
-    def node_keys(self, node_ids: list[UUID]) -> dict[UUID, str]:
-        """id nút → key (mọi phiên bản) – lời gọi nội bộ (MatchingService), không kiểm quyền."""
-        if not node_ids:
-            return {}
-        rows = self.db.execute(select(orm.ConceptNode.id, orm.ConceptNode.key).where(orm.ConceptNode.id.in_(node_ids)))
-        return {nid: key for nid, key in rows}
-
     def statuses_for(self, class_ids: list[UUID]) -> dict[UUID, str]:
         """Trạng thái cây theo lớp cho danh sách lớp (C2-08).
         Đã phát hành ⇒ PUBLISHED; chưa ⇒ trạng thái phiên bản mới nhất; chưa có cây ⇒ không có khóa."""
@@ -325,17 +318,6 @@ class SkillTreeService:
             raise AppError(404, "VERSION_NOT_FOUND", "Không tìm thấy phiên bản cây")
         tree = self.db.get(orm.SkillTree, v.tree_id)
         return self._to_schema(v, tree.class_id)
-
-    def get_node_for_session(self, node_id: UUID) -> tuple[UUID, Node]:
-        """(class_id, Node kèm rubric) của nút – lời gọi nội bộ (SessionOrchestrator, #102), không kiểm quyền."""
-        n = self.db.get(orm.ConceptNode, node_id)
-        if n is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        tv = self.version_schema(n.version_id)
-        node = next((x for x in tv.nodes if x.id == node_id), None)
-        if node is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        return tv.class_id, node
 
     def _seed_tree(self) -> TreeVersion:
         return load_seed_tree().model_copy(deep=True)
@@ -698,3 +680,6 @@ class SkillTreeService:
 
         MasteryService(self.db).init_or_migrate(tree.class_id, v.id)
         return self._to_schema(v, tree.class_id)
+
+    def build_draft_tree(self, document_id):
+        raise NotImplementedError("C1-10")
