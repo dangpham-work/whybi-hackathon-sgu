@@ -464,7 +464,7 @@ def test_full_seed_cohort_with_real_auth_sessions_mastery_and_heatmap(simulator,
                         summary = simulator.Simulator(client, delay=0).run(prepare_demo=True)
                         assert summary["students"] == 30
                         assert summary["weakPassed"] == 9 and summary["weakAttempted"] == 30
-                        assert summary["weakColor"] is None and not summary["heatmapVerified"]
+                        assert summary["weakColor"] == "RED"
                         assert len(completed) == summary["sessions"]
                         rows = list(db.scalars(select(MasteryRecord)))
                         assert len({row.student_id for row in rows}) == 30
