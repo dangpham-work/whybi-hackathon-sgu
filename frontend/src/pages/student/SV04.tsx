@@ -5,6 +5,7 @@ import { DevelopingBox, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { Logo } from "../../components/Logo";
 import { Recorder } from "../../components/Recorder";
+import { TranscriptConfirm } from "../../components/TranscriptConfirm";
 import { ApiError, apiCall, errorText, type Schema } from "../../lib/api";
 import { createTypingMeter } from "../../lib/typing-meter";
 import { useChannel } from "../../lib/ws";
@@ -51,6 +52,7 @@ export default function TeachingSession() {
   );
   const [status, setStatus] = useState<SessionStatus>(initial.status ?? "EXPLAINING");
   const [progress, setProgress] = useState<{ asked: number; total: number }>({ asked: 0, total: 0 });
+  const [pending, setPending] = useState<{ transcript: Schema<"Transcript">; audioUrl: string }>();
   const [mode, setMode] = useState<InputMode>(initial.inputMode ?? (canRecord() ? "VOICE" : "TEXT"));
   const [consented, setConsented] = useState(false);
   // Recorder gửi bản ghi từ callback onstop dựng trước lúc đồng ý ⇒ đọc consent qua ref, không qua closure cũ.
@@ -136,7 +138,12 @@ export default function TeachingSession() {
       setBusy(false);
       throw e;
     }
-    // TODO(GD-08): transcript.needsConfirmation → SV-05 xác nhận bản chép lời trước khi gửi (FR-TB-06, 07)
+    if (transcript.needsConfirmation) {
+      // SV-05: dừng lại cho SV kiểm tra bản chép lời trước khi gửi (FR-TB-06, 07)
+      setPending({ transcript, audioUrl: URL.createObjectURL(audio) });
+      setBusy(false);
+      return;
+    }
     await postTurn({
       inputMode: "VOICE",
       text: transcript.text,
@@ -144,6 +151,18 @@ export default function TeachingSession() {
       sttConfidence: transcript.confidence,
       transcriptEdited: false,
     });
+  }
+
+  function closePending() {
+    if (pending?.audioUrl) URL.revokeObjectURL(pending.audioUrl);
+    setPending(undefined);
+  }
+
+  async function confirmPending(text: string, edited: boolean) {
+    if (!pending) return;
+    const { transcript } = pending;
+    closePending();
+    await postTurn({ inputMode: "VOICE", text, audioRef: transcript.audioRef, sttConfidence: transcript.confidence, transcriptEdited: edited }).catch(() => {});
   }
 
   return (
@@ -173,6 +192,9 @@ export default function TeachingSession() {
       <section aria-label="Khung trả lời" className="sticky bottom-16 space-y-3 border-t border-line-soft bg-surface px-4 py-3">
         {failure !== undefined && <FailureBox failure={failure} />}
 
+        {pending && (
+          <TranscriptConfirm transcript={pending.transcript} audioUrl={pending.audioUrl} busy={busy} onConfirm={confirmPending} onRetry={closePending} onCancel={closePending} />
+        )}
         {live ? (
           <>
             <ModeTabs mode={mode} onChange={setMode} />
