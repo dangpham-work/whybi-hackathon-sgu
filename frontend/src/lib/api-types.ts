@@ -1318,6 +1318,10 @@ export interface components {
             studentCount: number;
             /** Treestatus */
             treeStatus?: string | null;
+            /** Enrollmentid */
+            enrollmentId?: string | null;
+            /** Peeroptin */
+            peerOptIn?: boolean | null;
         };
         /**
          * ClassSettings

@@ -1,30 +1,37 @@
-import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, TriangleAlert } from "lucide-react";
+import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, Timer, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useLocation, useParams } from "react-router";
-import { DevelopingBox, ErrorBox } from "../../components/AsyncView";
+import { DevelopingBox, ErrorBox, LoadingBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { Logo } from "../../components/Logo";
 import { Recorder } from "../../components/Recorder";
 import { TranscriptConfirm } from "../../components/TranscriptConfirm";
-import { ApiError, apiCall, errorText, type Schema } from "../../lib/api";
+import { ApiError, apiCall, errorText, FRIENDLY, type Schema } from "../../lib/api";
+import { fetchAudioUrl } from "../../lib/audio";
+import { mmss, useCountdown } from "../../lib/countdown";
 import { createTypingMeter } from "../../lib/typing-meter";
+import { useApi } from "../../lib/useApi";
 import { useChannel } from "../../lib/ws";
 
 type Question = Schema<"Question">;
 type InputMode = Schema<"InputMode">;
 type SessionStatus = Schema<"SessionStatus">;
 type Turn = Schema<"Turn">;
+type SessionTurnView = Schema<"SessionTurnView">;
 
 /**
  * Dữ liệu SV-03 truyền sang khi bấm "Bắt đầu giảng" (GD-06):
  *   navigate(`/sv/sessions/${created.sessionId}`, { state: { opening: created.opening, nodeTitle, inputMode } })
- * Chưa có GET /sessions/{id} nên tải lại trang sẽ mất câu mở đầu – màn chờ câu hỏi qua kênh session:{id}.
+ * Đây chỉ là dữ liệu hiện ngay cho nhanh: khi mở trang (kể cả tải lại) màn luôn gọi GET /sessions/{id} (C1-18, bug #153)
+ * để lấy hội thoại, câu đang chờ kèm hạn, tiến độ và giai đoạn từ máy chủ; tên nút chỉ có ở đây (SessionState không trả).
  */
 export interface SessionLocationState {
   opening?: Question;
   nodeTitle?: string;
   inputMode?: InputMode;
   status?: SessionStatus;
+  /** SV bật đọc câu hỏi từ lúc bắt đầu (SessionStart.ttsEnabled). */
+  ttsEnabled?: boolean;
 }
 
 type Message = { id: number; from: "tutee"; text: string } | { id: number; from: "student"; text: string; mode: InputMode } | { id: number; from: "notice"; text: string };
@@ -37,6 +44,13 @@ const OPENING_WAIT_MS = 6_000; // chờ câu mở đầu qua WebSocket tối đa
 function lastIndexOf(list: Message[], from: Message["from"]) {
   for (let i = list.length - 1; i >= 0; i--) if (list[i].from === from) return i;
   return -1;
+}
+
+/** Một lượt đã lưu trên máy chủ → bong bóng hội thoại. */
+function toMessage(t: SessionTurnView, id: number): Message {
+  if (t.turnType === "SYSTEM_NOTICE") return { id, from: "notice", text: t.text };
+  if (t.speaker === "TUTEE") return { id, from: "tutee", text: t.text };
+  return { id, from: "student", text: t.text, mode: t.inputMode };
 }
 
 const canRecord = () => typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
@@ -64,18 +78,50 @@ export default function TeachingSession() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>();
   const askedAt = useRef(Date.now());
+  const [deadline, setDeadline] = useState<string | null>(initial.opening?.deadline ?? null);
+  const [tts, setTts] = useState(initial.ttsEnabled ?? false);
+  const ttsRef = useRef(tts);
+  ttsRef.current = tts;
+  const audioCleanup = useRef<(() => void) | undefined>(undefined);
+  const audioRequest = useRef(0);
+  const lastAudioUrl = useRef<string | undefined>(undefined);
+  const stopSpeech = useCallback(() => {
+    audioRequest.current++;
+    audioCleanup.current?.();
+    audioCleanup.current = undefined;
+  }, []);
+
+  // Khôi phục phiên từ máy chủ khi mở trang (bug #153): F5 giữa phản biện không mất hội thoại, hạn trả lời, tiến độ.
+  const restore = useApi((signal) => apiCall("get", "/sessions/{session_id}", { path: { session_id: sessionId }, signal }), [sessionId]);
+  // SV đã gửi lượt ở màn này thì không ghi đè hội thoại bằng bản tải về muộn (bản đó cũ hơn).
+  const touched = useRef(false);
+  useEffect(() => {
+    const s = restore.data;
+    if (!s || touched.current) return;
+    setMessages(s.turns.map((t) => toMessage(t, nextId.current++)));
+    setStatus(s.status);
+    setProgress({ asked: s.questionsAsked, total: s.questionsTotal });
+    // Thời gian trả lời tính từ lúc SV thấy lại câu hỏi; hạn thật vẫn do máy chủ giữ (deadline).
+    askedAt.current = Date.now();
+    setDeadline(s.question?.deadline ?? null);
+    if (initial.ttsEnabled === undefined) setTts(s.ttsEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restore.data]);
+  const restoring = restore.status === "loading" && !restore.data;
 
   const turnType: Turn["turnType"] = status === "CHALLENGING" ? "ANSWER" : "EXPLANATION";
   const live = LIVE.includes(status);
   const noQuestion = live && !messages.some((m) => m.from === "tutee");
-  // Tải lại trang thì mất câu mở đầu (chưa có GET /sessions/{id}); chờ kênh session:{id} một lúc rồi mở khóa ô trả lời.
+  // Đang tải phiên mà chưa có gì để hiện ⇒ khóa ô trả lời; tải xong vẫn chưa có câu hỏi (câu mở đầu còn đang sinh)
+  // hoặc tải lỗi ⇒ chờ kênh session:{id} một lúc rồi mở khóa ô trả lời.
+  const loadingBlank = restoring && messages.length === 0;
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
-    if (!noQuestion) return;
+    if (!noQuestion || restoring) return;
     const t = setTimeout(() => setGaveUp(true), OPENING_WAIT_MS);
     return () => clearTimeout(t);
-  }, [noQuestion]);
-  const waiting = noQuestion && !gaveUp;
+  }, [noQuestion, restoring]);
+  const waiting = (noQuestion && !gaveUp && !restoring) || loadingBlank;
 
   /** Thêm câu hỏi của Whybi, bỏ trùng (cùng câu có thể tới từ TurnReply và từ WebSocket). */
   const addQuestion = useCallback((q: Question) => {
@@ -86,14 +132,72 @@ export default function TeachingSession() {
       return [...list, { id: nextId.current++, from: "tutee", text: q.text }];
     });
     askedAt.current = Date.now();
+    setDeadline(q.deadline ?? null);
+    if (ttsRef.current && q.audioUrl && lastAudioUrl.current !== q.audioUrl) {
+      lastAudioUrl.current = q.audioUrl;
+      void speak(q.audioUrl);
+    }
   }, []);
+
+  /** Đọc câu hỏi (FR-TB-10): tải âm thanh bằng token rồi phát; lỗi thì bỏ qua, phiên vẫn chạy bình thường. */
+  async function speak(audioUrl: string) {
+    stopSpeech();
+    const request = audioRequest.current;
+    let release: (() => void) | undefined;
+    try {
+      const url = await fetchAudioUrl(audioUrl);
+      if (!ttsRef.current || request !== audioRequest.current) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      let released = false;
+      let el: HTMLAudioElement | undefined;
+      release = () => {
+        if (released) return;
+        released = true;
+        el?.pause();
+        URL.revokeObjectURL(url);
+      };
+      audioCleanup.current = release;
+      el = new Audio(url);
+      el.onended = release;
+      el.onerror = release;
+      await el.play();
+    } catch {
+      release?.();
+      /* TTS hỏng không được làm hỏng phiên */
+    }
+  }
+  useEffect(() => {
+    if (!tts) stopSpeech();
+    return stopSpeech;
+  }, [tts, stopSpeech]);
 
   useChannel(sessionId ? `session:${sessionId}` : null, (e) => {
     if (e.event === "session.question" && e.payload && typeof (e.payload as Question).text === "string") addQuestion(e.payload as Question);
   });
 
+  function applyReply(reply: Schema<"TurnReply">) {
+    if (reply.notice) setMessages((list) => [...list, { id: nextId.current++, from: "notice", text: reply.notice! }]);
+    setStatus(reply.status);
+    setProgress({ asked: reply.questionsAsked, total: reply.questionsTotal });
+    if (reply.question) addQuestion(reply.question);
+    else setDeadline(null);
+  }
+
+  /** Hết giờ trả lời: báo máy chủ tính câu này là chưa trả lời và sang câu kế (FR-TB-11). */
+  const seconds = useCountdown(deadline);
+  const timedOut = useRef<string | null>(null);
+  useEffect(() => {
+    if (seconds !== 0 || !deadline || timedOut.current === deadline || !live || busy) return;
+    timedOut.current = deadline; // mỗi câu chỉ báo một lần
+    apiCall("post", "/sessions/{session_id}/timeout", { path: { session_id: sessionId } }).then(applyReply, setFailure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seconds, deadline, busy, live, sessionId]);
+
   /** Gửi một lượt; ném lỗi lại để ô gõ / Recorder giữ nội dung cho lần gửi lại. */
   async function postTurn(turn: Omit<Turn, "turnType" | "responseTimeMs">) {
+    touched.current = true;
     setBusy(true);
     setFailure(undefined);
     const responseTimeMs = Math.max(0, Date.now() - askedAt.current);
@@ -105,10 +209,7 @@ export default function TeachingSession() {
         path: { session_id: sessionId },
         body: { ...turn, turnType, responseTimeMs },
       });
-      if (reply.notice) setMessages((list) => [...list, { id: nextId.current++, from: "notice", text: reply.notice! }]);
-      setStatus(reply.status);
-      setProgress({ asked: reply.questionsAsked, total: reply.questionsTotal });
-      if (reply.question) addQuestion(reply.question);
+      applyReply(reply);
     } catch (err) {
       setMessages((list) => list.filter((m) => m.id !== mine)); // gửi hỏng → bỏ bong bóng, nội dung còn ở ô gõ / Recorder
       setFailure(err);
@@ -170,11 +271,30 @@ export default function TeachingSession() {
       <header className="space-y-2 bg-ink-900 px-4 py-3 text-white">
         <p className="caps text-ink-300">Giảng cho Whybi</p>
         <h1 className="text-h2 font-bold">{initial.nodeTitle ?? "Phiên giảng lại"}</h1>
-        {progress.total > 0 && <Progress asked={progress.asked} total={progress.total} />}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {progress.total > 0 ? <Progress asked={progress.asked} total={progress.total} /> : <span />}
+          <div className="flex items-center gap-2">
+            {live && seconds !== null && (
+              <span role="timer" aria-label={`Còn ${seconds} giây để trả lời`} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-body-s font-bold ${seconds <= 15 ? "bg-red-600 text-white" : "bg-ink-700 text-white"}`}>
+                <Timer aria-hidden size={14} /> {mmss(seconds)}
+              </span>
+            )}
+            <button
+              type="button"
+              aria-pressed={tts}
+              onClick={() => setTts((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-full bg-ink-700 px-3 py-1 text-body-s font-semibold text-white"
+            >
+              {tts ? <Volume2 aria-hidden size={14} /> : <VolumeX aria-hidden size={14} />} {tts ? "Đang đọc câu hỏi" : "Đọc câu hỏi"}
+            </button>
+          </div>
+        </div>
       </header>
 
       <section role="log" aria-label="Hội thoại với Whybi" aria-live="polite" className="flex-1 space-y-4 px-4 py-4">
-        {waiting && (
+        {loadingBlank && <LoadingBox text="Đang tải lại phiên…" />}
+        {restore.status === "error" && <RestoreError error={restore.error} onRetry={restore.reload} />}
+        {waiting && !loadingBlank && (
           <p role="status" className="flex items-center gap-2 text-body-m text-ink-500">
             <LoaderCircle aria-hidden size={16} className="animate-spin text-teal" /> Whybi đang chuẩn bị câu hỏi…
           </p>
@@ -226,12 +346,19 @@ export default function TeachingSession() {
   );
 }
 
-/** Lỗi riêng: STT trả bản chép lời rỗng. */
+/** Không tải được trạng thái phiên: báo rõ, cho thử lại; màn vẫn dùng dữ liệu đang có (location state / WebSocket). */
+function RestoreError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  if (error instanceof ApiError && error.notImplemented) return <DevelopingBox text={error.message} />;
+  if (error instanceof ApiError && error.status === 401) return <ErrorBox text={error.message} loginAgain />;
+  return <ErrorBox text={`Chưa tải lại được phiên: ${errorText(error)}`} onRetry={onRetry} />;
+}
+
+/** Lỗi riêng: STT trả 200 nhưng bản chép lời rỗng (backend thường trả 422 NO_SPEECH_DETECTED – cùng câu, xem FRIENDLY). */
 class NoSpeech extends Error {}
 
 function FailureBox({ failure }: { failure: unknown }) {
   if (failure instanceof ApiError && failure.notImplemented) return <DevelopingBox text={failure.message} />;
-  if (failure instanceof NoSpeech) return <ErrorBox text="Whybi chưa nghe rõ lời bạn. Hãy ghi lại gần micro hơn, hoặc gõ chữ." />;
+  if (failure instanceof NoSpeech) return <ErrorBox text={FRIENDLY.NO_SPEECH_DETECTED} />;
   return <ErrorBox text={errorText(failure)} />;
 }
 

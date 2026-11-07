@@ -119,6 +119,14 @@ describe("RealtimeClient (GD-02)", () => {
     expect(FakeSocket.all).toHaveLength(1);
   });
 
+  it("môi trường đã bị hủy (không còn location): hẹn nối lại không ném lỗi chưa xử lý", () => {
+    const rt = new RealtimeClient(() => "tok", { WebSocketImpl: FakeSocket as unknown as typeof WebSocket });
+    vi.stubGlobal("location", undefined); // test kết thúc, jsdom bị hủy trong lúc timer nối lại còn treo
+    expect(() => rt.connect()).not.toThrow();
+    expect(FakeSocket.all).toHaveLength(0);
+    vi.unstubAllGlobals();
+  });
+
   it("trạng thái kết nối cho giao diện hiện 'mất kết nối'", () => {
     const rt = make();
     const states: string[] = [];

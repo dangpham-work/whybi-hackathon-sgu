@@ -47,7 +47,12 @@ describe("SV-03 Chi tiết nút (GD-06, FR-TB-02)", () => {
   });
 
   it("không có rubric thì không tự khẳng định ngưỡng Đạt", async () => {
-    mockApi({ [MAP]: ok(myMap()) });
+    const data = myMap();
+    data.tree = {
+      ...data.tree,
+      nodes: data.tree.nodes.map((n) => (n.key === "n1_bien_bo_nho" ? { ...n, rubric: null } : n)),
+    };
+    mockApi({ [MAP]: ok(data) });
     open("n1_bien_bo_nho");
     const state = await screen.findByRole("region", { name: "Trạng thái nút" });
     expect(within(state).queryByText("70")).toBeNull();

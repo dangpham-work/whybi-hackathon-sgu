@@ -38,6 +38,8 @@ export class RealtimeClient {
   connect() {
     this.stopped = false;
     clearTimeout(this.timer);
+    // Môi trường đã bị hủy (test kết thúc / không có trình duyệt) mà timer nối lại còn treo: không có location để dựng URL.
+    if (!this.opts.url && typeof location === "undefined") return;
     const Impl = this.opts.WebSocketImpl ?? WebSocket;
     this.setStatus(this.retry > 0 ? "reconnecting" : "connecting");
     const ws = new Impl(this.opts.url ?? defaultUrl());

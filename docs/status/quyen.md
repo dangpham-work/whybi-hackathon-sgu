@@ -23,6 +23,12 @@
 - Workflow riêng chạy 30 phiên fake trên GitHub, lưu artifact kt12-tutee-simulation gồm hội thoại, provenance, summary và nhãn null chờ chấm độc lập.
 - Không tự điền nhãn không lộ đáp án; chưa đo chất lượng model thật, không ghi số liệu simulation thành kết quả thực nghiệm. Còn cần model thật và người chấm.
 - Không test local; theo Quyền, PR thường và đóng #51 khi toàn bộ check CI pass. Không xác nhận CD/VM.
+## KT-09 – MX1 và bộ đo cây
+
+- C1-11 và GD-09 đã merge. Chuyển test/evaluator từ whybi-ai@779779f và ba tài liệu fixture tổng hợp từ seed của repo gốc, không phải giáo trình dùng nghiệm thu.
+- Test pipeline trên Postgres: upload PDF/DOCX/scan, worker, DAG/rubric, duyệt/phát hành và phục hồi lỗi. Nối endpoint regenerate vào service C1-11 đã có và khôi phục node_for_edit tương ứng; không giả lập quyền sở hữu.
+- Công cụ đo P/R/F1 giữ ánh xạ một-một và bằng chứng chờ GV duyệt. Chưa dùng số liệu cũ hoặc fake để báo chất lượng model thật.
+- Không test local; PR thường, đóng #48 khi toàn bộ checks GitHub pass theo Quyền. Chưa xác nhận CD/VM.
 ## KT-04 – bộ dữ liệu và kiểm schema
 
 - Đã chuyển từ nguồn `whybi-ai` tại `f88c288`: 58 ca Guard, 62 lời giảng nháp AI, 30 mục manifest STT và 3 cây chuẩn.
@@ -31,6 +37,12 @@
 - Giữ ba ca hồi quy luật Guard AT01/AT02/AT07; test với LLM giả luôn VALID không đại diện cho hiệu quả của toàn bộ corpus mới. KT-07 phải đo toàn bộ ca với Guard thật, không coi test đơn vị xanh là đạt mục tiêu 90%.
 - Cần: người gán nhãn độc lập cho 62 lời giảng; 30 file ghi âm có đồng ý sử dụng; GV xác nhận cây chuẩn và giáo trình đi kèm.
 - Chờ CI của PR KT-04 và Long duyệt; Đăng rà thay đổi giới hạn test Guard về các ca hồi quy ban đầu. Không đổi code Guard hoặc kết quả đánh giá thực nghiệm.
+## KT-10 – giọng nói và bộ đo STT
+
+- C1-12 và GD-08 đã merge. Chuyển test/metrics/runner từ whybi-ai@3586904.
+- CI backend kiểm audio→transcript→lượt VOICE trên Postgres; Playwright kiểm ghi/dừng/ghi lại/gửi, lỗi STT, xác nhận khi confidence=0,65 và giới hạn 3 phút với microphone giả và HTTP có kịch bản.
+- Bộ đo giữ WER, thuật ngữ, độ trễ và provenance; chưa có 30 bản ghi người thật được đồng ý và xác nhận độc lập. Không dùng fixture hoặc provider fake làm số liệu chất lượng.
+- Không test local; PR thường, đóng #49 khi toàn bộ checks GitHub pass theo Quyền. Chưa xác nhận CD/VM.
 ## KT-05 – giả lập qua API phiên thật
 
 - Tiên quyết C1-01, C2-05 và API C1-07 (PR #119) đã merge. Script chuyển từ whybi-ai bcf5f1d.
@@ -39,9 +51,56 @@
 - Demo riêng: APP_ENV=dev, LLM_MODE=fake, DEMO_MODE=1; sau migration chạy seed_db.py, mastery_listener và simulate_students.py --serve-demo; gọi simulate_students.py --prepare-demo để nạp rubric minh họa và phát hành cây qua API GV. Chỉ dùng CSDL demo riêng; đây là dữ liệu giả lập, không phải kết quả đo AI.
 - C2-13 chưa merge: nếu heatmap trả đúng 501 NOT_IMPLEMENTED của C2-13, trả heatmapVerified=false và weakColor=null sau khi kiểm my-map đủ 30 SV. Mọi lỗi heatmap khác vẫn fail.
 - Test Postgres thật dùng schema/transaction riêng trong CI để xác nhận đủ 330 ô, 30 SV, phiên/evaluation hoàn tất và N5 9/21. Đang chờ CI trên PR; theo yêu cầu không chạy thêm test local.
+## KT-06 – kiểm thử MX2 qua stack CI
+
+- Tiên quyết C1-07 (#7, PR #119) và GD-07 (#63, PR #123) đã merge. Chuyển spec và bootstrap từ whybi-ai 9666a4c, giữ workflow E2E hiện tại có bắt lỗi.
+- Chạy desktop + mobile qua Playwright: đăng nhập thật, tạo lớp/cây/rubric và phát hành qua API GV, gửi lời giảng trên SV-04, đo paste/typing, 3–5 câu phản biện, đọc điểm 5 tiêu chí và kết quả; kiểm mở khóa qua my-map.
+- TC06: API từ chối nút khóa; TC08: jailbreak có cờ và không cộng điểm; TC09: hoàn tất và mở nút con; TC10 tương đương: điểm đủ nhưng thiếu ý bắt buộc vẫn FAILED theo BR-03.
+- GD-06/SV-03 chưa merge: tạo phiên qua API và truyền router state đúng hợp đồng của SV-04, không tuyên bố đã test luồng bấm từ bản đồ. GD-08/SV-06 chưa merge: xác nhận API kết quả và href, chưa kiểm giao diện kết quả. TC07 giọng nói/STT chờ C1-12 và GD-08.
+- Bootstrap chỉ tự seed stack Docker localhost với APP_ENV=dev|test, LLM_MODE=fake; khóa Postgres tránh seed đồng thời. Bản deploy test ngoài CI phải cung cấp KT06_COURSE_ID của môn đã seed.
+- Dữ liệu/lớp được tạo riêng cho mỗi ca; trace, screenshot và kết quả JSON trong artifact playwright-report. Chưa có bằng chứng trên VM thật. Không chạy test local; chờ GitHub CI và Long duyệt.
+- Lỗi tải lại SV-04 đã có issue #79; không đóng hoặc coi đã sửa trong KT-06.
+## KT-08 – bảo mật và phân quyền
+
+- C2-07 đã merge. Chuyển bộ test phù hợp API hiện tại từ whybi-ai@4d48966: JWT thật, Argon2id, ma trận vai trò viết tay và Postgres kiểm dữ liệu theo lớp/người.
+- C1-07 đã có: bỏ xfail cho kiểm quyền kết quả phiên và gửi lượt. Các endpoint C2-13/C2-17/C2-20/C1-12 chưa có vẫn xfail(strict=True) với lý do cụ thể, tự báo XPASS khi triển khai xong.
+- Sửa my_map kiểm ghi danh trước khi đọc cây, để SV ngoài lớp nhận 403 ngay cả khi cây chưa phát hành; cần Long rà thay đổi services/mastery.py.
+- Không test local. Theo Quyền, tạo PR thường; đóng #47 khi tất cả GitHub checks pass, không coi đây là xác nhận CD/VM.
+### KT-08 – bổ sung phụ thuộc xác thực WebSocket
+
+- CI PR #135 lỗi chung backend/E2E do main port realtime.py (C1-09) import user_from_token nhưng deps.py chưa có hàm này.
+- Lấy đúng deps.py từ whybi-ai@75145a4: HTTP và WebSocket dùng chung verified_claims và xử lý token không phải chuỗi bằng INVALID_TOKEN. Không kéo phần thu hồi theo user của C2-19 chưa có.
+- Theo Quyền: không test local và không chờ/chạy lại CI thủ công; sửa từ nguồn rồi push cùng PR. Chưa tuyên bố bản sửa đã pass CI.
+
+## KT-11 – MX3/MX4 và realtime
+
+- C2-13, C2-14, GD-10, GD-11 đã merge. Chuyển test backend/E2E từ whybi-ai@5a3eb84; không mang biên bản đo cũ sang.
+- Kiểm heatmap theo mẫu, truy vết gốc, ghép cặp 6.6.4, opt-in/từ chối/xác nhận lại và cập nhật nhất quán. Test realtime dùng Hub probe; E2E dùng nginx/API/Redis/Celery/WebSocket thật với LLM fake.
+- Orchestrator truyền pass_threshold của lớp vào Judge để ngưỡng 70/90 được áp đúng khi chấm, giữ các điều kiện BR-03 khác.
+- Chưa có video hay biên bản chạy demo thật của repo mới. Artifact CI giữ bằng chứng của test, không thay thế diễn tập 7 phút hoặc đo chất lượng AI.
+- Không test local; PR thường, đóng #50 khi toàn bộ checks GitHub pass theo Quyền. Không xử lý KT-08/KT-12 đang có người khác phụ trách.
 ## KT-07 – bộ chạy Guard và báo cáo CI
 
 - C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
 - CI chạy 58 kịch bản với Guard thật và FakeProvider, tạo artifact kt07-guard-report. --ci-smoke chỉ kiểm >=50 ca không lỗi; chất lượng vẫn có thể chưa đạt và được ghi rõ trong báo cáo.
 - Repo không có Actions secrets để chạy model thật. Chưa đo Đạt sai qua phiên; --judge hiện chấm trực tiếp, không đại diện toàn bộ C1-07. Dữ liệu còn cần rà độc lập. Giữ PR draft, chưa đóng #46 khi chưa đủ bằng chứng.
 - Không chạy test hoặc evaluation local theo yêu cầu. Long duyệt thay đổi workflow; chỉ chạy lại CI nếu có lỗi.
+
+
+- Cập nhật: tiếp tục kiểm GitHub CI đến khi pass theo yêu cầu mới; không chạy test local.
+
+### KT-08 – hoàn tất merge và sửa cấu hình phiên
+
+- Đã hoàn tất merge do pull đang dở và giữ các thay đổi của cộng tác viên trên remote KT-08.
+- Sửa get_settings dùng mặc định 3 câu khi model ClassSection chưa có challenge_count; nếu thuộc tính đã có thì giữ giá trị cấu hình. Thêm hai ca hồi quy cho cả hai dạng model.
+- Tiếp tục theo dõi GitHub CI đến khi backend/E2E/Docker pass; không chạy test local. Không xử lý KT-12 vì người khác đang phụ trách.
+## Tình trạng các thẻ KT còn mở (cập nhật 2026-11-08)
+
+- **PR đã mở, chờ merge:** KT-08 (#135), KT-09 (#159), KT-10 (#160), KT-11 (#161), KT-02 (#164), KT-13 (#165). Bản draft chờ các thẻ cùng đợt: KT-14 (#166, cần KT-08), KT-16 (#167, cần route `GET /sessions/{id}`), KT-17 (#168). KT-15 (#54) nằm chung commit với KT-14.
+- **CI:** backend của các PR trên chỉ đỏ đúng 3 test `tests/unit/test_admin_db.py` về hạn mức phút ghi âm; bản sửa ở PR #170 (Closes #145). Sau khi #170 vào main thì chạy lại CI.
+- **Test đánh dấu xfail strict / `test.fail`** (tự đỏ khi lỗi được sửa, lúc đó người sửa bỏ dấu):
+  - Long (C2): `services/mastery.py` `my_map` gọi `_tree()` trước `_require_enrolled` nên SV ngoài lớp thấy 404 `TREE_NOT_PUBLISHED` thay vì 403; API lớp chưa trả `enrollmentId` cho SV (công tắc peer-opt-in).
+  - Đăng (C1): lời gọi Judge trong `session_orchestrator.py` thiếu `pass_threshold` nên ngưỡng GV đặt bị bỏ qua (FR-HM-08); `POST /nodes/{id}/rubric/regenerate` còn 501 `C1-11`; chưa có `GET /sessions/{id}`.
+  - Thắng (GD): `SV07.tsx` gắn cứng `disabled` cho công tắc tham gia ghép cặp; nút Chấp nhận/Từ chối không hiện ở trạng thái `WAITING_OTHER`.
+- Các bản sửa Quyền từng viết trong code của người khác (`reserve_audio`, nối regenerate, `pass_threshold`) đã gỡ khỏi PR; chủ file đưa vào bằng PR riêng, nội dung còn trong lịch sử nhánh KT-09/KT-10/KT-11.
+- Chưa có số liệu đo thật cho KT-09/10/11/13; không ghi kết quả giả lập thành kết quả thực nghiệm.

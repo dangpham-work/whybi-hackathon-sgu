@@ -1,6 +1,8 @@
 # CD – build và triển khai lên VM qua SSH khi merge main (C2-04, mục 5.7).
 # Cần secrets: VM_HOST, VM_USER, VM_SSH_KEY. Trên VM: repo đã clone ở ~/whybi-ai và có file .env.
-# Chưa cấu hình secrets thì job tự bỏ qua.
+# Chưa cấu hình secrets thì job tự bỏ qua (có cảnh báo – KHÔNG có nghĩa là đã deploy).
+# Biến repo PUBLIC_URL (vd. https://whybi.example.com): đặt thì sau deploy kiểm thêm URL công khai trả /health.
+# Bật HTTPS trên VM: xem docker-compose.tls.yml.
 name: Deploy
 
 on:
@@ -17,7 +19,9 @@ jobs:
         id: check
         env:
           HOST: ${{ secrets.VM_HOST }}
-        run: echo "ready=$([ -n "$HOST" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -n "$HOST" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "::warning::Chưa có secret VM_HOST – bỏ qua deploy, chưa có gì được đưa lên VM"; fi
       - name: Triển khai qua SSH
         if: steps.check.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1.2.2
@@ -26,8 +30,12 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            set -e
             cd ~/whybi-ai
             git fetch --all && git reset --hard origin/main
-            docker compose up -d --build
+            docker compose up -d --build --wait --wait-timeout 300
             docker image prune -f
-            curl -fsS http://localhost/health
+            curl -fsS --retry 10 --retry-delay 3 --retry-all-errors http://localhost/health
+      - name: Kiểm tra URL công khai
+        if: steps.check.outputs.ready == 'true' && vars.PUBLIC_URL != ''
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "${{ vars.PUBLIC_URL }}/health"

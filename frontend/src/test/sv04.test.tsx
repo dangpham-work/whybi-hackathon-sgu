@@ -71,6 +71,27 @@ function open(state: unknown = { opening: OPENING, nodeTitle: "N5 – Con trỏ"
 const turnsKey = `POST /sessions/${SID}/turns`;
 const audioKey = `POST /sessions/${SID}/audio`;
 
+const getKey = `GET /sessions/${SID}`;
+const NOW = "2026-10-26T08:00:00Z";
+/** GET /sessions/{id} của phiên vừa mở: chỉ có câu mở đầu. */
+const FRESH = {
+  sessionId: SID,
+  nodeId: "7d3f1c2a-1111-4c55-9a43-0d1d3d2c9b11",
+  status: "EXPLAINING",
+  inputMode: "TEXT",
+  ttsEnabled: false,
+  turns: [{ turnNo: 1, speaker: "TUTEE", turnType: "OPENING", text: OPENING.text, inputMode: "TEXT", createdAt: NOW }],
+  question: OPENING,
+  questionsAsked: 0,
+  questionsTotal: 4,
+  startedAt: NOW,
+};
+/** Phiên chưa có câu hỏi nào (câu mở đầu còn đang tới qua WebSocket). */
+const EMPTY = { ...FRESH, status: "CREATED", turns: [], question: null, questionsTotal: 0 };
+
+/** Giả lập backend, mặc định GET /sessions/{id} trả phiên vừa mở. */
+const backend = (routes: Parameters<typeof mockApi>[0], state: unknown = FRESH) => mockApi({ [getKey]: ok(state), ...routes });
+
 beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeWS);
   auth.reset();
@@ -84,7 +105,7 @@ afterEach(() => {
 
 describe("SV-04 Phiên giảng lại (GD-07)", () => {
   it("hiện câu mở đầu của Whybi và tên nút", async () => {
-    mockApi({});
+    backend({});
     open();
     expect(await screen.findByText(OPENING.text)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "N5 – Con trỏ" })).toBeTruthy();
@@ -92,20 +113,21 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("chưa có câu mở đầu (tải lại trang) thì báo đang chờ Whybi", async () => {
-    mockApi({});
+    backend({}, EMPTY);
     open(null);
     expect(await screen.findByText(/Whybi đang chuẩn bị câu hỏi/)).toBeTruthy();
   });
 
   it("chờ câu mở đầu quá lâu thì mở khóa ô trả lời để SV giảng tiếp, không chờ vô hạn", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    mockApi({});
+    backend({}, EMPTY);
     stubMic();
     open(null);
     expect(await screen.findByText(/Whybi đang chuẩn bị câu hỏi/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Bắt đầu ghi âm" }) as HTMLButtonElement).disabled).toBe(true);
+    // đồng hồ chờ chỉ chạy sau khi GET /sessions/{id} xong ⇒ tiến giờ bất đồng bộ để effect kịp đặt hẹn giờ
     await act(async () => {
-      vi.advanceTimersByTime(8_000);
+      await vi.advanceTimersByTimeAsync(8_000);
     });
     expect(screen.queryByText(/Whybi đang chuẩn bị câu hỏi/)).toBeNull();
     expect(screen.getByText(/Bạn cứ giảng tiếp/)).toBeTruthy();
@@ -113,9 +135,11 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("câu hỏi tới qua kênh session:{id} thì hiện trong hội thoại", async () => {
-    mockApi({});
+    backend({}, EMPTY);
     open(null);
     await screen.findByText(/Whybi đang chuẩn bị câu hỏi/);
+    // Trang lazy có thể đã hiện chữ trước khi effect tạo socket và gắn handler.
+    await waitFor(() => expect(FakeWS.instances.at(-1)?.onmessage).toBeTypeOf("function"));
     act(() => {
       FakeWS.instances.at(-1)!.onmessage!({ data: JSON.stringify({ channel: `session:${SID}`, event: "session.question", payload: OPENING }) });
     });
@@ -124,7 +148,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("gửi một lượt bằng chữ kèm pasteRatio, typingCps, responseTimeMs; câu hỏi tiếp theo hiện ra", async () => {
-    const api = mockApi({ [turnsKey]: ok(REPLY) });
+    const api = backend({ [turnsKey]: ok(REPLY) });
     open();
     fireEvent.click(await screen.findByRole("tab", { name: /Văn bản/ }));
     const box = screen.getByRole("textbox", { name: /Lời giảng của bạn/ });
@@ -150,7 +174,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("câu hỏi tới qua WebSocket trước khi HTTP trả lời thì không hiện trùng, vẫn nằm sau lời giảng", async () => {
-    mockApi({
+    backend({
       [turnsKey]: () => {
         FakeWS.instances.at(-1)!.onmessage!({ data: JSON.stringify({ channel: `session:${SID}`, event: "session.question", payload: Q2 }) });
         return ok(REPLY);
@@ -159,6 +183,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
     open();
     fireEvent.click(await screen.findByRole("tab", { name: /Văn bản/ }));
     fireEvent.change(screen.getByRole("textbox", { name: /Lời giảng/ }), { target: { value: "lời giảng của mình" } });
+    await waitFor(() => expect(FakeWS.instances.at(-1)?.onmessage).toBeTypeOf("function"));
     fireEvent.click(screen.getByRole("button", { name: "Gửi lời giảng" }));
     await screen.findByText("Câu phản biện 1/4");
     expect(screen.getAllByText(Q2.text)).toHaveLength(1);
@@ -167,7 +192,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("lượt sau câu phản biện gửi turnType ANSWER", async () => {
-    const api = mockApi({ [turnsKey]: ok(REPLY) });
+    const api = backend({ [turnsKey]: ok(REPLY) });
     open();
     fireEvent.click(await screen.findByRole("tab", { name: /Văn bản/ }));
     fireEvent.change(screen.getByRole("textbox", { name: /Lời giảng/ }), { target: { value: "giảng" } });
@@ -180,7 +205,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("phiên đã kết thúc (409) thì báo lỗi dễ hiểu, giữ nguyên chữ đã gõ", async () => {
-    mockApi({ [turnsKey]: err(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc") });
+    backend({ [turnsKey]: err(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc") });
     open();
     fireEvent.click(await screen.findByRole("tab", { name: /Văn bản/ }));
     const box = screen.getByRole("textbox", { name: /Lời giảng/ });
@@ -191,7 +216,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
   });
 
   it("hết câu hỏi thì báo đang chấm và có đường sang kết quả", async () => {
-    mockApi({ [turnsKey]: ok({ status: "COMPLETED", question: null, questionsAsked: 4, questionsTotal: 4 }) });
+    backend({ [turnsKey]: ok({ status: "COMPLETED", question: null, questionsAsked: 4, questionsTotal: 4 }) });
     open();
     fireEvent.click(await screen.findByRole("tab", { name: /Văn bản/ }));
     fireEvent.change(screen.getByRole("textbox", { name: /Lời giảng/ }), { target: { value: "giảng" } });
@@ -201,9 +226,95 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
     expect(screen.queryByRole("tab", { name: /Văn bản/ })).toBeNull();
   });
 
+  describe("tải lại trang (bug #153)", () => {
+    const EXPLAIN = "Con trỏ là biến lưu địa chỉ ô nhớ";
+    const deadline = () => new Date(Date.now() + 75_000).toISOString();
+    const midChallenge = () => ({
+      ...FRESH,
+      status: "CHALLENGING",
+      turns: [
+        ...FRESH.turns,
+        { turnNo: 2, speaker: "STUDENT", turnType: "EXPLANATION", text: EXPLAIN, inputMode: "TEXT", createdAt: NOW },
+        { turnNo: 3, speaker: "TUTEE", turnType: "SYSTEM_NOTICE", text: "Câu trả lời trước đã hết giờ.", inputMode: "TEXT", createdAt: NOW },
+        { turnNo: 4, speaker: "TUTEE", turnType: "QUESTION", text: Q2.text, inputMode: "TEXT", createdAt: NOW },
+      ],
+      question: { ...Q2, deadline: deadline() },
+      questionsAsked: 2,
+      questionsTotal: 4,
+    });
+
+    it("mở trang không có location state thì tải GET /sessions/{id}: hội thoại, câu chờ, đồng hồ, tiến độ, giai đoạn ANSWER", async () => {
+      const api = backend({ [turnsKey]: ok(REPLY) }, midChallenge());
+      open(null);
+      expect(await screen.findByText(Q2.text)).toBeTruthy();
+      expect(api.called(getKey)).toHaveLength(1);
+      expect(screen.getByText(OPENING.text)).toBeTruthy();
+      expect(screen.getByText(EXPLAIN)).toBeTruthy();
+      expect(screen.getByText("Câu trả lời trước đã hết giờ.")).toBeTruthy();
+      expect(screen.getByText("Câu phản biện 2/4")).toBeTruthy();
+      expect(screen.getByRole("timer").getAttribute("aria-label")).toMatch(/^Còn (7[0-5]) giây để trả lời$/);
+      expect(screen.queryByText(/Whybi đang chuẩn bị câu hỏi/)).toBeNull();
+      // đúng giai đoạn: lượt kế là ANSWER, không quay về EXPLAINING
+      fireEvent.click(screen.getByRole("tab", { name: /Văn bản/ }));
+      fireEvent.change(screen.getByRole("textbox", { name: /Câu trả lời của bạn/ }), { target: { value: "trả lời" } });
+      fireEvent.click(screen.getByRole("button", { name: "Gửi câu trả lời" }));
+      await waitFor(() => expect(api.called(turnsKey)).toHaveLength(1));
+      expect(api.called(turnsKey)[0].body).toMatchObject({ turnType: "ANSWER", text: "trả lời" });
+    });
+
+    it("có location state (F5 giữ history.state) vẫn lấy hội thoại đầy đủ từ máy chủ", async () => {
+      backend({}, midChallenge());
+      open({ opening: OPENING, nodeTitle: "N5 – Con trỏ" });
+      expect(await screen.findByText(Q2.text)).toBeTruthy();
+      expect(screen.getAllByText(OPENING.text)).toHaveLength(1);
+      expect(screen.getByText("Câu phản biện 2/4")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "N5 – Con trỏ" })).toBeTruthy();
+    });
+
+    it("câu đang chờ tới lại qua WebSocket sau khi khôi phục thì không hiện trùng", async () => {
+      backend({}, midChallenge());
+      open(null);
+      await screen.findByText(Q2.text);
+      await waitFor(() => expect(FakeWS.instances.length).toBeGreaterThan(0));
+      act(() => {
+        FakeWS.instances.at(-1)!.onmessage!({ data: JSON.stringify({ channel: `session:${SID}`, event: "session.question", payload: Q2 }) });
+      });
+      expect(screen.getAllByText(Q2.text)).toHaveLength(1);
+    });
+
+    it("đang tải phiên thì báo đang tải và khóa ô trả lời", async () => {
+      mockApi({ [getKey]: () => new Promise<Response>(() => {}) as unknown as Response });
+      stubMic();
+      open(null);
+      expect(await screen.findByText(/Đang tải lại phiên/)).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Bắt đầu ghi âm" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("tải phiên lỗi thì báo lỗi dễ hiểu, bấm Thử lại thì tải lại được", async () => {
+      let fail = true;
+      const api = mockApi({ [getKey]: () => (fail ? err(500, "INTERNAL", "lỗi") : ok(midChallenge())) });
+      open(null);
+      const alert = await screen.findByRole("alert");
+      expect(alert.textContent).toMatch(/Chưa tải lại được phiên/);
+      fail = false;
+      fireEvent.click(within(alert).getByRole("button", { name: /Thử lại/ }));
+      expect(await screen.findByText(Q2.text)).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(api.called(getKey)).toHaveLength(2);
+    });
+
+    it("phiên đã kết thúc thì hiện hội thoại và đường sang kết quả", async () => {
+      backend({}, { ...midChallenge(), status: "COMPLETED", question: null, questionsAsked: 4, questionsTotal: 4 });
+      open(null);
+      expect(await screen.findByRole("link", { name: /Xem kết quả/ })).toBeTruthy();
+      expect(screen.getByText(EXPLAIN)).toBeTruthy();
+      expect(screen.queryByRole("timer")).toBeNull();
+    });
+  });
+
   describe("giọng nói (FR-TB-05, BR-13)", () => {
     it("hỏi đồng ý trước – chưa đồng ý thì không xin micro", async () => {
-      mockApi({});
+      backend({});
       const getUserMedia = stubMic();
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
@@ -217,7 +328,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
     });
 
     it("gửi một lượt bằng giọng nói: tải âm thanh lên rồi gửi lượt VOICE có audioRef", async () => {
-      const api = mockApi({ [audioKey]: ok(TRANSCRIPT), [turnsKey]: ok(REPLY) });
+      const api = backend({ [audioKey]: ok(TRANSCRIPT), [turnsKey]: ok(REPLY) });
       const getUserMedia = stubMic();
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
@@ -247,7 +358,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
     });
 
     it("đã đồng ý một lần thì lượt sau không hỏi lại", async () => {
-      mockApi({ [audioKey]: ok(TRANSCRIPT), [turnsKey]: ok(REPLY) });
+      backend({ [audioKey]: ok(TRANSCRIPT), [turnsKey]: ok(REPLY) });
       stubMic();
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
@@ -261,7 +372,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
     });
 
     it("trình duyệt chặn micro thì báo rõ và gợi ý gõ chữ", async () => {
-      mockApi({});
+      backend({});
       stubMic(vi.fn(async () => Promise.reject(new DOMException("denied", "NotAllowedError"))));
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
@@ -273,7 +384,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
 
     it("ghi đủ 3 phút thì tự dừng, vẫn gửi được bản đã ghi", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      mockApi({});
+      backend({});
       stubMic();
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
@@ -293,8 +404,25 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
       expect(screen.getByRole("button", { name: "Gửi bản ghi" })).toBeTruthy();
     });
 
+    it.each([
+      [422, "NO_SPEECH_DETECTED", /chưa nghe rõ lời bạn.*gõ chữ/],
+      [503, "STT_UNAVAILABLE", /gõ chữ/],
+    ] as const)("audio trả %i %s thì hiện câu gợi ý gõ chữ, không gửi lượt (#154)", async (status, code, text) => {
+      const api = mockApi({ [audioKey]: err(status, code, "lỗi máy chủ") });
+      stubMic();
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Đồng ý ghi âm" }));
+      await screen.findByText("Đang ghi");
+      fireEvent.click(screen.getByRole("button", { name: "Gửi bản ghi" }));
+      const alert = await screen.findByRole("alert");
+      await waitFor(() => expect(alert.textContent).toMatch(text));
+      expect(alert.textContent).not.toMatch(/Máy chủ đang bận|chưa hợp lệ/);
+      expect(api.called(turnsKey)).toHaveLength(0);
+    });
+
     it("dịch vụ chép lời chưa có (501) thì báo đang phát triển, không gửi lượt", async () => {
-      const api = mockApi({ [audioKey]: err(501, "NOT_IMPLEMENTED", "chưa làm", { card: "C1-12" }) });
+      const api = backend({ [audioKey]: err(501, "NOT_IMPLEMENTED", "chưa làm", { card: "C1-12" }) });
       stubMic();
       open();
       fireEvent.click(await screen.findByRole("button", { name: "Bắt đầu ghi âm" }));

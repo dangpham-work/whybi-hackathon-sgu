@@ -89,7 +89,7 @@
 - Cần từ Long (C2-13): `NodeDetail.topMisconceptions` là `list[dict]` – màn đang đọc `content` / `count`; xin chốt tên trường. Payload `heatmap.cell|node` không có trong OpenAPI nên frontend tự khai báo kiểu (khớp `schemas/mastery.py`).
 - Chưa làm: tab "Điểm nghẽn", "Ghép cặp", danh sách "Đang diễn ra", nút "Nhắc SV thử lại", "Xuất danh sách" (cần API); ẩn tên khi chiếu, lọc, xuất báo cáo thuộc GD-14 / GD-16.
 
-## GD-11 – GV-09, SV-07 (2026-10-24)
+## GD-13 – GV-07, GV-08 (2026-10-24)
 
 - Xong: GV-09 chạy vòng ghép cặp (có chọn nút ưu tiên), danh sách cặp (A/B, nút dạy–học, trọng số, trạng thái), thống kê `matching-stats`;
   SV-07 liệt kê gợi ý với tên nút từ `my-map`, hạn còn lại (BR-09), chấp nhận / từ chối / "Đã học cùng", nút "Giảng lại … để xác nhận" mở phiên có `peerMatchItemId`.
@@ -98,3 +98,33 @@
   - Công tắc "Tham gia ghép cặp" (FR-PM-01) đang khóa: `PUT /enrollments/{id}/peer-opt-in` cần `enrollmentId` nhưng không API nào trả cho SV (ClassOut, my-map đều thiếu), cũng chưa có API đọc trạng thái bật/tắt hiện tại. Xin thêm `enrollmentId` + `peerOptIn` vào `ClassOut` (hoặc `GET /me/enrollments`).
   - Hàng chờ của GV-09: `waitingStudentIds` chỉ có id và chỉ trả khi chạy vòng; chưa có GET để hiện tên + lý do chờ.
 - Chưa làm: bật tự chạy mỗi 24 giờ, lọc theo trạng thái, xuất danh sách (cần API); điều chỉnh cặp thủ công thuộc GD-12.
+
+## GD-12 – SV-04 nút bật TTS và đồng hồ đếm giờ; GV-09 điều chỉnh cặp thủ công (2026-10-24)
+
+- Xong: SV-04 có đồng hồ đếm ngược theo `Question.deadline` (hết giờ gọi `POST /sessions/{id}/timeout` đúng một lần, hiện `notice`, sang câu kế) và nút bật/tắt đọc câu hỏi
+  (tải `Question.audioUrl` bằng token rồi phát; TTS lỗi thì phiên vẫn chạy). GV-09 điều chỉnh cặp thủ công: hủy cặp hoặc thay một SV (`PATCH /matches/{id}`), báo lỗi `STUDENT_BUSY`, `STUDENT_NOT_OPTED_IN`…
+  Thống kê hiệu quả ghép cặp đã có từ GD-11. Test: `src/test/gd12.test.tsx`.
+- Sửa lỗi gặp khi làm: `useCountdown` trả nhầm số 0 của câu cũ khi sang câu mới nên có thể gọi `/timeout` hai lần; nay giá trị gắn kèm hạn của nó.
+- Xong: GV-07 hồ sơ SV (tiến độ, số phiên, điểm trung bình, cờ, trạng thái từng nút kèm tên nút từ cây, lịch sử phiên, quan niệm sai); GV-08 transcript từng lượt,
+  nghe lại ghi âm (tải bằng token vì `<audio src>` không gửi được Authorization; 404 `AUDIO_NOT_AVAILABLE` báo "không còn"), 5 tiêu chí, cờ vi phạm.
+  Test: `src/test/gd13.test.tsx`. Sinh lại `api-types.ts` (cùng bản với PR GD-10).
+- Cần từ Long (C2-17):
+  - GV-08 chỉ có `sessionId` trên đường dẫn nhưng transcript chỉ lấy được qua hồ sơ SV, nên link từ GV-07 mang theo `?classId=&studentId=`. Xin `GET /sessions/{id}/transcript` (hoặc `GET /classes/{id}/sessions/{sid}`) cho GV để mở thẳng từ nơi khác.
+  - Hồ sơ SV chưa có ngày tham gia lớp, nên header chưa hiện "Tham gia dd/mm".
+- Chưa làm: "Nhắc thử lại", "Xuất hồ sơ", "Gợi ý ghép cặp", "Gửi nhắc nhở" (GV-07); "Tải ghi âm", "Chấp nhận kết quả", "Gắn cờ phiên", sóng âm tổng (GV-08) – cần API tương ứng.
+## GD-14 và GD-16 – GV-10, SV-08, lọc/ẩn tên/trình chiếu/xuất báo cáo GV-05, lịch sử phiên bản GV-04 (2026-10-24)
+
+- Xong: GV-10 cấu hình ngưỡng (ngưỡng Đạt, xanh / vàng theo %, cỡ mẫu, số câu phản biện; kiểm trước khi gửi cùng luật 422 của backend);
+  SV-08 lịch sử phiên (tổng hợp, lọc Đạt / Chưa đạt, mở phiên xem hội thoại và nghe lại ghi âm). Test: `src/test/gd14.test.tsx`.
+  Đổi test router thành kiểm thẳng `ScreenPlaceholder` để không phụ thuộc màn nào còn thiếu.
+- GV-05 tìm theo tên / MSSV (gửi `q`), "Ẩn tên khi chiếu" (gửi `anonymize=true`, tên không tới trình duyệt; tin `heatmap.cell` cũng bị làm trống tên), chế độ trình chiếu toàn màn hình, nút Xuất CSV / PDF (`GET /classes/{id}/report`, tải bằng token, lấy tên tệp từ `Content-Disposition`);
+  GV-04 lịch sử phiên bản, so sánh hai bản theo tên nút, khôi phục thành bản nháp mới. Test: `src/test/gd14b.test.tsx`, `src/test/gd09.test.tsx`.
+- Cần từ Long: `GET /me/sessions` không kèm tên nút nên danh sách SV-08 chưa hiện "N5 Con trỏ" (chỉ có sau khi mở phiên); xin thêm `nodeTitle` vào `SessionResult`.
+## GD-15 – Màn quản trị và thông báo (2026-10-24)
+
+- Xong: AD-01 tài khoản (tìm, lọc, tạo, khóa/mở, đặt lại mật khẩu hiện một lần, nhập CSV có báo cáo), AD-02 môn học, AD-03 cấu hình AI (model chính / dự phòng),
+  AD-04 hạn mức, AD-05 cờ vi phạm + nhật ký thao tác; chuông thông báo (`NotificationBell`) trong 3 layout: danh sách, nhận mới qua kênh `user:{id}`, đánh dấu đã đọc.
+  Test: `src/test/gd15.test.tsx`. Thêm `lib/criteria.ts` (trùng bản ở PR GD-13) và sinh lại `api-types.ts`.
+- Cần từ Đăng / Long:
+  - Đăng (C1-02): chưa có `GET /admin/ai-config` nên AD-03 bắt đầu từ giá trị mặc định thay vì cấu hình đang chạy; xin thêm GET.
+  - Long (C2-18): `quotas` nhận `scopeId` (UUID) nên QTV phải dán id lớp / SV; xin API tìm lớp / SV theo tên để chọn thay vì nhập id. Không có API sửa thông tin môn ngoài PUT, chưa có xóa môn.

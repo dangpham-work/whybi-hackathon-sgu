@@ -1,4 +1,4 @@
-import { api, apiCall, ApiError, friendlyMessage, setToken, type Schema } from "../lib/api";
+import { api, apiCall, ApiError, errorText, FRIENDLY, friendlyMessage, setToken, type Schema } from "../lib/api";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -88,6 +88,36 @@ describe("lỗi API hiện thông báo dễ hiểu (Xong khi GD-02)", () => {
     [418, "TEAPOT", "Có lỗi xảy ra, vui lòng thử lại."],
   ])("friendlyMessage(%i, %s)", (status, code, text) => {
     expect(friendlyMessage(status, code)).toBe(text);
+  });
+});
+
+// #154: mã lỗi của POST /sessions/{id}/audio (backend/app/services/speech.py, session_history.py) – Bảng 7.4 đề cương
+describe("lỗi ghi âm / STT có thông báo riêng, gợi ý gõ chữ (#154)", () => {
+  it.each([
+    [503, "STT_UNAVAILABLE"],
+    [422, "NO_SPEECH_DETECTED"],
+    [422, "EMPTY_AUDIO"],
+    [415, "UNSUPPORTED_AUDIO_FORMAT"],
+    [413, "AUDIO_TOO_LONG"],
+    [413, "AUDIO_TOO_LARGE"],
+    [503, "AUDIO_STORE_UNAVAILABLE"],
+  ])("%i %s → câu riêng có gợi ý gõ chữ", (status, code) => {
+    const text = friendlyMessage(status, code);
+    expect(text).toMatch(/gõ chữ/);
+    expect(text).not.toMatch(/Máy chủ đang bận|chưa hợp lệ/);
+  });
+
+  it("NO_SPEECH_DETECTED dùng đúng câu 'chưa nghe rõ' của SV-04", () => {
+    expect(friendlyMessage(422, "NO_SPEECH_DETECTED")).toBe("Whybi chưa nghe rõ lời bạn. Hãy ghi lại gần micro hơn, hoặc gõ chữ.");
+  });
+
+  it("LLM_UNAVAILABLE có câu riêng, không rơi về câu chung theo 503", () => {
+    expect(friendlyMessage(503, "LLM_UNAVAILABLE")).toBe(FRIENDLY.LLM_UNAVAILABLE);
+    expect(FRIENDLY.LLM_UNAVAILABLE).toMatch(/Whybi/);
+  });
+
+  it("errorText() của ApiError STT trả câu gợi ý gõ chữ", () => {
+    expect(errorText(new ApiError(503, "STT_UNAVAILABLE", "Dịch vụ nhận dạng giọng nói lỗi"))).toMatch(/gõ chữ/);
   });
 });
 

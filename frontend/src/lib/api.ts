@@ -44,6 +44,15 @@ export const FRIENDLY: Record<string, string> = {
   SESSION_NOT_ACTIVE: "Phiên này đã kết thúc – bạn không gửi thêm được. Hãy xem kết quả hoặc bắt đầu phiên mới.",
   RESULT_NOT_READY: "Whybi vẫn đang chấm lời giảng của bạn, vui lòng chờ một chút.",
   TOKEN_BUDGET_EXCEEDED: "Phiên đã dùng hết lượt trao đổi với Whybi. Hãy bắt đầu phiên mới.",
+  // Ghi âm / chép lời – POST /sessions/{id}/audio (C1-12, backend services/speech.py); Bảng 7.4: luôn gợi ý gõ chữ (#154)
+  NO_SPEECH_DETECTED: "Whybi chưa nghe rõ lời bạn. Hãy ghi lại gần micro hơn, hoặc gõ chữ.",
+  EMPTY_AUDIO: "Bản ghi trống – chưa có tiếng nào. Hãy ghi lại, hoặc gõ chữ.",
+  STT_UNAVAILABLE: "Whybi tạm thời không nghe được giọng nói. Hãy gõ chữ để giảng tiếp, hoặc ghi lại sau ít phút.",
+  UNSUPPORTED_AUDIO_FORMAT: "Trình duyệt ghi âm theo định dạng Whybi chưa đọc được. Hãy gõ chữ, hoặc thử trình duyệt khác.",
+  AUDIO_TOO_LONG: "Bản ghi dài quá 3 phút. Hãy chia nhỏ lời giảng rồi ghi lại, hoặc gõ chữ.",
+  AUDIO_TOO_LARGE: "Tệp ghi âm quá lớn. Hãy ghi ngắn hơn, hoặc gõ chữ.",
+  AUDIO_STORE_UNAVAILABLE: "Chưa lưu được bản ghi. Hãy ghi lại sau ít phút, hoặc gõ chữ để giảng tiếp.",
+  LLM_UNAVAILABLE: "Whybi đang tạm nghỉ một chút. Lời giảng của bạn vẫn còn – hãy gửi lại sau ít phút.",
 };
 
 const BY_STATUS: [test: (s: number) => boolean, text: string][] = [
