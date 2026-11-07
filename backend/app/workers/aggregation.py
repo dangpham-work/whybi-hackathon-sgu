@@ -23,40 +23,59 @@ def _session():
 @celery.task(name="app.workers.aggregation.recompute_node")
 def recompute_node(class_id: str, node_id: str) -> dict | None:
     """Tính lại một nút (6.5.1: chỉ tính nút bị ảnh hưởng) và ghi class_node_stats. Trả payload heatmap.node."""
-    from app.services.heatmap import HeatmapService
+    from app.services.heatmap import HeatmapService, push_updates
 
     db = _session()
     try:
         svc = HeatmapService(db)
         node = svc.recompute(UUID(class_id), UUID(node_id))
-        if node is not None:
-            svc.trace_root_causes(UUID(class_id))
+        alerts = [] if node is None else svc.trace_root_causes(UUID(class_id))
         db.commit()
-        return None if node is None else node.model_dump(mode="json", by_alias=True)
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
+    if node is None:
+        return None
+    push_updates(UUID(class_id), [node], alerts)  # sau commit: GV tải lại ảnh chụp cũng thấy đúng số này
+    return node.model_dump(mode="json", by_alias=True)
 
 
 @celery.task(name="app.workers.aggregation.recompute_class")
 def recompute_class(class_id: str) -> int:
     """Tính lại mọi nút của bản đang phát hành. Trả số nút đã ghi."""
-    from app.services.heatmap import HeatmapService
+    from app.services.heatmap import HeatmapService, push_updates
 
     db = _session()
     try:
         svc = HeatmapService(db)
-        n = len(svc.recompute_class(UUID(class_id)))
-        svc.trace_root_causes(UUID(class_id))
+        nodes = svc.recompute_class(UUID(class_id))
+        alerts = svc.trace_root_causes(UUID(class_id))
         db.commit()
-        return n
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
+    push_updates(UUID(class_id), nodes, alerts)  # đối soát cũng đẩy lên màn GV đang mở
+    return len(nodes)
+
+
+@celery.task(name="app.workers.aggregation.push_cell")
+def push_cell(event_json: str) -> dict:
+    """C2-13: một mastery.changed → heatmap.cell (kèm tên, MSSV) trên class:{id}:heatmap. Chỉ đọc CSDL."""
+    from app.models.schemas.mastery import MasteryChanged
+    from app.services import heatmap
+
+    event = MasteryChanged.model_validate_json(event_json)
+    db = _session()
+    try:
+        cell = heatmap.HeatmapService(db).cell(event)
+    finally:
+        db.close()
+    heatmap.push_cell(event.class_id, cell)
+    return cell.model_dump(mode="json", by_alias=True)
 
 
 @celery.task(name="app.workers.aggregation.reconcile_all")
