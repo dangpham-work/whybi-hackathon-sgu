@@ -1,0 +1,32 @@
+# Mẫu thẻ việc – Bảng 8 kế hoạch phân công. Một thẻ = một issue = một nhánh = một PR.
+name: "🗂️ Thẻ việc"
+description: Một thẻ việc 30–90 phút, giao được cho AI
+title: "C1-00 – "
+labels: ["card"]
+body:
+  - type: input
+    id: req
+    attributes: { label: "Yêu cầu liên quan", placeholder: "FR-TB-12, FR-TB-13; mục 6.3" }
+  - type: textarea
+    id: goal
+    attributes: { label: "Mục tiêu" }
+    validations: { required: true }
+  - type: input
+    id: spec
+    attributes: { label: "Đặc tả", placeholder: "docs/spec/mx2-session.md" }
+  - type: textarea
+    id: allowed
+    attributes: { label: "Được sửa" }
+  - type: textarea
+    id: forbidden
+    attributes: { label: "Không được sửa", value: "app/models/schemas/, main.py, thư mục của người khác" }
+  - type: input
+    id: io
+    attributes: { label: "Vào / ra" }
+  - type: textarea
+    id: done
+    attributes: { label: "Xong khi" }
+    validations: { required: true }
+  - type: input
+    id: out
+    attributes: { label: "Ngoài phạm vi" }

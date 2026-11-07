@@ -1,0 +1,21 @@
+{
+  "course": {
+    "code": "COMP1013",
+    "name": "Cấu trúc dữ liệu và Giải thuật",
+    "credits": 4
+  },
+  "class": {
+    "name": "CTDL&GT – Nhóm 02",
+    "semester": "HK1 2026-2027",
+    "join_code": "CTDL2026",
+    "lecturer_email": "gv@whybi.test",
+    "pass_threshold": 70,
+    "color_thresholds": {
+      "green": 0.7,
+      "yellow": 0.4
+    },
+    "min_sample": 5
+  },
+  "enroll_all_students": true,
+  "peer_opt_in_all": true
+}
