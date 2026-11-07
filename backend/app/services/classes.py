@@ -79,7 +79,7 @@ class ClassService:
             green_threshold=thresholds.get("green", 0.7),
             yellow_threshold=thresholds.get("yellow", 0.4),
             min_sample=cls.min_sample,
-            challenge_count=cls.challenge_count,
+            challenge_count=getattr(cls, "challenge_count", 3),
         )
 
     def list_for(self, user: "CurrentUser") -> list[ClassView]:

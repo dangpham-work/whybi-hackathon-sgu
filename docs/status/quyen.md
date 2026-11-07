@@ -69,3 +69,9 @@
 
 
 - Cập nhật: tiếp tục kiểm GitHub CI đến khi pass theo yêu cầu mới; không chạy test local.
+
+### KT-08 – hoàn tất merge và sửa cấu hình phiên
+
+- Đã hoàn tất merge do pull đang dở và giữ các thay đổi của cộng tác viên trên remote KT-08.
+- Sửa get_settings dùng mặc định 3 câu khi model ClassSection chưa có challenge_count; nếu thuộc tính đã có thì giữ giá trị cấu hình. Thêm hai ca hồi quy cho cả hai dạng model.
+- Tiếp tục theo dõi GitHub CI đến khi backend/E2E/Docker pass; không chạy test local. Không xử lý KT-12 vì người khác đang phụ trách.
