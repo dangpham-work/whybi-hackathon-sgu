@@ -6,7 +6,7 @@
 # MINIO_PORT, MINIO_CONSOLE_PORT, STT_PORT). Trong mạng compose các dịch vụ luôn gọi nhau bằng cổng container.
 name: whybi
 
-# api, worker, beat dùng chung một image: chỉ api build, hai dịch vụ còn lại dùng lại (tránh build 3 lần).
+# api, worker, beat, events dùng chung một image: chỉ api build, ba dịch vụ còn lại dùng lại (tránh build nhiều lần).
 x-backend: &backend
   image: whybi-backend:dev
   pull_policy: never
@@ -66,6 +66,11 @@ services:
   beat:
     <<: *backend
     command: celery -A app.workers.celery_app beat -l info
+
+  events:
+    <<: *backend
+    # session.completed → MasteryService → mastery.changed (C2-10). Chỉ một bản (Redis Pub/Sub).
+    command: python -m app.workers.mastery_listener
 
   postgres:
     image: pgvector/pgvector:pg16

@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
 from app.core.errors import NotImplementedYet
 from app.db.session import get_db
+from app.models.schemas.mastery import MyMap
 from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeVersion
+from app.services.mastery import MasteryService
 from app.services.skill_tree import SkillTreeService
 
 router = APIRouter(tags=["trees"])
@@ -98,7 +100,9 @@ def restore_version(version_id: UUID, user: CurrentUser = Lecturer) -> TreeVersi
     raise NotImplementedYet("C2-16")
 
 
-@router.get("/classes/{class_id}/my-map", response_model=TreeVersion)
-def my_map(class_id: UUID, user: CurrentUser = Student) -> TreeVersion:
-    """Bản đồ học tập cá nhân: cây + trạng thái từng nút của SV (FR-TB-01)."""
-    raise NotImplementedYet("C2-10")
+@router.get("/classes/{class_id}/my-map", response_model=MyMap)
+def my_map(class_id: UUID, db: Session = Depends(get_db), user: CurrentUser = Student) -> MyMap:
+    """Bản đồ học tập cá nhân (FR-TB-01, SV-02 / SV-03): cây đang phát hành + trạng thái, điểm cao nhất, số lượt,
+    tiên quyết còn thiếu, giờ được thử lại của từng nút.
+    Lỗi: 403 NOT_ENROLLED, 404 CLASS_NOT_FOUND / TREE_NOT_PUBLISHED."""
+    return MasteryService(db).my_map(class_id, user.id)

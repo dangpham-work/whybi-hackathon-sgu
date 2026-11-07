@@ -107,6 +107,10 @@ class MasteryRecord(UUIDPk, Base):
     best_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     attempts: Mapped[int] = mapped_column(SmallInteger, default=0)
     last_session_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teaching_sessions.id", ondelete="SET NULL"))
+    # C2-10: trạng thái trước khi vào IN_PROGRESS – bỏ dở phiên thì quay lại đúng trạng thái này (Bảng 4.8)
+    prev_state: Mapped[str | None] = mapped_column(String(16))
+    # C2-10: lần Chưa đạt gần nhất – mốc tính thời gian chờ thử lại (BR-11), không bị bỏ dở làm mới
+    last_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
