@@ -1,0 +1,10 @@
+# Chuẩn hóa xuống dòng LF cho mọi máy (Windows/macOS/Linux)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.docx binary
+*.webm binary
+*.wav binary

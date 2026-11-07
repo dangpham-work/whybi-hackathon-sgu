@@ -1,0 +1,29 @@
+# Chủ thư mục duyệt PR chạm vào thư mục mình (mục 1.2 kế hoạch phân công).
+# TODO: thay @<...> bằng username GitHub thật của từng người rồi bỏ dấu # ở đầu dòng.
+#
+# Đăng – C1 (AI)
+# /backend/app/ai/                         @<dang>
+# /backend/app/services/session_orchestrator.py @<dang>
+# /backend/app/api/sessions.py             @<dang>
+# /backend/app/workers/documents.py        @<dang>
+# /docs/diagrams/                          @<dang>
+#
+# Long – C2 (Nền tảng) – gác merge main
+# *                                        @<long>
+# /backend/                                @<long>
+# /docker-compose.yml                      @<long>
+# /nginx/                                  @<long>
+# /.github/workflows/                      @<long>
+#
+# Thắng – GD (Giao diện)
+# /frontend/                               @<thang>
+# /docs/design/                            @<thang>
+# /docs/slides/                            @<thang>
+#
+# Quyền – KT (Kiểm thử & demo)
+# /backend/tests/integration/              @<quyen>
+# /e2e/                                    @<quyen>
+# /evals/                                  @<quyen>
+# /scripts/                                @<quyen>
+# /seed/                                   @<quyen>
+# /.github/ISSUE_TEMPLATE/                 @<quyen>
