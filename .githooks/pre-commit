@@ -1,0 +1,24 @@
+#!/bin/sh
+# Chặn commit .env / khóa API – áp dụng cho mọi người, mọi công cụ (Claude Code, Codex, tay).
+# Bật bằng: uv run --no-project python scripts/setup_ai.py --ten <tên>  (đặt core.hooksPath=.githooks)
+
+loi=0
+for f in $(git diff --cached --name-only --diff-filter=ACMR); do
+  case "$f" in
+    .env.example) ;;
+    .env|.env.*|*/.env|*/.env.*|.codex/config.toml|*.pem|*.key)
+      echo "pre-commit: không commit file bí mật: $f" >&2
+      loi=1 ;;
+  esac
+done
+
+# Dò khóa trong các dòng thêm mới (Gemini, OpenAI/Anthropic, GitHub, Figma, khóa riêng).
+mau='AIza[0-9A-Za-z_-]{35}|sk-(ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|figd_[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+trung=$(git diff --cached -U0 --diff-filter=ACMR | grep -E '^\+' | grep -v '^+++' | grep -nE "$mau")
+if [ -n "$trung" ]; then
+  echo "pre-commit: có chuỗi giống khóa API trong thay đổi – gỡ ra, đưa vào .env:" >&2
+  echo "$trung" | sed -E 's/(AIza|sk-|gh[pousr]_|figd_)[A-Za-z0-9_-]{4}[A-Za-z0-9_-]*/\1****/g' >&2
+  loi=1
+fi
+
+exit $loi
