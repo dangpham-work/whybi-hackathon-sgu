@@ -11,7 +11,8 @@ Chủ: Long (C2-02, C2-09), Đăng (C1-10, C1-11).
 - Lớp mẫu `SEED_CLASS_ID` (C2-02): khi CSDL chưa có cây của lớp này (hoặc không kết nối được CSDL) thì đọc
   `seed/tree_ctdl_gt.json` như trước, để giao diện chạy được khi chưa nạp seed.
 - C1-10 (Đăng) giao cây nháp của AI qua `create_version(class_id, user, tree, sanitize=True)` → trả kèm cạnh đã bỏ.
-- TODO C2-10: phát hành gọi MasteryService.init_or_migrate (khởi tạo / di chuyển trạng thái SV, BR-14).
+- Phát hành gọi `MasteryService.init_or_migrate` trong cùng giao dịch (khởi tạo / di chuyển trạng thái SV, BR-14,
+  C2-10).
 """
 
 import json
@@ -588,8 +589,11 @@ class SkillTreeService:
         v.status = TreeStatus.PUBLISHED
         v.published_at = datetime.now(UTC)
         tree.published_version_id = v.id
-        self.db.commit()
-        # TODO(C2-10): MasteryService().init_or_migrate(tree.class_id, v.id) – BR-14
+        self.db.flush()
+        # BR-14: khởi tạo / di chuyển ma trận thành thạo – commit chung giao dịch phát hành rồi mới phát mastery.changed
+        from app.services.mastery import MasteryService
+
+        MasteryService(self.db).init_or_migrate(tree.class_id, v.id)
         return self._to_schema(v, tree.class_id)
 
     def build_draft_tree(self, document_id):

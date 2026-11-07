@@ -20,6 +20,18 @@ class MasteryState(StrEnum):
     NEEDS_REVERIFY = "NEEDS_REVERIFY"
 
 
+class MasteryChangeReason(StrEnum):
+    """Vì sao một ô ma trận đổi trạng thái (C2-10) – gắn vào sự kiện mastery.changed."""
+
+    PUBLISH_INIT = "PUBLISH_INIT"  # phát hành lần đầu / SV mới vào lớp: khởi tạo ô
+    PUBLISH_MIGRATE = "PUBLISH_MIGRATE"  # phát hành phiên bản mới: BR-14
+    SESSION_STARTED = "SESSION_STARTED"
+    SESSION_PASSED = "SESSION_PASSED"
+    SESSION_FAILED = "SESSION_FAILED"
+    SESSION_ABANDONED = "SESSION_ABANDONED"
+    UNLOCKED = "UNLOCKED"  # tiên quyết vừa Đạt (BR-02)
+
+
 class SessionStatus(StrEnum):
     CREATED = "CREATED"
     EXPLAINING = "EXPLAINING"
