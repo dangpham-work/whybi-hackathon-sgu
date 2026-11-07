@@ -1,0 +1,107 @@
+{
+  "_source": "Cây chuẩn Kỹ thuật lập trình – nháp AI, chờ GV xác nhận; chưa có giáo trình kèm.",
+  "subject": "Kỹ thuật lập trình",
+  "syllabus": null,
+  "aliases": {
+    "k3_vong_lap": [
+      "for/while",
+      "Cấu trúc lặp"
+    ],
+    "k7_file": [
+      "Tệp tin",
+      "File I/O"
+    ]
+  },
+  "nodes": [
+    {
+      "key": "k1_bieu_thuc",
+      "code": "K1",
+      "title": "Biểu thức & toán tử",
+      "chapterRef": "Chương 1"
+    },
+    {
+      "key": "k2_re_nhanh",
+      "code": "K2",
+      "title": "Cấu trúc rẽ nhánh",
+      "chapterRef": "Chương 1"
+    },
+    {
+      "key": "k3_vong_lap",
+      "code": "K3",
+      "title": "Vòng lặp",
+      "chapterRef": "Chương 2"
+    },
+    {
+      "key": "k4_ham",
+      "code": "K4",
+      "title": "Hàm & tham số",
+      "chapterRef": "Chương 3"
+    },
+    {
+      "key": "k5_mang_chuoi",
+      "code": "K5",
+      "title": "Mảng & chuỗi",
+      "chapterRef": "Chương 4"
+    },
+    {
+      "key": "k6_struct",
+      "code": "K6",
+      "title": "Cấu trúc (struct)",
+      "chapterRef": "Chương 5"
+    },
+    {
+      "key": "k7_file",
+      "code": "K7",
+      "title": "Đọc ghi tệp",
+      "chapterRef": "Chương 6"
+    },
+    {
+      "key": "k8_de_quy",
+      "code": "K8",
+      "title": "Đệ quy",
+      "chapterRef": "Chương 3"
+    }
+  ],
+  "edges": [
+    {
+      "fromKey": "k1_bieu_thuc",
+      "toKey": "k2_re_nhanh",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k2_re_nhanh",
+      "toKey": "k3_vong_lap",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k3_vong_lap",
+      "toKey": "k4_ham",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k3_vong_lap",
+      "toKey": "k5_mang_chuoi",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k4_ham",
+      "toKey": "k8_de_quy",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k5_mang_chuoi",
+      "toKey": "k6_struct",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k6_struct",
+      "toKey": "k7_file",
+      "source": "LECTURER"
+    },
+    {
+      "fromKey": "k4_ham",
+      "toKey": "k6_struct",
+      "source": "LECTURER"
+    }
+  ]
+}
