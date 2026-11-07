@@ -38,3 +38,5 @@
   - Thắng: chạy `npm run gen:api` sau khi PR C1-01 merge (đã thử sinh kiểu từ OpenAPI + `tsc` không lỗi).
 
 - C1-03: đã port câu mở đầu Tutee đúng vai từ repo gốc; Guard kiểm đầu ra, sinh lại tối đa 2 lần và dùng câu mẫu khi cần. Bổ sung prompt registry và prompt Guard làm phụ thuộc. Local: 205 passed, 6 skipped; chờ CI và Long duyệt PR.
+
+- C1-04: đã port phân tích coverage và chọn 4 chiến lược phản biện, giới hạn 3–5 câu; Guard kiểm câu hỏi và câu dự phòng. Helper transcript dùng chung đặt trong ai/prompts. Local: 278 passed, 12 skipped; chờ CI và Long duyệt PR.

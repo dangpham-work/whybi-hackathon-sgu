@@ -7,19 +7,25 @@ Kiến trúc 6.2.2: Tutee chỉ sinh câu hỏi nháp; Guard đầu ra kiểm (l
 Thứ tự chiến lược (Hình 6.6): MISSING_KEY_POINT → MISCONCEPTION_PROBE → EDGE_CASE → TRANSFER.
 """
 
+from __future__ import annotations
+
 import re
+from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import ConfigDict, Field
 
-from app.ai.agents.guard import GuardAgent, confirms_answer, fold
+from app.ai.agents.guard import GuardAgent, confirms_answer, fold, leaked_point
 from app.ai.gateway import LLMGateway
-from app.ai.prompts import render_prompt
+from app.ai.prompts import format_transcript, render_prompt, wrap_student_text
 from app.models.enums import QuestionStrategy
 from app.models.schemas.common import ApiModel
 from app.models.schemas.session import Question
-from app.models.schemas.tree import Node
+from app.models.schemas.tree import Node, Rubric
 
 OPENING_TEMPERATURE = 0.7  # câu mở đầu được phép đa dạng; câu phản biện dùng nhiệt độ thấp
+QUESTION_TEMPERATURE = 0.3
+MIN_QUESTIONS, MAX_QUESTIONS = 3, 5  # FR-TB-08: 3–5 câu phản biện
 MAX_CHARS = 300
 MAX_SENTENCES = 2
 
@@ -132,10 +138,185 @@ class TuteeAgent:
         )
         return safe.question
 
-    def analyze_coverage(self, transcript: str, node: Node) -> dict:
-        """C1-04 – ý đã nêu / còn thiếu / quan niệm sai phát hiện."""
-        raise NotImplementedError("C1-04")
+    def analyze_coverage(
+        self, transcript: str | list[dict[str, Any]], node: Node, *, session_id: str | None = None
+    ) -> CoverageAnalysis:
+        """C1-04 – coverage map: ý đã nêu / còn thiếu / quan niệm sai phát hiện, chuẩn hóa theo id rubric."""
+        rubric = _rubric(node)
+        system = render_prompt(
+            "tutee_coverage",
+            node_title=node.title,
+            key_points=_list_points(rubric),
+            misconceptions=_list_misconceptions(rubric),
+        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": wrap_student_text(format_transcript(transcript))},
+        ]
+        raw = self.gateway.call_json(CoverageAnalysis, messages, model=self.model, temperature=0, session_id=session_id)
+        return raw.normalised(rubric)
 
-    def next_question(self, ctx: dict) -> Question | None:
-        """C1-04 – chọn chiến lược theo Hình 6.6, sinh câu hỏi (prompts/tutee.md). None ⇒ dừng vòng."""
-        raise NotImplementedError("C1-04")
+    def next_question(self, ctx: SessionContext) -> Question | None:
+        """C1-04 – chọn chiến lược theo Hình 6.6, sinh câu hỏi (prompts/tutee.md), qua Guard đầu ra.
+        None ⇒ dừng vòng phản biện. Chiến lược / mục tiêu do code chọn, LLM chỉ diễn đạt."""
+        choice = choose_strategy(ctx)
+        if choice is None:
+            return None
+        strategy, target = choice
+        node, rubric = ctx.node, _rubric(ctx.node)
+        system = render_prompt(
+            "tutee",
+            node_title=node.title,
+            key_points=_list_points(rubric),
+            misconceptions=_list_misconceptions(rubric),
+            scenarios="; ".join(f"{s.id}: {s.scenario}" for s in rubric.scenarios) or "-",
+            retrieved_chunks=ctx.retrieved_chunks or "-",
+            covered=", ".join(ctx.coverage.covered_points) or "-",
+            missing=", ".join(ctx.coverage.missing_points) or "-",
+            detected=", ".join(ctx.coverage.detected_misconceptions) or "-",
+            asked_questions=" | ".join(q.text for q in ctx.asked) or "-",
+            remaining=str(ctx.max_questions - len(ctx.asked)),
+            strategy=strategy.value,
+            target_id=target or "-",
+            strategy_hint=STRATEGY_HINTS[strategy],
+        )
+        transcript = wrap_student_text(format_transcript(ctx.transcript))
+
+        def generate(feedback: str | None) -> Question:
+            messages = [{"role": "system", "content": system}]
+            if feedback:
+                messages.append({"role": "user", "content": feedback})
+            messages.append({"role": "user", "content": transcript})
+            out = self.gateway.call_json(
+                TuteeUtterance, messages, model=self.model, temperature=QUESTION_TEMPERATURE, session_id=ctx.session_id
+            )
+            return Question(text=out.question.strip(), strategy=strategy, target_point_id=target)
+
+        safe = self.guard.ensure_safe_question(
+            generate,
+            [k.content for k in rubric.key_points],
+            node_title=node.title,
+            fallback=fallback_question(node, strategy, target),
+            session_id=ctx.session_id,
+            extra_check=lambda text: role_violation(text, node.title),
+        )
+        return safe.question
+
+
+# --- C1-04: coverage map, chọn chiến lược (Hình 6.6), ngân hàng câu hỏi dự phòng ----------------
+
+STRATEGY_HINTS: dict[QuestionStrategy, str] = {
+    QuestionStrategy.MISSING_KEY_POINT: (
+        'Hỏi một câu "ngây thơ" để bạn ấy TỰ nói ra ý mục tiêu; không nhắc nội dung ý đó.'
+    ),
+    QuestionStrategy.MISCONCEPTION_PROBE: (
+        "Đưa một tình huống khiến quan niệm sai mục tiêu tự lộ ra mâu thuẫn; không sửa trực tiếp."
+    ),
+    QuestionStrategy.EDGE_CASE: 'Hỏi tình huống biên mục tiêu dạng "Nếu … thì sao?".',
+    QuestionStrategy.TRANSFER: "Hỏi cách áp dụng khái niệm vào một ngữ cảnh / bài toán mới (mức Bloom cao hơn).",
+}  # fmt: skip
+
+
+class CoverageAnalysis(ApiModel):
+    """Coverage map của Tutee sau mỗi lượt SV (Hình 6.4 – Bộ nhớ phiên)."""
+
+    covered_points: list[str] = []
+    missing_points: list[str] = []
+    detected_misconceptions: list[str] = []
+    corrected_misconceptions: list[str] = []
+
+    def normalised(self, rubric: Rubric) -> CoverageAnalysis:
+        """Bỏ id lạ; vừa "đã nêu" vừa "thiếu" ⇒ thiếu; missing = ý bắt buộc chưa nêu."""
+        claimed_missing = set(self.missing_points)
+        covered = [k.id for k in rubric.key_points if k.id in set(self.covered_points) and k.id not in claimed_missing]
+        missing = [k.id for k in rubric.key_points if k.is_required and k.id not in covered]
+        mc_ids = [m.id for m in rubric.misconceptions]
+        return CoverageAnalysis(
+            covered_points=covered,
+            missing_points=missing,
+            detected_misconceptions=[m for m in mc_ids if m in set(self.detected_misconceptions)],
+            corrected_misconceptions=[m for m in mc_ids if m in set(self.corrected_misconceptions)],
+        )
+
+
+@dataclass
+class SessionContext:
+    """Trạng thái phiên đưa cho Tutee mỗi lượt (Hình 6.5 ③). Orchestrator (C1-07) giữ và cập nhật."""
+
+    node: Node
+    transcript: str | list[dict[str, Any]]
+    coverage: CoverageAnalysis
+    asked: list[Question] = field(default_factory=list)
+    max_questions: int = 4
+    retrieved_chunks: str = ""  # RAG (C1-11)
+    session_id: str | None = None
+
+    def __post_init__(self) -> None:
+        self.max_questions = max(MIN_QUESTIONS, min(MAX_QUESTIONS, self.max_questions))
+
+
+def _rubric(node: Node) -> Rubric:
+    return node.rubric or Rubric(key_points=[])
+
+
+def _list_points(rubric: Rubric) -> str:
+    return (
+        "\n".join(f"- {k.id} ({'bắt buộc' if k.is_required else 'phụ'}): {k.content}" for k in rubric.key_points) or "-"
+    )
+
+
+def _list_misconceptions(rubric: Rubric) -> str:
+    return "\n".join(f"- {m.id}: {m.content}" for m in rubric.misconceptions) or "-"
+
+
+def choose_strategy(ctx: SessionContext) -> tuple[QuestionStrategy, str | None] | None:
+    """Hình 6.6: đủ N câu ⇒ dừng; còn ý bắt buộc chưa nêu ⇒ MISSING_KEY_POINT; có quan niệm sai chưa sửa ⇒
+    MISCONCEPTION_PROBE; còn tình huống biên chưa thử ⇒ EDGE_CASE; đã vững ⇒ TRANSFER; hết ⇒ dừng sớm
+    (nhưng luôn hỏi đủ tối thiểu 3 câu – FR-TB-08). Không hỏi lại cùng (chiến lược, mục tiêu)."""
+    if len(ctx.asked) >= ctx.max_questions:
+        return None
+    rubric, cov = _rubric(ctx.node), ctx.coverage
+    used = {(q.strategy, q.target_point_id) for q in ctx.asked}
+    targeted = {q.target_point_id for q in ctx.asked if q.target_point_id}
+
+    required = [k.id for k in rubric.key_points if k.is_required]
+    for kp in required:
+        if kp in cov.missing_points and kp not in targeted:
+            return QuestionStrategy.MISSING_KEY_POINT, kp
+    corrected = set(cov.corrected_misconceptions)
+    for mc in cov.detected_misconceptions:
+        if mc not in corrected and mc not in targeted:
+            return QuestionStrategy.MISCONCEPTION_PROBE, mc
+    for sc in rubric.scenarios:
+        if sc.id not in targeted:
+            return QuestionStrategy.EDGE_CASE, sc.id
+    solid = not cov.missing_points and not (set(cov.detected_misconceptions) - corrected)
+    if solid and (QuestionStrategy.TRANSFER, None) not in used:
+        return QuestionStrategy.TRANSFER, None
+    if len(ctx.asked) >= MIN_QUESTIONS:
+        return None
+    # Rubric mỏng mà chưa đủ 3 câu: cho phép hỏi lại ý còn thiếu, hoặc câu tình huống / chuyển giao chung.
+    for kp in cov.missing_points:
+        return QuestionStrategy.MISSING_KEY_POINT, kp
+    if (QuestionStrategy.TRANSFER, None) not in used:
+        return QuestionStrategy.TRANSFER, None
+    return QuestionStrategy.EDGE_CASE, None
+
+
+def fallback_question(node: Node, strategy: QuestionStrategy, target: str | None) -> Question:
+    """Câu hỏi mẫu từ ngân hàng tình huống khi Guard loại cả 3 lần sinh (Hình 6.6). Không chứa nội dung ý chính."""
+    rubric, title = _rubric(node), node.title
+    text = None
+    if strategy == QuestionStrategy.MISCONCEPTION_PROBE:
+        text = next((m.probe_question for m in rubric.misconceptions if m.id == target and m.probe_question), None)
+    elif strategy == QuestionStrategy.EDGE_CASE:
+        sc = next((s.scenario for s in rubric.scenarios if s.id == target), None)
+        if sc:
+            text = f"Mình thắc mắc thế này: {sc[0].lower()}{sc[1:]}"
+    elif strategy == QuestionStrategy.TRANSFER:
+        text = f'Thế "{title}" giúp được gì khi mình gặp một bài toán thực tế? Bạn cho mình một ví dụ được không?'
+    if text and leaked_point(text, [k.content for k in rubric.key_points], ignore=title) is not None:
+        text = None  # câu trong ngân hàng (do người soạn rubric viết) lỡ chứa ý chính ⇒ dùng câu chung
+    if not text:
+        text = f'Mình vẫn chưa hình dung hết về "{title}". Còn điều gì quan trọng mà bạn chưa kể cho mình không?'
+    return Question(text=text, strategy=strategy, target_point_id=target)

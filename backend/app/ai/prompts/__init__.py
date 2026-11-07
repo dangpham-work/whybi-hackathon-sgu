@@ -6,6 +6,18 @@ có ngoặc nhọn trong prompt không bị hiểu là biến. Chủ: Đăng.
 import re
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
+
+
+def format_transcript(transcript: str | list[dict[str, Any]]) -> str:
+    """Lượt hội thoại thành văn bản có nhãn, dùng chung cho các tác tử."""
+    if isinstance(transcript, str):
+        return transcript
+    labels = {"student": "SV", "tutee": "AI học trò"}
+    return "\n".join(
+        f"[{labels.get(str(turn.get('role', 'student')).lower(), 'SV')}] {turn.get('text', '')}" for turn in transcript
+    )
+
 
 _DIR = Path(__file__).resolve().parent
 _COMMENT = re.compile(r"<!--.*?-->\s*", re.S)
