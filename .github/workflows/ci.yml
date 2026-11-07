@@ -34,6 +34,7 @@ jobs:
       LLM_MODE: fake
       DATABASE_URL: postgresql+psycopg://whybi:whybi@localhost:5432/whybi
       REDIS_URL: redis://localhost:6379/0
+      TEST_DATABASE_URL: postgresql+psycopg://whybi:whybi@localhost:5432/whybi   # bật test CSDL thật (C2-06)
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
@@ -42,8 +43,12 @@ jobs:
       - run: uv sync --frozen
       - name: Ruff
         run: uv run ruff check . && uv run ruff format --check .
-      - name: Migration chạy sạch + khớp models
-        run: uv run alembic upgrade head && uv run alembic check
+      - name: Migration chạy sạch + khớp models + hạ cấp được (C2-06)
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+          uv run alembic upgrade head
       - name: Pytest
         run: uv run pytest -q
 

@@ -27,5 +27,15 @@ class UUIDPk:
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
+def in_values(column: str, values) -> str:
+    """Biểu thức CHECK "cột IN (...)" từ một StrEnum – thêm giá trị enum thì cần migration mới (Long)."""
+    return f"{column} IN ({', '.join(repr(str(v.value)) for v in values)})"
+
+
+def range_check(column: str, low: float, high: float, nullable: bool = True) -> str:
+    expr = f"{column} BETWEEN {low} AND {high}"
+    return f"{column} IS NULL OR {expr}" if nullable else expr
+
+
 def created_at_col() -> Mapped[datetime]:
     return mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

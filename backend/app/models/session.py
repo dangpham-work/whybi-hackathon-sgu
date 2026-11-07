@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import (
     REAL,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -19,7 +20,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPk, created_at_col, utcnow
+from app.db.base import Base, UUIDPk, created_at_col, in_values, range_check, utcnow
+from app.models.enums import MasteryState, Verdict
 
 
 class TeachingSession(UUIDPk, Base):
@@ -41,7 +43,12 @@ class TeachingSession(UUIDPk, Base):
 
 class SessionTurn(UUIDPk, Base):
     __tablename__ = "session_turns"
-    __table_args__ = (UniqueConstraint("session_id", "turn_no"),)
+    __table_args__ = (
+        UniqueConstraint("session_id", "turn_no"),
+        CheckConstraint("turn_no >= 1", name="turn_no_positive"),
+        CheckConstraint(range_check("stt_confidence", 0, 1), name="stt_confidence_range"),
+        CheckConstraint(range_check("paste_ratio", 0, 1), name="paste_ratio_range"),
+    )
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teaching_sessions.id", ondelete="CASCADE"))
     turn_no: Mapped[int] = mapped_column(SmallInteger)
     speaker: Mapped[str] = mapped_column(String(8))  # Speaker
@@ -59,6 +66,10 @@ class SessionTurn(UUIDPk, Base):
 
 class Evaluation(UUIDPk, Base):
     __tablename__ = "evaluations"
+    __table_args__ = (
+        CheckConstraint(range_check("total_score", 0, 100, nullable=False), name="total_score_range"),
+        CheckConstraint(in_values("verdict", Verdict), name="verdict_valid"),
+    )
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teaching_sessions.id", ondelete="CASCADE"), unique=True)
     total_score: Mapped[float] = mapped_column(Numeric(5, 2))
     verdict: Mapped[str] = mapped_column(String(8))  # Verdict
@@ -85,6 +96,9 @@ class MasteryRecord(UUIDPk, Base):
     __table_args__ = (
         UniqueConstraint("student_id", "node_id"),
         Index("ix_mastery_class_node_state", "class_id", "node_id", "state"),
+        CheckConstraint("attempts >= 0", name="attempts_non_negative"),
+        CheckConstraint(range_check("best_score", 0, 100), name="best_score_range"),
+        CheckConstraint(in_values("state", MasteryState), name="state_valid"),
     )
     student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("students.user_id", ondelete="CASCADE"))
     node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("concept_nodes.id", ondelete="CASCADE"))
