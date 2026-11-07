@@ -11,7 +11,8 @@ Chủ: Long (C2-02, C2-09), Đăng (C1-10, C1-11).
 - Lớp mẫu `SEED_CLASS_ID` (C2-02): khi CSDL chưa có cây của lớp này (hoặc không kết nối được CSDL) thì đọc
   `seed/tree_ctdl_gt.json` như trước, để giao diện chạy được khi chưa nạp seed.
 - C1-10 (Đăng) giao cây nháp của AI qua `create_version(class_id, user, tree, sanitize=True)` → trả kèm cạnh đã bỏ.
-- TODO C2-10: phát hành gọi MasteryService.init_or_migrate (khởi tạo / di chuyển trạng thái SV, BR-14).
+- Phát hành gọi `MasteryService.init_or_migrate` trong cùng giao dịch (khởi tạo / di chuyển trạng thái SV, BR-14,
+  C2-10).
 """
 
 import json
@@ -260,6 +261,35 @@ class SkillTreeService:
         )
 
     # ------------------------------------------------------------------ đọc
+
+    def statuses_for(self, class_ids: list[UUID]) -> dict[UUID, str]:
+        """Trạng thái cây theo lớp cho danh sách lớp (C2-08).
+        Đã phát hành ⇒ PUBLISHED; chưa ⇒ trạng thái phiên bản mới nhất; chưa có cây ⇒ không có khóa."""
+        rows = self.db.execute(
+            select(
+                orm.SkillTree.class_id,
+                orm.SkillTree.published_version_id,
+                orm.TreeVersion.status,
+            )
+            .join(orm.TreeVersion, orm.TreeVersion.tree_id == orm.SkillTree.id, isouter=True)
+            .where(orm.SkillTree.class_id.in_(class_ids))
+            .order_by(orm.SkillTree.class_id, orm.TreeVersion.version_no)
+        ).all()
+        out: dict[UUID, str] = {}
+        for class_id, published, status in rows:
+            if published is not None:
+                out[class_id] = TreeStatus.PUBLISHED
+            elif status is not None:
+                out[class_id] = status  # bản sau ghi đè ⇒ còn lại phiên bản mới nhất
+        return out
+
+    def version_schema(self, version_id: UUID) -> TreeVersion:
+        """Một phiên bản cây (kèm rubric) theo id – lời gọi nội bộ (MasteryService), không kiểm quyền."""
+        v = self.db.get(orm.TreeVersion, version_id)
+        if v is None:
+            raise AppError(404, "VERSION_NOT_FOUND", "Không tìm thấy phiên bản cây")
+        tree = self.db.get(orm.SkillTree, v.tree_id)
+        return self._to_schema(v, tree.class_id)
 
     def _seed_tree(self) -> TreeVersion:
         return load_seed_tree().model_copy(deep=True)
@@ -559,8 +589,11 @@ class SkillTreeService:
         v.status = TreeStatus.PUBLISHED
         v.published_at = datetime.now(UTC)
         tree.published_version_id = v.id
-        self.db.commit()
-        # TODO(C2-10): MasteryService().init_or_migrate(tree.class_id, v.id) – BR-14
+        self.db.flush()
+        # BR-14: khởi tạo / di chuyển ma trận thành thạo – commit chung giao dịch phát hành rồi mới phát mastery.changed
+        from app.services.mastery import MasteryService
+
+        MasteryService(self.db).init_or_migrate(tree.class_id, v.id)
         return self._to_schema(v, tree.class_id)
 
     def build_draft_tree(self, document_id):
