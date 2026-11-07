@@ -81,6 +81,7 @@ class ClassService:
             min_sample=cls.min_sample,
             challenge_count=cls.challenge_count,
         )
+
     def list_for(self, user: "CurrentUser") -> list[ClassView]:
         """GV-01: lớp GV phụ trách (mới tạo trước). SV-01: lớp SV đã tham gia (mới tham gia trước)."""
         if user.role == Role.LECTURER:
