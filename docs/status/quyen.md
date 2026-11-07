@@ -17,6 +17,12 @@
   - Người có quyền admin repo: tạo bảng GitHub Projects theo mục 4 `docs/bug-triage.md`
   - GV / thư viện: giáo trình mẫu theo `seed/syllabi/README.md`
 
+## KT-12 – bộ đo Tutee 30 phiên
+
+- C1-06 đã merge. Chuyển runner/test và 30 kịch bản nháp từ whybi-ai@162062f; không sửa prompt, Guard hoặc API nghiệp vụ.
+- Workflow riêng chạy 30 phiên fake trên GitHub, lưu artifact kt12-tutee-simulation gồm hội thoại, provenance, summary và nhãn null chờ chấm độc lập.
+- Không tự điền nhãn không lộ đáp án; chưa đo chất lượng model thật, không ghi số liệu simulation thành kết quả thực nghiệm. Còn cần model thật và người chấm.
+- Không test local; theo Quyền, PR thường và đóng #51 khi toàn bộ check CI pass. Không xác nhận CD/VM.
 ## KT-04 – bộ dữ liệu và kiểm schema
 
 - Đã chuyển từ nguồn `whybi-ai` tại `f88c288`: 58 ca Guard, 62 lời giảng nháp AI, 30 mục manifest STT và 3 cây chuẩn.
@@ -33,12 +39,9 @@
 - Demo riêng: APP_ENV=dev, LLM_MODE=fake, DEMO_MODE=1; sau migration chạy seed_db.py, mastery_listener và simulate_students.py --serve-demo; gọi simulate_students.py --prepare-demo để nạp rubric minh họa và phát hành cây qua API GV. Chỉ dùng CSDL demo riêng; đây là dữ liệu giả lập, không phải kết quả đo AI.
 - C2-13 chưa merge: nếu heatmap trả đúng 501 NOT_IMPLEMENTED của C2-13, trả heatmapVerified=false và weakColor=null sau khi kiểm my-map đủ 30 SV. Mọi lỗi heatmap khác vẫn fail.
 - Test Postgres thật dùng schema/transaction riêng trong CI để xác nhận đủ 330 ô, 30 SV, phiên/evaluation hoàn tất và N5 9/21. Đang chờ CI trên PR; theo yêu cầu không chạy thêm test local.
-## KT-06 – kiểm thử MX2 qua stack CI
+## KT-07 – bộ chạy Guard và báo cáo CI
 
-- Tiên quyết C1-07 (#7, PR #119) và GD-07 (#63, PR #123) đã merge. Chuyển spec và bootstrap từ whybi-ai 9666a4c, giữ workflow E2E hiện tại có bắt lỗi.
-- Chạy desktop + mobile qua Playwright: đăng nhập thật, tạo lớp/cây/rubric và phát hành qua API GV, gửi lời giảng trên SV-04, đo paste/typing, 3–5 câu phản biện, đọc điểm 5 tiêu chí và kết quả; kiểm mở khóa qua my-map.
-- TC06: API từ chối nút khóa; TC08: jailbreak có cờ và không cộng điểm; TC09: hoàn tất và mở nút con; TC10 tương đương: điểm đủ nhưng thiếu ý bắt buộc vẫn FAILED theo BR-03.
-- GD-06/SV-03 chưa merge: tạo phiên qua API và truyền router state đúng hợp đồng của SV-04, không tuyên bố đã test luồng bấm từ bản đồ. GD-08/SV-06 chưa merge: xác nhận API kết quả và href, chưa kiểm giao diện kết quả. TC07 giọng nói/STT chờ C1-12 và GD-08.
-- Bootstrap chỉ tự seed stack Docker localhost với APP_ENV=dev|test, LLM_MODE=fake; khóa Postgres tránh seed đồng thời. Bản deploy test ngoài CI phải cung cấp KT06_COURSE_ID của môn đã seed.
-- Dữ liệu/lớp được tạo riêng cho mỗi ca; trace, screenshot và kết quả JSON trong artifact playwright-report. Chưa có bằng chứng trên VM thật. Không chạy test local; chờ GitHub CI và Long duyệt.
-- Lỗi tải lại SV-04 đã có issue #79; không đóng hoặc coi đã sửa trong KT-06.
+- C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
+- CI chạy 58 kịch bản với Guard thật và FakeProvider, tạo artifact kt07-guard-report. --ci-smoke chỉ kiểm >=50 ca không lỗi; chất lượng vẫn có thể chưa đạt và được ghi rõ trong báo cáo.
+- Repo không có Actions secrets để chạy model thật. Chưa đo Đạt sai qua phiên; --judge hiện chấm trực tiếp, không đại diện toàn bộ C1-07. Dữ liệu còn cần rà độc lập. Giữ PR draft, chưa đóng #46 khi chưa đủ bằng chứng.
+- Không chạy test hoặc evaluation local theo yêu cầu. Long duyệt thay đổi workflow; chỉ chạy lại CI nếu có lỗi.
