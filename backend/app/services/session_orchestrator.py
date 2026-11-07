@@ -280,7 +280,15 @@ class SessionOrchestrator:
         turn_type = TurnType.EXPLANATION if explaining else TurnType.ANSWER
 
         try:
-            g = self.guard.check_input(turn.text, node.title, turn.paste_ratio, session_id=str(s.id))
+            # C1-08: số liệu dán / tốc độ gõ chỉ có nghĩa với lượt gõ phím; lượt giọng nói do STT sinh chữ.
+            typed = turn.input_mode == InputMode.TEXT
+            g = self.guard.check_input(
+                turn.text,
+                node.title,
+                turn.paste_ratio if typed else None,
+                typing_cps=turn.typing_cps if typed else None,
+                session_id=str(s.id),
+            )
             student_turn = self._add_turn(
                 s,
                 h,
@@ -295,13 +303,15 @@ class SessionOrchestrator:
                 response_time_ms=turn.response_time_ms,
             )
             for flag in g.flags:
+                paste = flag == FlagType.PASTE_SUSPECTED  # chỉ đánh dấu, không chặn ⇒ luôn LOW
                 self.db.add(
                     SecurityFlag(
                         session_id=s.id,
                         turn_id=student_turn.id,
                         type=flag,
-                        severity="HIGH" if g.blocked else "LOW",
-                        detail=g.evidence or None,
+                        severity="HIGH" if g.blocked and not paste else "LOW",
+                        # TODO(Long): session_turns chưa có cột typing_cps – tạm giữ số liệu trong detail của cờ.
+                        detail=(g.paste_evidence if paste else g.evidence) or None,
                     )
                 )
             if g.blocked:
