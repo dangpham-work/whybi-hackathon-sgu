@@ -5,11 +5,15 @@ C2-13 chỉ THÊM trường tùy chọn – tương thích ngược với kiểu
 Frontend tô màu theo `nodeKey` (SkillTree `heat`), lưới tra `statesByKey`.
 """
 
+from datetime import datetime
 from uuid import UUID
+
+from pydantic import Field, model_validator
 
 from app.models.enums import HeatColor, HeatSample, MasteryState
 from app.models.schemas.common import ApiModel
-from app.models.schemas.mastery import HeatmapAlert
+from app.models.schemas.mastery import HeatmapAlert, NodeProgress
+from app.models.schemas.session import SessionResult
 from app.models.schemas.tree import TreeVersion
 
 
@@ -60,3 +64,59 @@ class NodeDetail(ApiModel):
     root_cause_node_id: UUID | None = None
     node_key: str | None = None  # C2-13
     alert: HeatmapAlert | None = None  # C2-13: "Nên giảng lại X" khi nút này ĐỎ
+
+
+# ------------------------------------------------------------------ cấu hình lớp (C2-17)
+
+
+class ClassSettings(ApiModel):
+    """GV-10 – FR-HM-08 (BR-03, BR-06). Ngưỡng Đạt và số câu phản biện hiện chỉ được lưu (Orchestrator chưa đọc)."""
+
+    pass_threshold: int = Field(70, ge=0, le=100)
+    green_threshold: float = Field(0.7, gt=0, le=1)
+    yellow_threshold: float = Field(0.4, gt=0, le=1)
+    min_sample: int = Field(5, ge=1)
+    challenge_count: int = Field(3, ge=3, le=5)  # FR-TB-08: 3–5 câu phản biện
+
+    @model_validator(mode="after")
+    def _yellow_not_above_green(self) -> "ClassSettings":
+        if self.yellow_threshold > self.green_threshold:
+            raise ValueError("ngưỡng vàng không được cao hơn ngưỡng xanh")
+        return self
+
+
+# ------------------------------------------------------------------ hồ sơ năng lực SV (C2-17, FR-HM-07)
+
+
+class ProfileTurn(ApiModel):
+    turn_no: int
+    speaker: str
+    turn_type: str
+    content: str | None = None
+    input_mode: str
+    audio_url: str | None = None  # /api/v1/turns/{id}/audio – chỉ khi ghi âm còn (chưa quá hạn)
+    created_at: datetime
+
+
+class ProfileSession(ApiModel):
+    session_id: UUID
+    node_id: UUID
+    node_key: str | None = None
+    node_title: str | None = None
+    attempt_no: int
+    status: str
+    started_at: datetime
+    ended_at: datetime | None = None
+    result: SessionResult | None = None  # chỉ phiên đã chấm xong
+    turns: list[ProfileTurn] = []
+
+
+class StudentProfile(ApiModel):
+    class_id: UUID
+    student_id: UUID
+    full_name: str
+    student_code: str
+    mastered_count: int
+    total_count: int
+    progress: list[NodeProgress]
+    sessions: list[ProfileSession]  # mới nhất trước

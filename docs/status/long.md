@@ -15,6 +15,19 @@
     - `GET /classes/{id}/matching-stats` → `MatchingStats {totalMatches, accepted, declined, expired, studied, itemsTotal, itemsVerified, acceptRate, studiedRate, verifiedRate}` (chỉ GV chủ lớp).
     - Không đổi schema CSDL. Thắng (GD-12): chạy `npm run gen:api`; màn GV-09 thêm chọn nút ưu tiên, nút hủy / thay SV, khối thống kê.
     - Quyền (KT-14): đã thêm route mới vào bảng `PHAN_QUYEN`.
+  - C2-17: cấu hình lớp, hồ sơ SV, ghi âm (FR-HM-07, 08, 09; NFR-09). Migration `a3f1c9d2e7b4` thêm `class_sections.challenge_count` (nối sau migration của #124).
+    - `GET|PUT /classes/{id}/settings` → `ClassSettings` (đã chuyển sang `schemas/heatmap.py`): đổi ngưỡng xanh / vàng, cỡ mẫu thì
+      `HeatmapService.update_settings` tính lại màu cả lớp, ghi `class_node_stats` và đẩy `heatmap.node` / `heatmap.alert`.
+      **Ngưỡng Đạt và số câu phản biện hiện chỉ được lưu** – Orchestrator (Đăng) chưa đọc: nhờ Đăng nối `ClassService.get_settings`
+      vào Judge (`pass_threshold`) và `max_questions` (3–5) khi làm C1-15.
+    - `GET /classes/{id}/students/{s}/profile` → `StudentProfile` (tiến độ từng nút + mọi phiên kèm transcript, kết quả chấm, ghi âm).
+      Mới: `services/session_history.py` (chỉ ĐỌC bảng phiên của Orchestrator; C2-20 dùng lại).
+    - `GET /turns/{id}/audio`: nghe lại ghi âm – SV chủ phiên hoặc GV phụ trách lớp; hết hạn / không lưu ⇒ 404 `AUDIO_NOT_AVAILABLE`.
+    - `GET /classes/{id}/heatmap?q=&anonymize=` và `.../nodes/{n}/detail?anonymize=`: lọc theo tên / MSSV, chế độ trình chiếu ("SV 01"…).
+    - **Cần Đăng:** `audioRef` trong `POST /turns` do client gửi và Orchestrator lưu nguyên vào `session_turns.audio_url`. Phía đọc / dọn
+      (`session_history.audio_key`) đã chỉ nhận đúng `s3://audio/<session_id>/<uuid>.<đuôi>`; nên kiểm cùng luật ngay khi nhận lượt
+      (`handle_turn`) để không lưu tham chiếu lạ.
+    - Beat `purge-audio` (03:00 hằng ngày): xóa đối tượng ghi âm quá `AUDIO_RETENTION_DAYS` ngày, đặt `audio_url = NULL`, giữ transcript.
   - C2-15 (phần 1/2, PR này): **ghép cặp theo sự kiện** trong hạn kiểm tra bài cũ của nút (FR-PM-04), thay hướng "cổng tỉ lệ Đạt".
     Phần 2 (ghép tay, đổi người dạy, hủy, thống kê) làm ở PR sau. Chi tiết luồng: `docs/spec/mx4-matching.md`.
     - Luồng: SV Đạt nút ⇒ người dạy; không đạt ⇒ ghép ngay với người dạy còn chỗ, chưa có ⇒ hàng chờ; **một người Đạt dạy tối đa 3 người chưa Đạt**.
