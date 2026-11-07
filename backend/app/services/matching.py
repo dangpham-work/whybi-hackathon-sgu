@@ -15,16 +15,17 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.algorithms.matching import _top, complementarity, node_priority
 from app.algorithms.matching import run_round as solve_round
-from app.core.errors import AppError, NotImplementedYet
+from app.core.errors import AppError
 from app.models import tree as tree_orm
 from app.models.enums import MatchStatus, Role, Verdict
-from app.models.peer import MatchingRound, PeerMatch, PeerMatchItem
+from app.models.peer import MatchingRound, NodeReviewWindow, PeerMatch, PeerMatchItem
 from app.models.schemas.mastery import TOPIC_SESSION_COMPLETED
-from app.models.schemas.matching import MatchItemOut, MatchOut, RoundOut
+from app.models.schemas.matching import MatchAdjust, MatchingStats, MatchItemOut, MatchOut, RoundOut
 from app.models.schemas.session import SessionResult
 from app.models.users import ClassSection, Enrollment, User
 from app.services.mastery import MasteryService
@@ -43,6 +44,10 @@ VERIFY_TTL = timedelta(days=7)  # BR-09: hạn xác nhận lại sau khi học c
 NO_REPEAT = timedelta(days=14)  # BR-08: không ghép lại cùng cặp trong N ngày
 ACTIVE = (M.PROPOSED, M.WAITING_OTHER, M.ACCEPTED, M.STUDIED)
 PENDING = (M.PROPOSED, M.WAITING_OTHER)
+
+
+def _rate(num: int, den: int) -> float:
+    return round(num / den, 4) if den else 0.0
 
 
 def _utcnow() -> datetime:
@@ -119,8 +124,6 @@ class MatchingService:
         priority_node_id: UUID | None = None,
     ) -> RoundOut:
         """trigger = MANUAL (GV, `user` bắt buộc) hoặc SCHEDULED (beat). Commit rồi trả kết quả."""
-        if priority_node_id is not None:
-            raise NotImplementedYet("C2-15")
         cls = self._class(class_id, lock=True)  # khóa lớp: hai vòng song song không ghép trùng SV
         if trigger == "MANUAL":
             if user is None:
@@ -128,6 +131,13 @@ class MatchingService:
             self._require_owner(cls, user)
         matrix = MasteryService(self.db).matching_snapshot(class_id)
         now = self.now()
+        priority_key = None
+        if priority_node_id is not None:
+            priority_key = next((k for k, i in matrix.id_of.items() if i == priority_node_id), None)
+            if priority_key is None:
+                raise AppError(
+                    404, "NODE_NOT_IN_TREE", "Nút không thuộc cây đang phát hành", {"nodeId": str(priority_node_id)}
+                )
 
         busy: set[UUID] = set()
         recent: set[frozenset[str]] = set()
@@ -158,6 +168,7 @@ class MatchingService:
             {str(s): matrix.frontier.get(s, set()) for s in participants},
             matrix.pass_rate,
             recent,
+            priority_node=priority_key,
         )
         rnd = MatchingRound(
             class_id=class_id,
@@ -217,10 +228,16 @@ class MatchingService:
 
     def scheduled_class_ids(self) -> list[UUID]:
         """Lớp đã phát hành cây và có ≥ 2 SV bật ghép cặp – beat `scheduled_rounds` chạy vòng cho từng lớp."""
+        # C2-15: lớp đang có hạn kiểm tra mở ghép theo sự kiện, không ghép lô chen vào
+        live = select(NodeReviewWindow.class_id).where(NodeReviewWindow.deadline_at > self.now())
         q = (
             select(Enrollment.class_id)
             .join(tree_orm.SkillTree, tree_orm.SkillTree.class_id == Enrollment.class_id)
-            .where(Enrollment.peer_opt_in.is_(True), tree_orm.SkillTree.published_version_id.is_not(None))
+            .where(
+                Enrollment.peer_opt_in.is_(True),
+                tree_orm.SkillTree.published_version_id.is_not(None),
+                Enrollment.class_id.not_in(live),
+            )
             .group_by(Enrollment.class_id)
             .having(func.count() >= 2)
         )
@@ -294,6 +311,93 @@ class MatchingService:
                 )
             )
         return out
+
+    # ------------------------------------------------------------------ GV điều chỉnh, thống kê (C2-15)
+
+    def adjust_match(self, match_id: UUID, user: "CurrentUser", body: MatchAdjust) -> MatchOut:
+        """FR-PM-08: GV hủy cặp (⇒ DECLINED) hoặc thay một SV. Cặp mới tính lại nút dạy / học từ ma trận hiện tại,
+        quay về PROPOSED (hai bên chấp nhận lại, hạn 48 giờ). Hai SV không có gì để dạy nhau ⇒ 422."""
+        m = self.db.scalar(select(PeerMatch).where(PeerMatch.id == match_id).with_for_update())
+        if m is None:
+            raise AppError(404, "MATCH_NOT_FOUND", "Không tìm thấy gợi ý ghép cặp", {"matchId": str(match_id)})
+        class_id = self.db.scalar(select(MatchingRound.class_id).where(MatchingRound.id == m.round_id))
+        self._require_owner(self._class(class_id), user)
+        if m.status not in ACTIVE:
+            self._invalid(m)
+        if body.cancel:
+            m.status = M.DECLINED
+            self.db.commit()
+            return self._out([m], viewer=None)[0]
+
+        old, new = body.replace_student_id, body.with_student_id
+        if old not in (m.student_a_id, m.student_b_id):
+            raise AppError(422, "REPLACE_NOT_IN_MATCH", "SV cần thay không thuộc cặp này")
+        other = m.student_b_id if old == m.student_a_id else m.student_a_id
+        if new in (old, other):
+            raise AppError(422, "REPLACE_NOT_IN_MATCH", "SV thay thế phải khác hai SV hiện tại")
+        enr = self.db.scalar(select(Enrollment).where(Enrollment.class_id == class_id, Enrollment.student_id == new))
+        if enr is None:
+            raise AppError(404, "STUDENT_NOT_IN_CLASS", "SV thay thế chưa tham gia lớp", {"studentId": str(new)})
+        if not enr.peer_opt_in:
+            raise AppError(409, "STUDENT_NOT_OPTED_IN", "SV thay thế chưa bật ghép cặp (BR-10)")
+        busy = self.db.scalar(
+            self._class_matches(class_id).where(
+                PeerMatch.id != m.id,
+                PeerMatch.status.in_(ACTIVE),
+                (PeerMatch.student_a_id == new) | (PeerMatch.student_b_id == new),
+            )
+        )
+        if busy is not None:
+            raise AppError(409, "STUDENT_BUSY", "SV thay thế đang trong một cặp hoạt động khác")
+
+        snap = MasteryService(self.db).matching_snapshot(class_id)
+        p = node_priority(snap.pass_rate)
+        a, b = (new, other) if old == m.student_a_id else (other, new)
+        t_ab = snap.mastered.get(a, set()) & snap.frontier.get(b, set())
+        t_ba = snap.mastered.get(b, set()) & snap.frontier.get(a, set())
+        if not t_ab and not t_ba:
+            raise AppError(422, "NO_COMPLEMENTARY_NODES", "Hai SV không có nút nào để dạy nhau")
+        if not t_ab:  # chỉ một chiều ⇒ người dạy luôn là A (quy ước ghép một chiều)
+            a, b, t_ab, t_ba = b, a, t_ba, set()
+        m.student_a_id, m.student_b_id = a, b
+        m.weight = complementarity(str(a), str(b), {str(a): snap.mastered[a], str(b): snap.mastered[b]},
+                                   {str(a): snap.frontier[a], str(b): snap.frontier[b]}, p) or sum(
+            p.get(n, 1.0) for n in _top(t_ab, p, 2)
+        )  # fmt: skip
+        m.status = M.PROPOSED
+        m.accepted_by_a = m.accepted_by_b = m.studied_by_a = m.studied_by_b = False
+        m.expires_at = self.now() + PROPOSAL_TTL
+        self.db.execute(delete(PeerMatchItem).where(PeerMatchItem.match_id == m.id))
+        for teacher, learner, nodes in ((a, b, t_ab), (b, a, t_ba)):
+            for key in _top(nodes, p, 2):
+                self.db.add(
+                    PeerMatchItem(match_id=m.id, teacher_id=teacher, learner_id=learner, node_id=snap.id_of[key])
+                )
+        self.db.commit()
+        return self._out([m], viewer=None)[0]
+
+    def stats(self, class_id: UUID, user: "CurrentUser") -> MatchingStats:
+        """Mục 6.6.6: tỉ lệ chấp nhận gợi ý, tỉ lệ cặp học cùng, tỉ lệ mục được xác nhận Đạt (chỉ GV phụ trách lớp)."""
+        self._require_owner(self._class(class_id), user)
+        matches = list(self.db.scalars(self._class_matches(class_id)))
+        accepted = [m for m in matches if m.accepted_by_a and m.accepted_by_b]
+        studied = [m for m in matches if m.studied_by_a and m.studied_by_b]
+        items = list(
+            self.db.scalars(select(PeerMatchItem).where(PeerMatchItem.match_id.in_([m.id for m in studied])))
+        ) if studied else []  # fmt: skip
+        verified = sum(1 for i in items if i.verified)
+        return MatchingStats(
+            total_matches=len(matches),
+            accepted=len(accepted),
+            declined=sum(m.status == M.DECLINED for m in matches),
+            expired=sum(m.status == M.EXPIRED for m in matches),
+            studied=len(studied),
+            items_total=len(items),
+            items_verified=verified,
+            accept_rate=_rate(len(accepted), len(matches)),
+            studied_rate=_rate(len(studied), len(accepted)),
+            verified_rate=_rate(verified, len(items)),
+        )
 
     # ------------------------------------------------------------------ phản hồi (UC22)
 

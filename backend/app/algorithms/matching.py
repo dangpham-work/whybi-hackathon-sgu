@@ -27,9 +27,18 @@ class PairResult:
     one_way: bool = False  # True: a là mentor, b chỉ học (b_teaches rỗng)
 
 
-def node_priority(pass_rate: dict[str, float], alpha: float = 1.0) -> dict[str, float]:
-    """p(n) = 1 + α·(1 − tỉ lệ Đạt) – nút càng là điểm nghẽn càng được ưu tiên."""
-    return {n: 1 + alpha * (1 - r) for n, r in pass_rate.items()}
+PRIORITY_BOOST = 10.0  # "Ghép cặp ưu tiên N5" (C2-15): p(N5) cộng thêm ⇒ cặp dạy N5 thắng cặp khác khi tranh người
+
+
+def node_priority(
+    pass_rate: dict[str, float], alpha: float = 1.0, priority_node: str | None = None
+) -> dict[str, float]:
+    """p(n) = 1 + α·(1 − tỉ lệ Đạt) – nút càng là điểm nghẽn càng được ưu tiên. GV chọn `priority_node` thì nút đó
+    được cộng PRIORITY_BOOST: cả ghép hai chiều lẫn một chiều đều ưu tiên các cặp có người dạy nút đó."""
+    p = {n: 1 + alpha * (1 - r) for n, r in pass_rate.items()}
+    if priority_node is not None:
+        p[priority_node] = p.get(priority_node, 1.0) + PRIORITY_BOOST
+    return p
 
 
 def _sum(nodes: Iterable[str], p: dict[str, float]) -> float:
@@ -60,11 +69,12 @@ def run_round(
     recent_pairs: set[frozenset[str]],
     alpha: float = 1.0,
     m: int = 2,
+    priority_node: str | None = None,
 ) -> tuple[list[PairResult], list[str]]:
     """Trả (các cặp, SV chưa ghép – hàng chờ). Mã giả ở mục 6.6.5. < 2 giây cho lớp 100 SV (UC15).
 
     Kết quả xác định: cặp hai chiều trước (sắp theo trọng số giảm dần), rồi cặp một chiều."""
-    p = node_priority(pass_rate, alpha)
+    p = node_priority(pass_rate, alpha, priority_node)
     g = nx.Graph()
     g.add_nodes_from(students)
     for a, b in combinations(students, 2):

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.core.errors import AppError
 from app.db.session import SessionLocal
+from app.services.live_matching import LiveMatching
 from app.services.matching import MatchingService
 from app.workers.celery_app import celery
 
@@ -41,6 +42,20 @@ def scheduled_rounds() -> list[str]:
     for cid in ids:
         run_round.delay(cid)
     return ids
+
+
+@celery.task(name="app.workers.matching.live_rebalance")
+def live_rebalance() -> int:
+    """C2-15: mỗi phút ghép bạn đang chờ với người dạy còn chỗ ở các lớp có hạn kiểm tra đang mở. Trả số cặp mới."""
+    db = SessionLocal()
+    try:
+        live = LiveMatching(db)
+        return sum(live.rebalance_class(c) for c in live.open_class_ids())
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 @celery.task(name="app.workers.matching.expire_matches")

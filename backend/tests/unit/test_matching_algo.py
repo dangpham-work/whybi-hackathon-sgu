@@ -98,3 +98,21 @@ def test_100_students_under_2_seconds():
     used = [s for x in pairs for s in (x.a, x.b)]
     assert len(used) == len(set(used)), "mỗi SV tối đa một cặp"
     assert set(used) | set(waiting) == set(students)
+
+
+def test_priority_node_wins_contention():
+    """C2-15: x ghép được với y (dạy N5) hoặc z (dạy N6). N6 nghẽn hơn ⇒ mặc định chọn z; ưu tiên N5 ⇒ chọn y."""
+    students = ["x", "y", "z"]
+    mastered = {"x": {"N5", "N6"}, "y": {"N7"}, "z": {"N8"}}
+    frontier = {"x": {"N7", "N8"}, "y": {"N5"}, "z": {"N6"}}
+    rate = {"N5": 0.5, "N6": 0.1, "N7": 0.0, "N8": 0.0}
+    base, _ = run_round(students, mastered, frontier, rate, set())
+    assert {base[0].a, base[0].b} == {"x", "z"}
+    prio, _ = run_round(students, mastered, frontier, rate, set(), priority_node="N5")
+    assert {prio[0].a, prio[0].b} == {"x", "y"}
+
+
+def test_priority_node_formula_adds_boost_even_for_unknown_rate():
+    p = node_priority({"N1": 0.5}, priority_node="N1")
+    assert p["N1"] == pytest.approx(1.5 + 10.0)
+    assert node_priority({"N1": 0.5}, priority_node="NX")["NX"] == pytest.approx(11.0)
