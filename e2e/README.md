@@ -13,4 +13,4 @@ Dự án `gv-desktop` (1440×1024) chạy mọi test; `sv-mobile` (Pixel 7) ch�
 
 CI: job `e2e` trong `.github/workflows/ci.yml` dựng `docker compose` (LLM_MODE=fake), chạy test tích hợp
 (`backend/tests/integration`, `-m integration`) rồi `npx playwright test`; báo cáo HTML tải ở artifact `playwright-report`.
-Job chạy song song, tạm không chặn PR (`continue-on-error`).
+Job chạy song song; lỗi dựng stack, test tích hợp hoặc Playwright làm workflow CI thất bại. Để ngăn merge khi job lỗi, quản trị repo cần đặt `e2e` là required check trong bảo vệ nhánh main.
