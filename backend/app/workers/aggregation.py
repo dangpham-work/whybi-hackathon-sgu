@@ -2,6 +2,8 @@
 
 Ai đẩy việc: `app.services.heatmap.register_handlers` (chạy trong tiến trình `mastery_listener`).
 Mọi task tính lại từ CSDL nên chạy lặp / sai thứ tự vẫn cho cùng kết quả (idempotent).
+C2-12: tính lại xong thì truy vết điểm nghẽn gốc cả lớp (`trace_root_causes`) trong cùng giao dịch – một nút đổi
+có thể đổi r(X|Y) của mọi nút con cháu. Cảnh báo trả về để C2-13 đẩy `heatmap.alert`.
 """
 
 import logging
@@ -25,7 +27,10 @@ def recompute_node(class_id: str, node_id: str) -> dict | None:
 
     db = _session()
     try:
-        node = HeatmapService(db).recompute(UUID(class_id), UUID(node_id))
+        svc = HeatmapService(db)
+        node = svc.recompute(UUID(class_id), UUID(node_id))
+        if node is not None:
+            svc.trace_root_causes(UUID(class_id))
         db.commit()
         return None if node is None else node.model_dump(mode="json", by_alias=True)
     except Exception:
@@ -42,7 +47,9 @@ def recompute_class(class_id: str) -> int:
 
     db = _session()
     try:
-        n = len(HeatmapService(db).recompute_class(UUID(class_id)))
+        svc = HeatmapService(db)
+        n = len(svc.recompute_class(UUID(class_id)))
+        svc.trace_root_causes(UUID(class_id))
         db.commit()
         return n
     except Exception:
