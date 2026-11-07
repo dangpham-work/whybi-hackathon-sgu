@@ -15,6 +15,10 @@ from collections.abc import Iterator
 import httpx
 import pytest
 
+# Fixture CSDL dùng chung cho test vòng 2 / 3 (KT-14, KT-15): lớp KT-08 + phiên thật, kho ghi âm trong bộ nhớ.
+from tests.integration.lop_vong import lop_vong  # noqa: F401
+from tests.integration.test_bao_mat_phan_quyen_db import kho_am_thanh  # noqa: F401
+
 RUN = os.getenv("RUN_INTEGRATION", "").lower() in {"1", "true", "yes"}
 API_URL = os.getenv("INTEGRATION_API_URL", "http://localhost:8000").rstrip("/")
 API_PREFIX = "/api/v1"

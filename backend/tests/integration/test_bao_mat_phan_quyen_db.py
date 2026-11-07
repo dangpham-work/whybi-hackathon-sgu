@@ -4,31 +4,35 @@ Chạy khi có TEST_DATABASE_URL (CI job backend đặt sẵn, CSDL đã `alembi
 Mỗi test chạy trong một transaction rollback. Xác thực THẬT: tài khoản băm Argon2id trong bảng `users`,
 đăng nhập qua POST /auth/login, không ghi đè `get_current_user`.
 
-Endpoint chưa làm (501) ⇒ test `xfail(strict=True, reason="chờ <mã thẻ>")`: khi thẻ đó xong mà quyền đúng,
-test chuyển XPASS và làm đỏ CI ⇒ người làm thẻ bỏ dấu xfail (biến thành test hồi quy).
+STT dùng LLM_MODE=fake; kho âm thanh trong bộ nhớ. API, kiểm quyền, JWT và CSDL dùng mã thật.
+Không cần micro / MinIO; không chứng minh HTTPS, mã hóa lưu trữ hay chất lượng STT trên bản deploy.
 """
 
 import json
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.main import app
 from app.models.enums import MasteryState, Role, SessionStatus, Verdict
 from app.models.schemas.session import SessionResult
-from app.models.session import Evaluation, TeachingSession
+from app.models.session import Evaluation, SessionTurn, TeachingSession
 from app.models.users import ClassSection, Course, Enrollment, Lecturer, Student, User
 from app.realtime.bus import InMemoryEventBus
 from app.services.mastery import MasteryService
 from app.services.skill_tree import seed_dir
+from app.services.speech import MemoryAudioStore
 
 DB_URL = os.getenv("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DB_URL, reason="đặt TEST_DATABASE_URL để chạy trên Postgres thật")
@@ -37,6 +41,7 @@ MAT_KHAU = "Whybi@2026"
 _HASH = hash_password(MAT_KHAU) if DB_URL else ""  # băm một lần – Argon2 cố ý chậm
 CAY_MAU = json.loads((seed_dir() / "tree_ctdl_gt.json").read_text(encoding="utf-8"))
 GOC = "n1_bien_bo_nho"  # nút gốc của cây mẫu – SẴN SÀNG ngay khi phát hành
+WEBM = b"\x1a\x45\xdf\xa3kt08-fake-audio"  # chỉ cho STT fake, không phải giọng nói thật
 
 
 @dataclass
@@ -57,6 +62,7 @@ class Lop:
         self.sv_a = self._tao(Role.STUDENT, "Nguyễn Văn An")
         self.sv_b = self._tao(Role.STUDENT, "Trần Thị Bích")
         self.sv_c = self._tao(Role.STUDENT, "Lý Văn Ngoài")
+        self.qtv = self._tao(Role.ADMIN, "Quản trị viên")
         course = Course(id=uuid4(), code=uuid4().hex[:8], name="CTDL&GT")
         db.add(course)
         db.flush()
@@ -76,7 +82,7 @@ class Lop:
         for sv in (self.sv_a, self.sv_b):
             db.add(Enrollment(class_id=self.lop1, student_id=sv.id))
         db.flush()
-        for u in (self.gv_a, self.gv_b, self.sv_a, self.sv_b, self.sv_c):
+        for u in (self.gv_a, self.gv_b, self.sv_a, self.sv_b, self.sv_c, self.qtv):
             u.headers = self.dang_nhap(u.email)
 
     def _tao(self, role: Role, ten: str) -> NguoiDung:
@@ -86,7 +92,7 @@ class Lop:
         self.db.flush()
         if role == Role.LECTURER:
             self.db.add(Lecturer(user_id=u.id))
-        else:
+        elif role == Role.STUDENT:
             self.db.add(Student(user_id=u.id, student_code=uuid4().hex[:10]))
         self.db.flush()
         return NguoiDung(u.id, email, ten)
@@ -129,6 +135,7 @@ def lop(monkeypatch) -> Iterator[Lop]:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
+    import app.db.session as db_mod
     import app.services.mastery as mastery_mod
 
     bus = InMemoryEventBus()
@@ -137,14 +144,23 @@ def lop(monkeypatch) -> Iterator[Lop]:
     conn = engine.connect()
     tx = conn.begin()
     db = Session(bind=conn, join_transaction_mode="create_savepoint")
+
+    # WebSocket mở SessionLocal riêng; dùng cùng transaction, giữ nguyên mọi hàm kiểm quyền thật.
+    @contextmanager
+    def session_local():
+        yield db
+
+    monkeypatch.setattr(db_mod, "SessionLocal", session_local)
     app.dependency_overrides[get_db] = lambda: db
-    with TestClient(app) as api:
-        yield Lop(db, api)
-    app.dependency_overrides.clear()
-    db.close()
-    tx.rollback()
-    conn.close()
-    engine.dispose()
+    try:
+        with TestClient(app) as api:
+            yield Lop(db, api)
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+        tx.rollback()
+        conn.close()
+        engine.dispose()
 
 
 @pytest.fixture
@@ -267,11 +283,6 @@ def test_my_map_bo_qua_tham_so_doi_nguoi(lop, cay, ten_tham_so):
     assert r.status_code == 200 and r.json()["studentId"] == str(lop.sv_a.id) and r.json()["masteredCount"] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="lỗi của Long (C2): services/mastery.py my_map gọi _tree() TRƯỚC _require_enrolled ⇒ SV ngoài lớp "
-    "nhận 404 TREE_NOT_PUBLISHED (lộ trạng thái cây) thay vì 403 NOT_ENROLLED. Sửa xong thì bỏ dấu xfail.",
-)
 def test_sv_ngoai_lop_my_map_lop_chua_phat_hanh_bi_403(lop):
     r = lop.api.get(f"/api/v1/classes/{lop.lop1}/my-map", headers=lop.sv_c.headers)
     assert r.status_code == 403 and _ma(r) == "NOT_ENROLLED"
@@ -295,7 +306,6 @@ def test_sv_khong_gui_duoc_luot_vao_phien_cua_sv_khac(lop, cay):
     assert r.status_code == 403
 
 
-@pytest.mark.xfail(strict=True, reason="chờ C2-20: GET /me/sessions chưa làm (501)")
 def test_lich_su_phien_chi_co_phien_cua_minh(lop, cay):
     sid = _qua_nut(lop, lop.sv_a, cay)
     _qua_nut(lop, lop.sv_b, cay)
@@ -335,7 +345,6 @@ def test_gv_khong_xem_duoc_ho_so_sv_khong_thuoc_lop_minh(lop, cay):
     assert lop.sv_c.ten not in r.text
 
 
-@pytest.mark.xfail(strict=True, reason="chờ C2-20: xuất báo cáo lớp chưa làm (501)")
 def test_gv_lop_khac_khong_xuat_duoc_bao_cao(lop, cay):
     r = lop.api.get(f"/api/v1/classes/{lop.lop1}/report", headers=lop.gv_b.headers, params={"format": "csv"})
     assert r.status_code == 403
@@ -346,40 +355,184 @@ def test_gv_phu_trach_xem_duoc_ban_do_nhiet_co_ten(lop, cay):
     assert r.status_code == 200 and lop.sv_a.ten in r.text
 
 
-# --- NFR-09, BR-13: ghi âm chỉ khi SV đồng ý ----------------------------------------------------
+# --- NFR-09, BR-13: chỉ LƯU ghi âm khi SV đồng ý (hợp đồng C1-12) -------------------------------
 
 
-@pytest.mark.parametrize("consent", [None, "false", "true"])
-def test_ghi_am_chi_duoc_luu_khi_chu_phien_dong_y(lop, cay, consent):
-    from app.ai.providers.stt import FakeSTTProvider
-    from app.api.sessions import get_speech_service
-    from app.services.speech import MemoryAudioStore, SpeechService
+class KhoAmThanh(MemoryAudioStore):
+    """Kho dùng chung cho SpeechService (ghi + metadata) và SessionHistoryService (đọc / xóa)."""
 
-    store = MemoryAudioStore()
-    app.dependency_overrides[get_speech_service] = lambda: SpeechService(stt=FakeSTTProvider(), store=store)
-    sid = lop.phien(lop.sv_a, cay, input_mode="VOICE")
-    lop.db.get(TeachingSession, sid).status = "EXPLAINING"
-    lop.db.flush()
-    response = lop.api.post(
+    def get(self, url: str) -> bytes:
+        return self.objects[urlparse(url).path.lstrip("/")]["data"]
+
+    def remove(self, url: str) -> None:
+        self.objects.pop(urlparse(url).path.lstrip("/"), None)
+
+
+@pytest.fixture
+def kho_am_thanh(monkeypatch):
+    import app.services.session_history as history
+    import app.services.speech as speech
+
+    store = KhoAmThanh()
+    monkeypatch.setattr(speech, "get_audio_store", lambda: store)
+    monkeypatch.setattr(history, "default_storage", lambda: store)
+    return store
+
+
+def _mo_phien_giong(lop, cay) -> str:
+    node = next(n for n in cay["nodes"] if n["key"] == GOC)
+    r = lop.api.post("/api/v1/sessions", headers=lop.sv_a.headers, json={"nodeId": node["id"], "inputMode": "VOICE"})
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "EXPLAINING"
+    return r.json()["sessionId"]
+
+
+def _tai_am_thanh(lop, sid, consent="true", nguoi=None):
+    return lop.api.post(
         f"/api/v1/sessions/{sid}/audio",
-        headers=lop.sv_a.headers,
-        files={"file": ("recording.webm", b"\x1a\x45\xdf\xa3" + b"\0" * 64, "audio/webm")},
+        headers=(nguoi or lop.sv_a).headers,
+        files={"file": ("loi-giang.webm", WEBM, "audio/webm")},
         data={} if consent is None else {"consent": consent},
     )
-    assert response.status_code == 200, response.text
-    if consent == "true":
-        assert len(store.objects) == 1
-        assert response.json()["audioRef"].startswith("s3://")
-    else:
-        assert store.objects == {}
-        assert response.json()["audioRef"].startswith("unsaved:")
 
 
-def test_khong_tai_ghi_am_vao_phien_cua_sv_khac(lop, cay):
-    sid = lop.phien(lop.sv_a, cay, input_mode="VOICE")
+def _gui_luot_giong(lop, sid, transcript) -> SessionTurn:
     r = lop.api.post(
-        f"/api/v1/sessions/{sid}/audio",
-        headers=lop.sv_b.headers,
-        files={"file": ("x.webm", b"\x1a\x45\xdf\xa3fake-webm", "audio/webm")},
+        f"/api/v1/sessions/{sid}/turns",
+        headers=lop.sv_a.headers,
+        json={
+            "text": transcript["text"],
+            "inputMode": "VOICE",
+            "audioRef": transcript["audioRef"],
+            "sttConfidence": transcript["confidence"],
+        },
     )
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    return lop.db.scalars(
+        select(SessionTurn).where(SessionTurn.session_id == UUID(sid), SessionTurn.speaker == "STUDENT")
+    ).one()
+
+
+@pytest.mark.parametrize("consent", [None, "false"], ids=["khong-gui", "tu-choi"])
+def test_khong_dong_y_van_chep_chu_nhung_khong_luu_hay_nghe_lai(lop, cay, kho_am_thanh, consent):
+    sid = _mo_phien_giong(lop, cay)
+    r = _tai_am_thanh(lop, sid, consent)
+    assert r.status_code == 200, r.text
+    transcript = r.json()
+    assert transcript["text"] and transcript["audioRef"].startswith("unsaved:")
+    turn = _gui_luot_giong(lop, sid, transcript)
+    assert kho_am_thanh.objects == {}
+    for nguoi in (lop.sv_a, lop.gv_a):
+        audio = lop.api.get(f"/api/v1/turns/{turn.id}/audio", headers=nguoi.headers)
+        assert audio.status_code == 404 and _ma(audio) == "AUDIO_NOT_AVAILABLE"
+    history = lop.api.get(f"/api/v1/me/sessions/{sid}", headers=lop.sv_a.headers)
+    assert history.status_code == 200
+    assert all(t["audioUrl"] is None for t in history.json()["turns"])
+
+
+def test_dong_y_luu_ghi_am_va_chi_chu_phien_gv_phu_trach_nghe_duoc(lop, cay, kho_am_thanh):
+    sid = _mo_phien_giong(lop, cay)
+    r = _tai_am_thanh(lop, sid)
+    assert r.status_code == 200, r.text
+    transcript = r.json()
+    key = transcript["audioRef"].removeprefix("s3://")
+    assert key.startswith(f"audio/{sid}/") and key.endswith(".webm")
+    assert kho_am_thanh.objects[key] == {
+        "data": WEBM,
+        "content_type": "audio/webm",
+        "metadata": {"consent": "true", "session-id": sid, "retention-days": "30"},
+    }
+    turn = _gui_luot_giong(lop, sid, transcript)
+    url = f"/api/v1/turns/{turn.id}/audio"
+    for nguoi in (lop.sv_a, lop.gv_a):
+        audio = lop.api.get(url, headers=nguoi.headers)
+        assert audio.status_code == 200 and audio.content == WEBM
+        assert audio.headers["content-type"] == "audio/webm"
+    for nguoi in (lop.sv_b, lop.sv_c, lop.gv_b, lop.qtv):
+        audio = lop.api.get(url, headers=nguoi.headers)
+        assert audio.status_code == 403 and _ma(audio) == "FORBIDDEN"
+        assert WEBM not in audio.content
+
+
+def test_dong_y_khong_truyen_sang_lan_tai_ke_tiep(lop, cay, kho_am_thanh):
+    sid = _mo_phien_giong(lop, cay)
+    accepted = _tai_am_thanh(lop, sid)
+    assert accepted.status_code == 200, accepted.text
+    saved = dict(kho_am_thanh.objects)
+    for consent in (None, "false"):
+        r = _tai_am_thanh(lop, sid, consent)
+        assert r.status_code == 200 and r.json()["audioRef"].startswith("unsaved:")
+        assert kho_am_thanh.objects == saved
+
+
+@pytest.mark.parametrize("days", [30, 7])
+def test_het_han_luu_xoa_am_thanh_giu_transcript(lop, cay, kho_am_thanh, monkeypatch, days):
+    from app.services.session_history import purge_expired_audio
+
+    monkeypatch.setattr(get_settings(), "audio_retention_days", days)
+    sid = _mo_phien_giong(lop, cay)
+    r = _tai_am_thanh(lop, sid)
+    assert r.status_code == 200, r.text
+    turn = _gui_luot_giong(lop, sid, r.json())
+    content = turn.content
+    key = r.json()["audioRef"].removeprefix("s3://")
+    assert kho_am_thanh.objects[key]["metadata"]["retention-days"] == str(days)
+    cutoff = turn.created_at + timedelta(days=days)
+    assert purge_expired_audio(lop.db, now=cutoff - timedelta(seconds=1)) == 0
+    assert lop.api.get(f"/api/v1/turns/{turn.id}/audio", headers=lop.sv_a.headers).status_code == 200
+    assert purge_expired_audio(lop.db, now=cutoff + timedelta(seconds=1)) == 1
+    assert key not in kho_am_thanh.objects
+    lop.db.refresh(turn)
+    assert turn.content == content and turn.audio_url is None
+    for nguoi in (lop.sv_a, lop.gv_a):
+        audio = lop.api.get(f"/api/v1/turns/{turn.id}/audio", headers=nguoi.headers)
+        assert audio.status_code == 404 and _ma(audio) == "AUDIO_NOT_AVAILABLE"
+
+
+def test_khong_tai_ghi_am_vao_phien_cua_sv_khac(lop, cay, kho_am_thanh):
+    sid = _mo_phien_giong(lop, cay)
+    r = _tai_am_thanh(lop, sid, nguoi=lop.sv_b)
+    assert r.status_code == 403 and _ma(r) == "FORBIDDEN"
+    assert kho_am_thanh.objects == {}
+
+
+@pytest.mark.parametrize("path", ["sessions/{sid}", "me/sessions/{sid}"])
+def test_khoi_phuc_va_lich_su_chi_chu_phien_xem_duoc(lop, cay, kho_am_thanh, path):
+    sid = _mo_phien_giong(lop, cay)
+    upload = _tai_am_thanh(lop, sid)
+    assert upload.status_code == 200, upload.text
+    turn = _gui_luot_giong(lop, sid, upload.json())
+    url = "/api/v1/" + path.format(sid=sid)
+    own = lop.api.get(url, headers=lop.sv_a.headers)
+    assert own.status_code == 200 and turn.content in own.text
+    for nguoi in (lop.sv_b, lop.sv_c, lop.gv_a, lop.gv_b, lop.qtv):
+        denied = lop.api.get(url, headers=nguoi.headers)
+        assert denied.status_code == 403 and _ma(denied) == "FORBIDDEN"
+        assert turn.content not in denied.text and "s3://" not in denied.text
+
+
+@pytest.mark.parametrize("kenh", ["heatmap", "session"])
+def test_websocket_chi_chu_lop_hoac_chu_phien_nhan_du_lieu(lop, cay, kenh):
+    from app.realtime import gateway
+
+    sid = _mo_phien_giong(lop, cay)
+    channel = f"class:{lop.lop1}:heatmap" if kenh == "heatmap" else f"session:{sid}"
+    owner = lop.gv_a if kenh == "heatmap" else lop.sv_a
+    for nguoi in (lop.gv_a, lop.gv_b, lop.sv_a, lop.sv_b, lop.sv_c, lop.qtv):
+        with lop.api.websocket_connect("/api/v1/ws") as ws:
+            ws.send_json({"action": "subscribe", "channel": channel, "token": nguoi.headers["Authorization"][7:]})
+            reply = ws.receive_json()
+            if nguoi is owner:
+                assert reply == {"channel": channel, "event": "subscribed", "payload": {}}
+                gateway.broadcast(channel, "kt08.private", {"fullName": lop.sv_a.ten})
+                assert ws.receive_json()["payload"] == {"fullName": lop.sv_a.ten}
+                ws.send_json({"action": "unsubscribe", "channel": channel})
+                assert ws.receive_json()["event"] == "unsubscribed"
+            else:
+                assert reply["event"] == "error"
+                assert reply["payload"]["code"] in {"FORBIDDEN", "NOT_CLASS_OWNER"}
+                assert lop.sv_a.ten not in json.dumps(reply, ensure_ascii=False)
+                assert gateway.hub.listeners(channel) == 0
+                gateway.broadcast(channel, "kt08.private", {"fullName": lop.sv_a.ten})
+                ws.send_json({"action": "ping"})
+                assert ws.receive_json()["event"] == "pong"
