@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     openai_compat_base_url: str = ""
     openai_compat_api_key: str = ""
     llm_session_token_budget: int = 20_000
+    paste_ratio_threshold: float = 0.6
+    paste_min_chars: int = 120
+    typing_cps_max: float = 20.0
     llm_timeout_s: float = 30
     llm_max_retries: int = 2
     llm_transient_retries: int = 1
