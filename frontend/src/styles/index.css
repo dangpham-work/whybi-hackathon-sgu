@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens – lấy từ Figma "Nền tảng thiết kế — Whybi AI" (node 11:1184), mục 01–05.
+ * Nhóm Trạng thái dùng đúng mã màu Hình 5.23 / BR-06 của đề cương.
+ * Cập nhật token: sửa ở đây, mọi class Tailwind (bg-honey, text-ink-900, bg-st-pass…) đổi theo.
+ */
+@theme {
+  /* Font: Be Vietnam Pro – hiển thị tốt dấu tiếng Việt ở mọi cỡ chữ */
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+
+  /* Mực & nền */
+  --color-ink-900: #17202e; /* chữ chính */
+  --color-ink-700: #3d4a60;
+  --color-ink-500: #6b7a90; /* chữ phụ */
+  --color-ink-300: #9aa6b8; /* placeholder */
+  --color-line-strong: #cfd6e2; /* viền ô nhập */
+  --color-line-soft: #e3e7ee; /* viền thẻ */
+  --color-app: #f6f7f9; /* nền trang */
+  --color-surface: #ffffff; /* nền thẻ */
+
+  /* Thương hiệu */
+  --color-honey: #f2a91b; /* hành động chính */
+  --color-honey-deep: #9a6504;
+  --color-honey-soft: #fff4dc;
+  --color-teal: #0b6e63; /* liên kết, tiến trình */
+  --color-teal-soft: #e3f2f0;
+
+  /* Trạng thái (Hình 5.23 – BR-06) – luôn kèm biểu tượng (NFR-12) */
+  --color-st-pass: #c8e6c9; /* Đạt ≥ 70% */
+  --color-st-warn: #fff59d; /* 40–70% */
+  --color-st-fail: #ef9a9a; /* < 40% */
+  --color-st-grey: #eceff1; /* chưa đủ mẫu / khóa */
+  --color-st-reverify: #ffe0b2; /* cần xác nhận lại */
+
+  /* Bo góc dùng trong Figma */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+
+  /* Hiệu ứng – Bóng/Thẻ, Bóng/Nổi */
+  --shadow-card: 0 3px 10px rgb(23 33 48 / 0.05);
+  --shadow-float: 0 3px 10px rgb(23 33 48 / 0.08);
+  --shadow-dialog: 0 12px 32px rgb(23 33 48 / 0.16);
+
+  /* Cỡ chữ – 14 text style của Figma (Hiển thị/XL … Nhãn/Caps) */
+  --text-display: 32px;
+  --text-display--line-height: 43px;
+  --text-h1: 24px;
+  --text-h1--line-height: 32px;
+  --text-h2: 20px;
+  --text-h2--line-height: 27px;
+  --text-h3: 16px;
+  --text-h3--line-height: 22px;
+  --text-h4: 14px;
+  --text-h4--line-height: 19px;
+  --text-body-l: 16px;
+  --text-body-l--line-height: 22px;
+  --text-body-m: 14px;
+  --text-body-m--line-height: 19px;
+  --text-body-s: 12px;
+  --text-body-s--line-height: 16px;
+  --text-caps: 11px;
+  --text-caps--line-height: 17px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-ink-900);
+    background: var(--color-app);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Nhãn/Caps: 11px SemiBold, giãn chữ 0.08em, viết hoa */
+  .caps {
+    font-size: var(--text-caps);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-500);
+  }
+}
