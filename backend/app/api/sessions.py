@@ -26,9 +26,9 @@ from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, LecturerOrStudent, Student
-from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.common import ApiModel, ErrorResponse
+from app.models.schemas.heatmap import ProfileSession
 from app.models.schemas.session import (
     NodeAlreadyMasteredDetails,
     NodeLockedDetails,
@@ -39,6 +39,7 @@ from app.models.schemas.session import (
     Turn,
     TurnReply,
 )
+from app.services.session_history import SessionHistoryService
 from app.services.session_orchestrator import SessionOrchestrator
 from app.services.speech import MAX_AUDIO_BYTES, SpeechService, TtsService, validate_audio
 
@@ -182,6 +183,15 @@ def get_result(
 
 
 @router.get("/me/sessions", response_model=list[SessionResult])
-def my_sessions(class_id: UUID | None = None, user: CurrentUser = Student) -> list[SessionResult]:
-    """SV-08 Lịch sử phiên (FR-TB-15, vòng 3)."""
-    raise NotImplementedYet("C2-20")
+def my_sessions(
+    class_id: UUID | None = None, user: CurrentUser = Student, db: Session = Depends(get_db)
+) -> list[SessionResult]:
+    """SV-08 Lịch sử phiên của chính mình (FR-TB-15): kết quả các phiên đã chấm, mới nhất trước; lọc theo `class_id`."""
+    return SessionHistoryService(db).my_sessions(user.id, class_id)
+
+
+@router.get("/me/sessions/{session_id}", response_model=ProfileSession)
+def my_session(session_id: UUID, user: CurrentUser = Student, db: Session = Depends(get_db)) -> ProfileSession:
+    """Chi tiết một phiên của mình: kết quả, transcript từng lượt, `audioUrl` để nghe lại ghi âm (còn hạn lưu).
+    Phiên của người khác ⇒ 403 FORBIDDEN."""
+    return SessionHistoryService(db).my_session(user.id, session_id)

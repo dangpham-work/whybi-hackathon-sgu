@@ -30,7 +30,6 @@ from app.ai.agents.tutee import MAX_QUESTIONS, MIN_QUESTIONS, CoverageAnalysis, 
 from app.ai.gateway import LLMGateway, get_gateway
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.models import tree as tree_orm
 from app.models.enums import (
     FlagType,
     InputMode,
@@ -53,9 +52,9 @@ from app.models.schemas.session import (
 )
 from app.models.schemas.tree import Node, Rubric
 from app.models.session import Evaluation, SecurityFlag, SessionTurn, TeachingSession
-from app.models.users import ClassSection
 from app.realtime.bus import get_bus
 from app.realtime.gateway import broadcast, channel_session
+from app.services.classes import ClassService
 from app.services.mastery import MasteryService
 from app.services.quota import QuotaService, estimate_audio_seconds
 from app.services.skill_tree import SkillTreeService
@@ -188,15 +187,8 @@ class SessionOrchestrator:
     # ------------------------------------------------------------------ nạp dữ liệu
 
     def _node(self, node_id: UUID) -> tuple[UUID, Node]:
-        """(class_id, Node kèm rubric) của nút. TODO(Long): SkillTreeService nên có hàm công khai cho việc này."""
-        n = self.db.get(tree_orm.ConceptNode, node_id)
-        if n is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        tv = SkillTreeService(self.db).version_schema(n.version_id)
-        node = next((x for x in tv.nodes if x.id == node_id), None)
-        if node is None:
-            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
-        return tv.class_id, node
+        """(class_id, Node kèm rubric) của nút."""
+        return SkillTreeService(self.db).get_node_for_session(node_id)
 
     def _session(self, session_id: UUID, user_id: UUID, *, lock: bool = False) -> TeachingSession:
         q = select(TeachingSession).where(TeachingSession.id == session_id)
@@ -593,8 +585,7 @@ class SessionOrchestrator:
         if role == Role.STUDENT and s.student_id != user_id:
             raise AppError(403, "FORBIDDEN", "Đây không phải phiên của bạn")
         if role == Role.LECTURER:
-            cls = self.db.get(ClassSection, s.class_id)  # TODO(Long): hàm kiểm GV chủ lớp dùng chung
-            if cls is None or cls.lecturer_id != user_id:
+            if ClassService(self.db).lecturer_id(s.class_id) != user_id:
                 raise AppError(403, "FORBIDDEN", "Phiên không thuộc lớp của bạn")
         if s.status != SessionStatus.COMPLETED:
             raise AppError(409, "RESULT_NOT_READY", "Phiên chưa chấm xong", {"status": s.status})

@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent
-from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.heatmap import ClassSettings, GridRow, HeatmapSnapshot, NodeDetail, NodeStat, StudentProfile
 from app.services.classes import ClassService
 from app.services.heatmap import HeatmapService
+from app.services.report import ReportFormat, ReportService
 from app.services.session_history import SessionHistoryService
 
 __all__ = ["ClassSettings", "GridRow", "HeatmapSnapshot", "NodeDetail", "NodeStat", "StudentProfile", "router"]
@@ -78,7 +78,18 @@ def put_settings(
     return HeatmapService(db).update_settings(class_id, user, body)
 
 
-@router.get("/classes/{class_id}/report")
-def export_report(class_id: UUID, format: str = "csv", user: CurrentUser = Lecturer) -> dict:
-    """Xuất báo cáo lớp CSV / PDF (FR-HM-10, vòng 3)."""
-    raise NotImplementedYet("C2-20")
+@router.get("/classes/{class_id}/report", response_class=Response)
+def export_report(
+    class_id: UUID,
+    format: ReportFormat = "csv",
+    user: CurrentUser = Lecturer,
+    db: Session = Depends(get_db),
+) -> Response:
+    """Xuất báo cáo lớp CSV (lưới SV × nút) hoặc PDF (tổng quan, nút, cảnh báo, SV) – FR-HM-10. Tải về dạng tệp.
+    Chỉ GV phụ trách lớp (403 NOT_CLASS_OWNER); lớp chưa phát hành cây ⇒ 404 TREE_NOT_PUBLISHED."""
+    data, media_type, filename = ReportService(db).build(class_id, user, format)
+    return Response(
+        data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
+    )

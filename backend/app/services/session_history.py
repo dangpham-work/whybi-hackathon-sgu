@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.models.enums import Role, SessionStatus
+from app.models.enums import MasteryState, Role, SessionStatus, Verdict
 from app.models.schemas.heatmap import ProfileSession, ProfileTurn, StudentProfile
 from app.models.schemas.session import SessionResult
 from app.models.session import Evaluation, SessionTurn, TeachingSession
@@ -94,6 +94,19 @@ class SessionHistoryService:
                 .order_by(TeachingSession.started_at.desc())
             )
         )
+        return StudentProfile(
+            class_id=class_id,
+            student_id=student_id,
+            full_name=name,
+            student_code=code,
+            mastered_count=my_map.mastered_count,
+            total_count=my_map.total_count,
+            progress=my_map.progress,
+            sessions=self._sessions_out(sessions, titles),
+        )
+
+    def _sessions_out(self, sessions: list[TeachingSession], titles: dict[str, str]) -> list[ProfileSession]:
+        """Phiên kèm kết quả chấm và transcript; `titles` tra tên nút theo key (nút phiên bản cũ có thể không có)."""
         ids = [s.id for s in sessions]
         keys = SkillTreeService(self.db).node_keys([s.node_id for s in sessions])
         results = self._results(ids)
@@ -104,7 +117,6 @@ class SessionHistoryService:
             .order_by(SessionTurn.session_id, SessionTurn.turn_no)
         )
         for t in self.db.scalars(q):
-            has_audio = audio_key(t.audio_url, t.session_id) is not None
             turns.setdefault(t.session_id, []).append(
                 ProfileTurn(
                     turn_no=t.turn_no,
@@ -112,34 +124,72 @@ class SessionHistoryService:
                     turn_type=t.turn_type,
                     content=t.content,
                     input_mode=t.input_mode,
-                    audio_url=audio_endpoint(t.id) if has_audio else None,
+                    audio_url=audio_endpoint(t.id) if audio_key(t.audio_url, t.session_id) else None,
                     created_at=t.created_at,
                 )
             )
-        return StudentProfile(
-            class_id=class_id,
-            student_id=student_id,
-            full_name=name,
-            student_code=code,
-            mastered_count=my_map.mastered_count,
-            total_count=my_map.total_count,
-            progress=my_map.progress,
-            sessions=[
-                ProfileSession(
-                    session_id=s.id,
-                    node_id=s.node_id,
-                    node_key=keys.get(s.node_id),
-                    node_title=titles.get(keys.get(s.node_id, "")),
-                    attempt_no=s.attempt_no,
-                    status=s.status,
-                    started_at=s.started_at,
-                    ended_at=s.ended_at,
-                    result=results.get(s.id) if s.status == SessionStatus.COMPLETED else None,
-                    turns=turns.get(s.id, []),
-                )
-                for s in sessions
-            ],
+        return [
+            ProfileSession(
+                session_id=s.id,
+                node_id=s.node_id,
+                node_key=keys.get(s.node_id),
+                node_title=titles.get(keys.get(s.node_id, "")),
+                attempt_no=s.attempt_no,
+                status=s.status,
+                started_at=s.started_at,
+                ended_at=s.ended_at,
+                result=results.get(s.id) if s.status == SessionStatus.COMPLETED else None,
+                turns=turns.get(s.id, []),
+            )
+            for s in sessions
+        ]
+
+    # ------------------------------------------------------------------ lịch sử phiên của SV (SV-08, FR-TB-15)
+
+    def my_sessions(self, student_id: UUID, class_id: UUID | None) -> list[SessionResult]:
+        """Kết quả các phiên đã chấm xong của chính SV, mới nhất trước. Thiếu ảnh chụp kết quả đầy đủ thì dựng bản
+        tối thiểu từ điểm và kết luận đã lưu để phiên không biến mất khỏi lịch sử."""
+        q = (
+            select(TeachingSession, Evaluation)
+            .join(Evaluation, Evaluation.session_id == TeachingSession.id)
+            .where(TeachingSession.student_id == student_id, TeachingSession.status == SessionStatus.COMPLETED)
+            .order_by(TeachingSession.started_at.desc())
         )
+        if class_id is not None:
+            q = q.where(TeachingSession.class_id == class_id)
+        out: list[SessionResult] = []
+        for s, ev in self.db.execute(q):
+            try:
+                out.append(SessionResult.model_validate(json.loads(ev.feedback)))
+                continue
+            except (TypeError, ValueError, ValidationError):
+                pass
+            passed = ev.verdict == Verdict.PASSED
+            out.append(
+                SessionResult(
+                    session_id=s.id,
+                    student_id=s.student_id,
+                    node_id=s.node_id,
+                    class_id=s.class_id,
+                    state=MasteryState.MASTERED if passed else MasteryState.NOT_PASSED,
+                    verdict=Verdict(ev.verdict),
+                    total_score=float(ev.total_score),
+                    criteria=[],
+                    attempt_no=s.attempt_no,
+                    completed_at=s.ended_at,
+                )
+            )
+        return out
+
+    def my_session(self, student_id: UUID, session_id: UUID) -> ProfileSession:
+        """Một phiên của chính SV kèm transcript và đường dẫn nghe lại ghi âm (còn hạn). Phiên người khác ⇒ 403."""
+        s = self.db.get(TeachingSession, session_id)
+        if s is None:
+            raise AppError(404, "SESSION_NOT_FOUND", "Không tìm thấy phiên", {"sessionId": str(session_id)})
+        if s.student_id != student_id:
+            raise AppError(403, "FORBIDDEN", "Đây không phải phiên của bạn")
+        _, node = SkillTreeService(self.db).get_node_for_session(s.node_id)
+        return self._sessions_out([s], {node.key: node.title})[0]
 
     # ------------------------------------------------------------------ nghe lại ghi âm
 

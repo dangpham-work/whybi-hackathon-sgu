@@ -319,6 +319,17 @@ class SkillTreeService:
         tree = self.db.get(orm.SkillTree, v.tree_id)
         return self._to_schema(v, tree.class_id)
 
+    def get_node_for_session(self, node_id: UUID) -> tuple[UUID, Node]:
+        """(class_id, Node kèm rubric) của nút – lời gọi nội bộ (SessionOrchestrator, #102), không kiểm quyền."""
+        n = self.db.get(orm.ConceptNode, node_id)
+        if n is None:
+            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
+        tv = self.version_schema(n.version_id)
+        node = next((x for x in tv.nodes if x.id == node_id), None)
+        if node is None:
+            raise AppError(404, "NODE_NOT_FOUND", "Không tìm thấy nút", {"nodeId": str(node_id)})
+        return tv.class_id, node
+
     def _seed_tree(self) -> TreeVersion:
         return load_seed_tree().model_copy(deep=True)
 
