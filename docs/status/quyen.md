@@ -23,6 +23,12 @@
 - Workflow riêng chạy 30 phiên fake trên GitHub, lưu artifact kt12-tutee-simulation gồm hội thoại, provenance, summary và nhãn null chờ chấm độc lập.
 - Không tự điền nhãn không lộ đáp án; chưa đo chất lượng model thật, không ghi số liệu simulation thành kết quả thực nghiệm. Còn cần model thật và người chấm.
 - Không test local; theo Quyền, PR thường và đóng #51 khi toàn bộ check CI pass. Không xác nhận CD/VM.
+## KT-09 – MX1 và bộ đo cây
+
+- C1-11 và GD-09 đã merge. Chuyển test/evaluator từ whybi-ai@779779f và ba tài liệu fixture tổng hợp từ seed của repo gốc, không phải giáo trình dùng nghiệm thu.
+- Test pipeline trên Postgres: upload PDF/DOCX/scan, worker, DAG/rubric, duyệt/phát hành và phục hồi lỗi. Nối endpoint regenerate vào service C1-11 đã có và khôi phục node_for_edit tương ứng; không giả lập quyền sở hữu.
+- Công cụ đo P/R/F1 giữ ánh xạ một-một và bằng chứng chờ GV duyệt. Chưa dùng số liệu cũ hoặc fake để báo chất lượng model thật.
+- Không test local; PR thường, đóng #48 khi toàn bộ checks GitHub pass theo Quyền. Chưa xác nhận CD/VM.
 ## KT-04 – bộ dữ liệu và kiểm schema
 
 - Đã chuyển từ nguồn `whybi-ai` tại `f88c288`: 58 ca Guard, 62 lời giảng nháp AI, 30 mục manifest STT và 3 cây chuẩn.
