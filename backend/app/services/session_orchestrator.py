@@ -479,6 +479,7 @@ class SessionOrchestrator:
             rubric,
             node.title,
             challenges_total=len(asked),
+            pass_threshold=ClassService(self.db).get_settings(s.class_id).pass_threshold,
             session_id=str(s.id),
         )
         flags = sorted(
