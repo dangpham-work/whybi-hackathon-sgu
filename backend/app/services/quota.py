@@ -26,13 +26,15 @@ _COLUMN = {CLASS: UsageRecord.class_id, STUDENT: UsageRecord.student_id}
 
 
 def estimate_audio_seconds(data: bytes, ext: str) -> int:
-    """Thời lượng ghi âm. WAV đọc đúng từ tiêu đề; định dạng nén chỉ ước lượng theo dung lượng.
-    # ponytail: ước lượng theo bitrate điển hình (opus ~32 kbps, mp3/m4a ~128 kbps); STT trả thời lượng thì thay."""
+    """Thời lượng ghi âm để tính hạn mức. WAV đọc đúng từ tiêu đề; định dạng nén chỉ ước lượng theo dung lượng và
+    cố ý lấy bitrate THẤP (opus 16 kbps, mp3/m4a 64 kbps) để không đếm hụt khi ai đó gửi tệp bitrate rất thấp:
+    ghi âm thường (opus ~32 kbps) bị tính dư tới ~2 lần.
+    # ponytail: ước lượng theo bitrate sàn; STT hoặc bộ đọc container trả thời lượng thật thì thay."""
     if ext == "wav":
         from app.services.speech import _wav_seconds
 
         return round(_wav_seconds(data))
-    bytes_per_second = 4_000 if ext in ("webm", "ogg") else 16_000
+    bytes_per_second = 2_000 if ext in ("webm", "ogg") else 8_000
     return max(1, round(len(data) / bytes_per_second))
 
 
@@ -140,6 +142,14 @@ class QuotaService:
                 set_={"tokens": func.greatest(UsageRecord.tokens, stmt.excluded.tokens), "updated_at": utcnow()},
             )
         )
+
+    def reserve_audio(self, session_id: UUID, student_id: UUID, class_id: UUID, seconds: int) -> None:
+        """Kiểm hạn mức rồi cộng giây ghi âm TRƯỚC khi gọi STT, một bước dưới khóa theo lớp và theo SV: tải lên song
+        song không cùng lọt qua khi chỉ còn đủ cho một, tải lên lỗi sau đó vẫn bị tính. Không commit."""
+        for key in sorted((f"quota:{class_id}", f"quota:{student_id}")):
+            self.db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(key, 0))))
+        self.check(student_id, class_id, audio=True)
+        self.add_audio(session_id, student_id, class_id, seconds)
 
     def add_audio(self, session_id: UUID, student_id: UUID, class_id: UUID, seconds: int) -> None:
         """Cộng giây ghi âm vào phiên. Không commit."""

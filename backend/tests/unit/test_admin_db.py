@@ -304,3 +304,86 @@ def test_xu_ly_co_ghi_nhat_ky(co_co):
     assert w.api.get(f"{API}/admin/flags").json() == []
     assert len(w.api.get(f"{API}/admin/flags", params={"resolved": "true"}).json()) == 1
     assert w.db.scalar(select(AuditLog).where(AuditLog.action == "FLAG_RESOLVE", AuditLog.entity_id == flag.id))
+
+
+# --- Thu hồi phiên đăng nhập khi khóa / đặt lại mật khẩu -----------------------------------------
+
+
+def test_khoa_tai_khoan_thu_hoi_ngay_access_token(admin):
+    from app.api import deps
+    from app.main import app
+
+    created = admin.api.post(
+        f"{API}/admin/users", json={"fullName": "GV X", "email": "gvx@sgu.test", "role": "LECTURER"}
+    ).json()
+    uid, pw = created["user"]["id"], created["password"]
+    tok = admin.api.post(f"{API}/auth/login", json={"email": "gvx@sgu.test", "password": pw}).json()["accessToken"]
+    # xác thực thật (bỏ ghi đè get_current_user) để thử token
+    app.dependency_overrides.pop(deps.get_current_user)
+    me = lambda t: admin.api.get(f"{API}/me", headers={"Authorization": f"Bearer {t}"})  # noqa: E731
+    assert me(tok).status_code == 200
+    app.dependency_overrides[deps.get_current_user] = lambda: deps.CurrentUser(id=admin.admin, role=Role.ADMIN)
+    admin.api.patch(f"{API}/admin/users/{uid}", json={"isActive": False})
+    app.dependency_overrides.pop(deps.get_current_user)
+    r = me(tok)
+    assert r.status_code == 401 and r.json()["error"]["code"] == "TOKEN_REVOKED"
+    app.dependency_overrides[deps.get_current_user] = lambda: deps.CurrentUser(id=admin.admin, role=Role.ADMIN)
+
+
+def test_dat_lai_mat_khau_thu_hoi_access_token_cu_nhung_dang_nhap_moi_duoc(admin):
+    from app.api import deps
+    from app.main import app
+
+    created = admin.api.post(
+        f"{API}/admin/users", json={"fullName": "GV Y", "email": "gvy@sgu.test", "role": "LECTURER"}
+    ).json()
+    uid, pw = created["user"]["id"], created["password"]
+    old = admin.api.post(f"{API}/auth/login", json={"email": "gvy@sgu.test", "password": pw}).json()["accessToken"]
+    new_pw = admin.api.post(f"{API}/admin/users/{uid}/reset-password").json()["password"]
+    new = admin.api.post(f"{API}/auth/login", json={"email": "gvy@sgu.test", "password": new_pw}).json()["accessToken"]
+    app.dependency_overrides.pop(deps.get_current_user)
+    try:
+        assert admin.api.get(f"{API}/me", headers={"Authorization": f"Bearer {old}"}).status_code == 401
+        assert admin.api.get(f"{API}/me", headers={"Authorization": f"Bearer {new}"}).status_code == 200
+    finally:
+        app.dependency_overrides[deps.get_current_user] = lambda: deps.CurrentUser(id=admin.admin, role=Role.ADMIN)
+
+
+def test_tai_ghi_am_tinh_han_muc_truoc_stt_ke_ca_khi_stt_loi(published):  # noqa: F811
+    """Tệp ghi âm bị tính ngay cả khi nhận dạng thất bại (không thể gửi tệp lỗi để né hạn mức)."""
+    w, tree = published
+    from app.models.schemas.admin import QuotaIn
+
+    sid = start(w, tree).json()["sessionId"]
+    QuotaService(w.db).set(QuotaIn(scope="CLASS", scope_id=w.class_id, audio_minutes_limit=10))
+    r = w.api.post(
+        f"{API}/sessions/{sid}/audio", files={"file": ("a.wav", _wav(3), "audio/wav")}, data={"consent": "false"}
+    )
+    assert r.status_code in (200, 422), r.text  # STT giả có thể không nhận ra lời nói
+    assert QuotaService(w.db).usage("CLASS", w.class_id)[1] == 3
+
+
+def test_thu_hoi_khong_ho_trong_cung_mot_giay(admin):
+    """Token cấp ngay trước khi khóa (cùng giây) cũng bị thu hồi; token cấp ngay sau thì dùng được."""
+    from datetime import UTC, datetime
+
+    from app.api import deps
+    from app.core.security import create_access_token
+    from app.services.auth import InMemoryRevocations
+
+    rev = InMemoryRevocations()
+    uid = uuid4()
+    before = create_access_token(uid, Role.LECTURER)
+    rev.revoke_user(str(uid), datetime.now(UTC).timestamp())
+    after = create_access_token(uid, Role.LECTURER)
+    with pytest.raises(Exception) as e:
+        deps.user_from_token(before, rev)
+    assert "TOKEN_REVOKED" in str(getattr(e.value, "code", e.value)) or getattr(e.value, "status_code", 0) == 401
+    assert deps.user_from_token(after, rev).id == uid
+
+
+def test_uoc_luong_thoi_luong_nen_bao_thu():
+    from app.services.quota import estimate_audio_seconds
+
+    assert estimate_audio_seconds(b"x" * 60_000, "webm") == 30  # sàn 16 kbps ⇒ tính nhiều hơn thực tế 32 kbps (15 giây)
+    assert estimate_audio_seconds(b"x" * 80_000, "mp3") == 10

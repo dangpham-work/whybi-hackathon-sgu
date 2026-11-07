@@ -12,7 +12,13 @@ celery = Celery(
     "whybi",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.documents", "app.workers.aggregation", "app.workers.matching", "app.workers.sessions"],
+    include=[
+        "app.workers.documents",
+        "app.workers.aggregation",
+        "app.workers.matching",
+        "app.workers.sessions",
+        "app.workers.notifications",
+    ],
 )
 app = celery  # để `celery -A app.workers.celery_app` tìm thấy
 
@@ -22,6 +28,7 @@ celery.conf.update(
         "app.workers.documents.*": {"queue": "documents"},
         "app.workers.aggregation.*": {"queue": "aggregation"},
         "app.workers.matching.*": {"queue": "matching"},
+        "app.workers.notifications.*": {"queue": "aggregation"},
     },
     timezone="Asia/Ho_Chi_Minh",
     task_acks_late=True,

@@ -9,7 +9,7 @@ Hết hạn thì dừng ghép tự động; GV xem ai còn chờ ở `list_windo
 
 Mỗi cặp là một PeerMatch (người dạy = A, người học = B, một mục dạy A → B) nên chấp nhận / học cùng / xác nhận lại
 chạy như cũ. Vòng ghép của các cặp này có trigger_type = LIVE (một vòng chung cho cả lớp).
-TODO(C2-19): NotificationService.notify cho hai SV khi có cặp.
+C2-19: mỗi cặp mới báo hai SV qua NotificationService (thông báo + email).
 """
 
 import logging
@@ -31,6 +31,7 @@ from app.models.schemas.matching import ReviewWindowOut
 from app.models.users import ClassSection, Enrollment
 from app.services.mastery import MasteryService
 from app.services.matching import ACTIVE, NO_REPEAT, PENDING, PROPOSAL_TTL, MatchingService
+from app.services.notification import notify_match_proposed
 from app.services.skill_tree import SkillTreeService
 
 if TYPE_CHECKING:
@@ -171,7 +172,7 @@ class LiveMatching:
             self.db.add(
                 PeerMatchItem(match_id=m.id, teacher_id=UUID(teacher), learner_id=UUID(learner), node_id=out.node_id)
             )
-        # TODO(C2-19): NotificationService.notify cho hai SV mỗi cặp
+            notify_match_proposed(self.db, class_id, UUID(teacher), UUID(learner))
         return len(pairs)
 
     def rebalance_class(self, class_id: UUID) -> int:

@@ -15,6 +15,15 @@
     - `GET /classes/{id}/matching-stats` → `MatchingStats {totalMatches, accepted, declined, expired, studied, itemsTotal, itemsVerified, acceptRate, studiedRate, verifiedRate}` (chỉ GV chủ lớp).
     - Không đổi schema CSDL. Thắng (GD-12): chạy `npm run gen:api`; màn GV-09 thêm chọn nút ưu tiên, nút hủy / thay SV, khối thống kê.
     - Quyền (KT-14): đã thêm route mới vào bảng `PHAN_QUYEN`.
+  - C2-19: thông báo (FR-AD-08, Bảng 5.11). Không đổi CSDL. `NotificationService.notify(...)` ghi `notifications` và chỉ GIAO (đẩy `notification`
+    lên kênh `user:{id}` + email qua Celery `app.workers.notifications.deliver_email`, hàng đợi `aggregation`) SAU khi giao dịch của bên gọi commit;
+    rollback thì bỏ. Chưa cấu hình `SMTP_HOST` thì email chỉ ghi log. `GET /notifications?unread_only=&limit=`, `POST /notifications/{id}/read`,
+    `POST /notifications/read-all`. Payload WebSocket cùng dạng `NotificationOut` (`id, type, title, content, link, isRead, createdAt`).
+    Đã nối: gợi ý ghép cặp mới (`MATCH_PROPOSED`, cả ghép lô lẫn ghép theo sự kiện của C2-15) và cả hai chấp nhận (`MATCH_ACCEPTED`, kèm email liên hệ).
+    Thắng: `link` là đường dẫn trong ứng dụng (`/sv/classes/{id}/peers`).
+  - Sửa theo rà soát bảo mật C2-18: khóa tài khoản / QTV đặt lại mật khẩu thu hồi ngay mọi access token cũ (`Revocations.revoke_user`, kiểm ở
+    `user_from_token` theo claim `t0` = giờ cấp có phần thập phân, nên không hở trong cùng một giây; thu hồi trước khi commit); ghi âm tính hạn mức TRƯỚC khi gọi STT, dưới khóa theo lớp / SV (`QuotaService.reserve_audio`), ước lượng thời
+    lượng tệp nén lấy bitrate sàn nên tính dư thay vì hụt.
   - C2-18: quản trị (FR-AD-03, 04, 06, 07). Migration `412b81e85505`: bảng `usage_quotas`, `usage_records` (33 bảng).
     - Tài khoản: `GET|POST /admin/users`, `PATCH /admin/users/{id}` (khóa / mở khóa, đổi tên), `POST /admin/users/{id}/reset-password`,
       `POST /admin/users/import` (CSV UTF-8: `mssv, ho_ten, email, [khoa]`; trả `created` / `skipped` / `errors` theo dòng).

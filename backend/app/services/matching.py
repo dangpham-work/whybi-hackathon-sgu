@@ -6,7 +6,7 @@
 - Hết hạn: beat `expire_matches` (5 phút) gọi `expire_due`; phản hồi sau hạn cũng tự chuyển EXPIRED (409 MATCH_EXPIRED).
 - Xác nhận lại: nghe `session.completed` (SessionResult) – phiên Đạt của người học ở đúng nút ⇒ mục verified;
   đủ mọi mục ⇒ VERIFIED. Hết 7 ngày: có mục Đạt ⇒ PARTIALLY_VERIFIED, không ⇒ UNVERIFIED.
-- TODO(C2-19): gửi thông báo cho hai SV khi có gợi ý / khi cả hai chấp nhận (NotificationService chưa có).
+- C2-19: gửi thông báo + email cho hai SV khi có gợi ý và khi cả hai chấp nhận (`services/notification.py`).
 """
 
 import logging
@@ -29,6 +29,7 @@ from app.models.schemas.matching import MatchAdjust, MatchingStats, MatchItemOut
 from app.models.schemas.session import SessionResult
 from app.models.users import ClassSection, Enrollment, User
 from app.services.mastery import MasteryService
+from app.services.notification import notify_match_accepted, notify_match_proposed
 from app.services.skill_tree import SkillTreeService
 
 if TYPE_CHECKING:
@@ -80,6 +81,9 @@ class MatchingService:
         if user.id not in (m.student_a_id, m.student_b_id):
             raise AppError(403, "NOT_MATCH_MEMBER", "Bạn không thuộc cặp này")
         return m
+
+    def _class_of(self, m: PeerMatch) -> UUID:
+        return self.db.scalar(select(MatchingRound.class_id).where(MatchingRound.id == m.round_id))
 
     # ------------------------------------------------------------------ bật / tắt (FR-PM-01, BR-10)
 
@@ -203,6 +207,7 @@ class MatchingService:
                         PeerMatchItem(match_id=m.id, teacher_id=teacher, learner_id=learner, node_id=matrix.id_of[key])
                     )
             created.append(m)
+            notify_match_proposed(self.db, class_id, a, b)
         self.db.flush()
         out = RoundOut(
             id=rnd.id,
@@ -223,7 +228,6 @@ class MatchingService:
             len(created),
             len(waiting),
         )
-        # TODO(C2-19): NotificationService.notify cho hai SV mỗi cặp
         return out
 
     def scheduled_class_ids(self) -> list[UUID]:
@@ -420,7 +424,7 @@ class MatchingService:
                 if m.accepted_by_a and m.accepted_by_b:
                     m.status = M.ACCEPTED
                     m.expires_at = now + STUDY_TTL
-                    # TODO(C2-19): báo hai SV thông tin liên hệ của nhau
+                    notify_match_accepted(self.db, self._class_of(m), m.student_a_id, m.student_b_id)
                 else:
                     m.status = M.WAITING_OTHER
             elif not (m.status == M.ACCEPTED):
