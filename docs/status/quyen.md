@@ -39,9 +39,39 @@
 - Demo riêng: APP_ENV=dev, LLM_MODE=fake, DEMO_MODE=1; sau migration chạy seed_db.py, mastery_listener và simulate_students.py --serve-demo; gọi simulate_students.py --prepare-demo để nạp rubric minh họa và phát hành cây qua API GV. Chỉ dùng CSDL demo riêng; đây là dữ liệu giả lập, không phải kết quả đo AI.
 - C2-13 chưa merge: nếu heatmap trả đúng 501 NOT_IMPLEMENTED của C2-13, trả heatmapVerified=false và weakColor=null sau khi kiểm my-map đủ 30 SV. Mọi lỗi heatmap khác vẫn fail.
 - Test Postgres thật dùng schema/transaction riêng trong CI để xác nhận đủ 330 ô, 30 SV, phiên/evaluation hoàn tất và N5 9/21. Đang chờ CI trên PR; theo yêu cầu không chạy thêm test local.
+## KT-06 – kiểm thử MX2 qua stack CI
+
+- Tiên quyết C1-07 (#7, PR #119) và GD-07 (#63, PR #123) đã merge. Chuyển spec và bootstrap từ whybi-ai 9666a4c, giữ workflow E2E hiện tại có bắt lỗi.
+- Chạy desktop + mobile qua Playwright: đăng nhập thật, tạo lớp/cây/rubric và phát hành qua API GV, gửi lời giảng trên SV-04, đo paste/typing, 3–5 câu phản biện, đọc điểm 5 tiêu chí và kết quả; kiểm mở khóa qua my-map.
+- TC06: API từ chối nút khóa; TC08: jailbreak có cờ và không cộng điểm; TC09: hoàn tất và mở nút con; TC10 tương đương: điểm đủ nhưng thiếu ý bắt buộc vẫn FAILED theo BR-03.
+- GD-06/SV-03 chưa merge: tạo phiên qua API và truyền router state đúng hợp đồng của SV-04, không tuyên bố đã test luồng bấm từ bản đồ. GD-08/SV-06 chưa merge: xác nhận API kết quả và href, chưa kiểm giao diện kết quả. TC07 giọng nói/STT chờ C1-12 và GD-08.
+- Bootstrap chỉ tự seed stack Docker localhost với APP_ENV=dev|test, LLM_MODE=fake; khóa Postgres tránh seed đồng thời. Bản deploy test ngoài CI phải cung cấp KT06_COURSE_ID của môn đã seed.
+- Dữ liệu/lớp được tạo riêng cho mỗi ca; trace, screenshot và kết quả JSON trong artifact playwright-report. Chưa có bằng chứng trên VM thật. Không chạy test local; chờ GitHub CI và Long duyệt.
+- Lỗi tải lại SV-04 đã có issue #79; không đóng hoặc coi đã sửa trong KT-06.
+## KT-08 – bảo mật và phân quyền
+
+- C2-07 đã merge. Chuyển bộ test phù hợp API hiện tại từ whybi-ai@4d48966: JWT thật, Argon2id, ma trận vai trò viết tay và Postgres kiểm dữ liệu theo lớp/người.
+- C1-07 đã có: bỏ xfail cho kiểm quyền kết quả phiên và gửi lượt. Các endpoint C2-13/C2-17/C2-20/C1-12 chưa có vẫn xfail(strict=True) với lý do cụ thể, tự báo XPASS khi triển khai xong.
+- Sửa my_map kiểm ghi danh trước khi đọc cây, để SV ngoài lớp nhận 403 ngay cả khi cây chưa phát hành; cần Long rà thay đổi services/mastery.py.
+- Không test local. Theo Quyền, tạo PR thường; đóng #47 khi tất cả GitHub checks pass, không coi đây là xác nhận CD/VM.
+### KT-08 – bổ sung phụ thuộc xác thực WebSocket
+
+- CI PR #135 lỗi chung backend/E2E do main port realtime.py (C1-09) import user_from_token nhưng deps.py chưa có hàm này.
+- Lấy đúng deps.py từ whybi-ai@75145a4: HTTP và WebSocket dùng chung verified_claims và xử lý token không phải chuỗi bằng INVALID_TOKEN. Không kéo phần thu hồi theo user của C2-19 chưa có.
+- Theo Quyền: không test local và không chờ/chạy lại CI thủ công; sửa từ nguồn rồi push cùng PR. Chưa tuyên bố bản sửa đã pass CI.
+
 ## KT-07 – bộ chạy Guard và báo cáo CI
 
 - C1-06 (#6) đã merge, đủ tiên quyết bắt đầu. Chuyển runner/test từ whybi-ai@62802b3, không mang số liệu cũ sang.
 - CI chạy 58 kịch bản với Guard thật và FakeProvider, tạo artifact kt07-guard-report. --ci-smoke chỉ kiểm >=50 ca không lỗi; chất lượng vẫn có thể chưa đạt và được ghi rõ trong báo cáo.
 - Repo không có Actions secrets để chạy model thật. Chưa đo Đạt sai qua phiên; --judge hiện chấm trực tiếp, không đại diện toàn bộ C1-07. Dữ liệu còn cần rà độc lập. Giữ PR draft, chưa đóng #46 khi chưa đủ bằng chứng.
 - Không chạy test hoặc evaluation local theo yêu cầu. Long duyệt thay đổi workflow; chỉ chạy lại CI nếu có lỗi.
+
+
+- Cập nhật: tiếp tục kiểm GitHub CI đến khi pass theo yêu cầu mới; không chạy test local.
+
+### KT-08 – hoàn tất merge và sửa cấu hình phiên
+
+- Đã hoàn tất merge do pull đang dở và giữ các thay đổi của cộng tác viên trên remote KT-08.
+- Sửa get_settings dùng mặc định 3 câu khi model ClassSection chưa có challenge_count; nếu thuộc tính đã có thì giữ giá trị cấu hình. Thêm hai ca hồi quy cho cả hai dạng model.
+- Tiếp tục theo dõi GitHub CI đến khi backend/E2E/Docker pass; không chạy test local. Không xử lý KT-12 vì người khác đang phụ trách.
