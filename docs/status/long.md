@@ -5,6 +5,8 @@
 - Xong:
   - C2-08: lớp học phần, mã tham gia 8 ký tự, SV tham gia lớp (gọi `MasteryService.ensure_student`), tải giáo trình
     PDF/DOCX ≤ 20 MB lên kho S3 (tự tạo bucket `S3_BUCKET`), tạo `syllabus_documents` + job Celery, trả `jobId`. Không có migration.
+  - C2-11: tổng hợp bản đồ nhiệt (hàng đợi `aggregation`) – tỉ lệ Đạt / đã thử, cỡ mẫu tối thiểu, màu Bảng 6.6,
+    tách "chưa thử" / "chưa đủ mẫu" khỏi "chưa đạt". Lớp giả lập 30 SV ra đúng màu (gồm biên 70 %, 40 %, cỡ mẫu 5).
   - C2-07: đăng nhập / làm mới / đăng xuất / quên + đặt lại mật khẩu / GET + PATCH /me; Argon2id; JWT access 30 phút;
     kiểm vai trò ở mọi API (test tự quét route). Email `@whybi.test` đăng nhập được (hết lỗi 422).
   - C2-06: CSDL 30 bảng (migration `1af58d747696`) + migration `c2a06b5e9d10` thêm 13 CHECK theo từ điển dữ liệu 5.2.4.
@@ -36,6 +38,17 @@
     - Tệp lưu ở `s3://{S3_BUCKET}/syllabi/{classId}/{documentId}.{pdf|docx}` (`syllabus_documents.file_url`);
       đọc lại bằng `app.services.storage.default_storage().get(url)`.
     - Job: `celery.send_task("app.workers.documents.process_syllabus", args=[documentId, jobId], task_id=jobId)` → hàng đợi `documents`.
+  - **Bản đồ nhiệt** (C2-11):
+    - Màu (`app/algorithms/heatmap.py`): đã thử < `min_sample` (5) ⇒ GREY; p ≥ 0,7 ⇒ GREEN; p ≥ 0,4 ⇒ YELLOW; còn lại RED.
+      p = Đạt / đã thử (so bằng phân số, 21/30 là GREEN). Đạt = MASTERED hoặc NEEDS_REVERIFY; IN_PROGRESS xét theo `prev_state`.
+      Ngưỡng đọc từ `class_sections.color_thresholds {green, yellow}` và `min_sample` (C2-17 sẽ có màn cấu hình).
+    - `HeatmapNode` (payload `heatmap.node`) thêm trường tùy chọn: `nodeKey`, `sample` (`HeatSample`: NO_ATTEMPT / INSUFFICIENT /
+      SUFFICIENT), `label` (chữ đi kèm màu, vd. "✗ Điểm nghẽn – 2/9 Đạt", "Chưa đủ mẫu (4/5 SV đã thử)"), `enrolledCount`,
+      `attemptedCount`, `passedCount`, `minSample`.
+    - Luồng: `mastery.changed` → `heatmap.register_handlers` (trong tiến trình `events`) → task `aggregation.recompute_node`
+      → upsert `class_node_stats`. Bỏ qua lý do SESSION_STARTED / SESSION_ABANDONED / UNLOCKED (không đổi số liệu).
+    - Beat `heatmap-reconcile` (10 phút) → `reconcile_all` → `recompute_class` mỗi lớp đã phát hành: bù sự kiện Pub/Sub bị mất.
+    - `MasteryService.columns(class_id, node_ids?)`: đọc cột ma trận (chỉ SV đang ghi danh, chỉ nút bản đang phát hành).
   - **Xác thực** (C2-07), JSON camelCase:
     - `POST /auth/login {email, password}` → `{accessToken, refreshToken, tokenType:"bearer", expiresIn:1800}`.
       Sai email hoặc mật khẩu → 401 `INVALID_CREDENTIALS` (cùng một lỗi); tài khoản khóa → 403 `ACCOUNT_DISABLED`.
@@ -83,6 +96,7 @@
     - Chữ ký API và schema giữ nguyên.
 - Đang làm: —
 - Cần từ người khác:
+  - Thắng (GD-10): tô SkillTree `heat` theo `nodeKey` của `HeatmapNode`; hiện `label` cạnh màu (GREY có hai nghĩa: chưa thử / chưa đủ mẫu).
   - Đăng (C1-10): `TreeVersion` giờ từ chối cạnh trỏ tới key không có và cạnh tự trỏ. Nếu sinh cây nháp bằng `call_json`,
     dùng schema nháp riêng (không validator) hoặc lọc cạnh lỗi trước, rồi mới dựng `TreeVersion` và gọi `sanitize` (C2-09).
   - Thắng: chạy `npm run gen:api` để lấy kiểu `TreeVersion` (có thêm `expectedPoints`). Gọi API bằng token `dev-lecturer`.

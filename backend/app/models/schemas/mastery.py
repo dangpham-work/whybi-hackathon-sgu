@@ -16,7 +16,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.models.enums import HeatColor, MasteryChangeReason, MasteryState
+from app.models.enums import HeatColor, HeatSample, MasteryChangeReason, MasteryState
 from app.models.schemas.common import ApiModel
 from app.models.schemas.tree import TreeVersion
 
@@ -96,12 +96,23 @@ class HeatmapCell(ApiModel):
 
 
 class HeatmapNode(ApiModel):
-    """class:{id}:heatmap → heatmap.node"""
+    """class:{id}:heatmap → heatmap.node; cũng là kết quả HeatmapService.recompute (C2-11).
+
+    Màu theo Bảng 6.6 (app/algorithms/heatmap.py). `color` luôn đi kèm `label` (chữ) và `sample`
+    (FR-HM-04: XÁM vì "chưa thử" / "chưa đủ mẫu", không phải vì "chưa đạt"). Frontend tô theo `nodeKey`.
+    """
 
     node_id: UUID
+    node_key: str | None = None  # C2-11: key ổn định giữa các phiên bản – SkillTree `heat` tra theo key
     color: HeatColor
-    pass_rate: float | None
-    attempted_rate: float
+    pass_rate: float | None  # Đạt / đã thử; None khi chưa ai thử
+    attempted_rate: float  # đã thử / sĩ số
+    sample: HeatSample | None = None  # C2-11
+    label: str | None = None  # C2-11: nhãn chữ đi kèm màu, vd. "✗ Điểm nghẽn – 2/9 Đạt"
+    enrolled_count: int | None = None  # C2-11
+    attempted_count: int | None = None  # C2-11
+    passed_count: int | None = None  # C2-11
+    min_sample: int | None = None  # C2-11: cỡ mẫu tối thiểu đang áp
 
 
 class HeatmapAlert(ApiModel):
