@@ -59,3 +59,13 @@
 - Giữ nguyên Guard, cách bọc transcript, hợp đồng, model và migration. LLM_MODE=fake không phải số liệu đánh giá model thật.
 - Phụ thuộc PR embedding trên fix/145-c1-embedding; chưa merge hoặc đóng thêm issue.
 - Review độc lập phát hiện fallback câu hỏi từ rubric có thể xác nhận đáp án/giảng hộ khi mất LLM; đã thêm 2 ca tái hiện đỏ và áp role_violation trước trả fallback. Toàn bộ tests/ai sau sửa: 288 passed; Ruff xanh.
+
+## Bàn giao phần C1 – các PR chờ Đăng/Long review
+
+- #147: giáo trình và jobId/quyền kênh tiến độ; khôi phục test preprocess đã sửa.
+- #148: API STT và consent. #149 xếp trên #148: TTS private và audioUrl khi bật. Thắng có thể review phần nối SV-05; Quyền chuẩn bị kiểm thử giọng nói sau khi #148 và GD-08 được merge.
+- #150: embedding fake và demo fallback; khôi phục test_demo_mode.py (288 test AI xanh). Đã tiếp nhận main #146, không thay danh sách skip ngoài những module có bản sửa và kiểm chứng tương ứng.
+- C1-15 (#15) còn cần Long chốt ClassSection.challenge_count, ClassService.get_settings, answer_time_limit_s=120 và answer_grace_s=10. Không tự sửa model/migration/config C2.
+- Cây/rubric còn cần Long nối SkillTreeService.get_node_for_session/node_for_edit và endpoint regenerate_rubric; giữ các test phụ thuộc này tạm bỏ qua như #146.
+- STT thật cần số liệu p95 từ ghi âm thực; server chưa kiểm được thời lượng audio nén (WAV đã có). Không ghi số liệu fake thành kết quả thực nghiệm.
+- Không merge, auto-merge, đóng issue hoặc sửa main trong phiên này. Các PR để draft cho tới khi đủ kiểm chứng; #145 vẫn còn phần cần phối hợp.
