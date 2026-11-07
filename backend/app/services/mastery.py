@@ -12,6 +12,7 @@ Bên gọi:
     kết quả chấm đi qua sự kiện `session.completed` → `apply_result(SessionResult)` (`register_handlers`).
 - Tham gia lớp sau khi đã phát hành (C2-08) → `ensure_student(class_id, student_id)` (my_map cũng tự tạo ô còn thiếu).
 - GET /classes/{id}/my-map → `my_map(class_id, student_id)`.
+- HeatmapService (C2-11) → `columns(class_id, node_ids)` (chỉ đọc); (C2-12) → `class_matrix(class_id)` (chỉ đọc).
 
 Quy ước:
 - Mỗi (SV, key nút) có đúng một dòng; phát hành phiên bản mới thì CHUYỂN dòng sang nút cùng key ở phiên bản mới
@@ -28,10 +29,11 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from redis.exceptions import RedisError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.algorithms.dag import build_graph, frontier
+from app.algorithms.heatmap import Cell
 from app.core.errors import AppError
 from app.models import tree as orm
 from app.models.enums import MasteryChangeReason, MasteryState, Verdict
@@ -61,6 +63,27 @@ R = MasteryChangeReason
 DONE = frozenset({S.MASTERED, S.NEEDS_REVERIFY})  # tính là đã Đạt khi xét tiên quyết
 STARTABLE = frozenset({S.AVAILABLE, S.NOT_PASSED, S.NEEDS_REVERIFY})
 COOLDOWN = timedelta(minutes=RETRY_COOLDOWN_MINUTES)
+
+
+@dataclass(frozen=True)
+class NodeColumn:
+    """Một cột M[·, nút] của SV đang ghi danh (C2-11)."""
+
+    node_id: UUID
+    node_key: str
+    enrolled: int
+    cells: list[Cell]
+
+
+@dataclass(frozen=True)
+class ClassMatrix:
+    """Ma trận M[SV, nút] của bản đang phát hành – đầu vào truy vết điểm nghẽn gốc (C2-12). Chỉ đọc.
+
+    `cells[key][student_id]`; SV đang ghi danh chưa có ô ở nút nào thì không có mục (coi như chưa thử, chưa Đạt)."""
+
+    tree: TreeVersion
+    students: list[UUID]
+    cells: dict[str, dict[UUID, Cell]]
 
 
 @dataclass
@@ -94,6 +117,26 @@ class _Tree:
 def _rubric_sig(r: Rubric | None) -> dict | None:
     """Phần rubric dùng để so "rubric đổi" (BR-14) – bỏ cờ duyệt (bản nháp mới luôn phải duyệt lại)."""
     return None if r is None else r.model_dump(mode="json", exclude={"approved"})
+
+
+@dataclass
+class MatchingSnapshot:
+    """Ảnh chụp CHỈ ĐỌC ma trận cả lớp theo bản đang phát hành (ghép cặp C2-14 dùng)."""
+
+    version_id: UUID
+    id_of: dict[str, UUID]  # key nút → id ở bản đang phát hành
+    mastered: dict[UUID, set[str]]  # SV → key đã Đạt (tính cả NEEDS_REVERIFY như khi xét tiên quyết)
+    frontier: dict[UUID, set[str]]  # SV → Biên: chưa Đạt, mọi tiên quyết đã Đạt
+    pass_rate: dict[str, float]  # key → tỉ lệ SV ghi danh đã Đạt
+
+
+@dataclass
+class NodeOutcomes:
+    """Kết quả của SV đang ghi danh ở một nút, theo thời gian (ghép cặp theo sự kiện C2-15). Chỉ đọc."""
+
+    node_id: UUID | None  # id nút ở bản đang phát hành; None khi key không còn trong cây
+    passed: list[tuple[UUID, datetime]]  # đã Đạt, Đạt sớm → muộn
+    failed: list[tuple[UUID, datetime]]  # chưa Đạt nhưng đã trượt (kèm lần trượt gần nhất), đến trước → sau
 
 
 class MasteryService:
@@ -220,12 +263,18 @@ class MasteryService:
         return changes
 
     def init_or_migrate(self, class_id: UUID, version_id: UUID) -> list[MasteryChanged]:
-        """Gọi khi phát hành `version_id` (đã là bản đang phát hành của lớp). Commit rồi phát sự kiện."""
+        """Phát hành `version_id`: đồng bộ ma trận + thống kê cùng giao dịch, commit rồi phát sự kiện."""
+        from app.services.heatmap import HeatmapService
+
         students = self._enrolled(class_id)
         t = self._tree(class_id)
         if t.schema.id != version_id:
             raise AppError(409, "VERSION_NOT_PUBLISHED", "Phiên bản chưa phải bản đang phát hành của lớp")
         changes = self._sync(t, students)
+        # node_id đổi dù trạng thái giữ nguyên; lớp rỗng cũng cần đủ thống kê nút mới.
+        heat = HeatmapService(self.db)
+        heat.recompute_class(class_id)
+        heat.trace_root_causes(class_id)  # C2-12: nút mới có id mới – ghi lại gốc ngay, không chờ đối soát
         return self._commit(changes)
 
     def ensure_student(self, class_id: UUID, student_id: UUID) -> list[MasteryChanged]:
@@ -308,6 +357,48 @@ class MasteryService:
         finally:
             savepoint.rollback()
 
+    def matching_snapshot(self, class_id: UUID) -> MatchingSnapshot:
+        """Đọc ma trận mọi SV ghi danh – không khóa, không tạo ô, không commit. Ô chưa có coi như chưa Đạt."""
+        t = self._tree(class_id)
+        students = list(self.db.scalars(select(Enrollment.student_id).where(Enrollment.class_id == class_id)))
+        done: dict[UUID, set[str]] = {s: set() for s in students}
+        if students:
+            rows = self.db.execute(
+                select(MasteryRecord.student_id, MasteryRecord.node_id, MasteryRecord.state).where(
+                    MasteryRecord.student_id.in_(students), MasteryRecord.node_id.in_(list(t.key_of))
+                )
+            )
+            for sid, nid, state in rows:
+                if state in DONE:
+                    done[sid].add(t.key_of[nid])
+        g = build_graph(t.schema)
+        n = len(students)
+        return MatchingSnapshot(
+            version_id=t.schema.id,
+            id_of=dict(t.id_of),
+            mastered=done,
+            frontier={s: frontier(g, d) for s, d in done.items()},
+            pass_rate={k: (sum(k in d for d in done.values()) / n if n else 0.0) for k in t.id_of},
+        )
+
+    def node_outcomes(self, class_id: UUID, node_key: str) -> NodeOutcomes:
+        """Ai đã Đạt / đã trượt nút `node_key` ở bản đang phát hành – không khóa, không tạo ô, không commit.
+        Đã Đạt = MASTERED hoặc NEEDS_REVERIFY (mốc là lần cập nhật ô); đã trượt = chưa Đạt và có `last_failed_at`."""
+        node_id = self._tree(class_id).id_of.get(node_key)
+        if node_id is None:
+            return NodeOutcomes(None, [], [])
+        rows = self.db.execute(
+            select(
+                MasteryRecord.student_id, MasteryRecord.state, MasteryRecord.updated_at, MasteryRecord.last_failed_at
+            )
+            .join(Enrollment, (Enrollment.student_id == MasteryRecord.student_id) & (Enrollment.class_id == class_id))
+            .where(MasteryRecord.node_id == node_id)
+            .order_by(MasteryRecord.updated_at, MasteryRecord.student_id)
+        ).all()
+        passed = [(s, updated) for s, state, updated, _ in rows if state in DONE]
+        failed = [(s, at) for s, state, _, at in rows if state not in DONE and at is not None]
+        return NodeOutcomes(node_id, passed, sorted(failed, key=lambda x: (x[1], str(x[0]))))
+
     def my_map(self, class_id: UUID, student_id: UUID) -> MyMap:
         t = self._tree(class_id)
         self._require_enrolled(class_id, student_id)
@@ -330,6 +421,51 @@ class MasteryService:
         # Dựng response khi còn giữ khóa: phát hành sau commit có thể di chuyển các dòng sang node_id mới.
         self._commit(changes)
         return result
+
+    def columns(self, class_id: UUID, node_ids: Iterable[UUID] | None = None) -> list["NodeColumn"]:
+        """Cột ma trận theo nút của bản đang phát hành – đầu vào cho HeatmapService (C2-11). Chỉ đọc, không khóa.
+
+        Chỉ tính SV đang ghi danh. `node_ids` lọc nút; id không thuộc bản đang phát hành bị bỏ qua
+        (sự kiện cũ đến sau khi GV phát hành bản mới)."""
+        # Không dựng cả TreeVersion như _tree(): mỗi sự kiện gọi một lần, phát hành 30 SV × 11 nút = 330 lần.
+        wanted_ids = None if node_ids is None else list(node_ids)
+        key_of = SkillTreeService(self.db).published_node_keys(class_id, wanted_ids)
+        wanted = list(key_of)
+        if not wanted:
+            return []
+        enrolled = select(Enrollment.student_id).where(Enrollment.class_id == class_id)
+        enrolled_count = self.db.scalar(select(func.count()).select_from(enrolled.subquery())) or 0
+        cells: dict[UUID, list[Cell]] = {n: [] for n in wanted}
+        q = select(MasteryRecord.node_id, MasteryRecord.state, MasteryRecord.attempts, MasteryRecord.prev_state).where(
+            MasteryRecord.class_id == class_id,
+            MasteryRecord.node_id.in_(wanted),
+            MasteryRecord.student_id.in_(enrolled),
+        )
+        for node_id, state, attempts, prev in self.db.execute(q):
+            cells[node_id].append(Cell(S(state), attempts or 0, S(prev) if prev else None))
+        return [NodeColumn(n, key_of[n], enrolled_count, cells[n]) for n in wanted]
+
+    def class_matrix(self, class_id: UUID) -> ClassMatrix:
+        """Cả ma trận của SV đang ghi danh theo bản đang phát hành – cho HeatmapService truy vết gốc (C2-12).
+        Chỉ đọc, không khóa. 404 CLASS_NOT_FOUND / TREE_NOT_PUBLISHED như `_tree`."""
+        t = self._tree(class_id)
+        enrolled = select(Enrollment.student_id).where(Enrollment.class_id == class_id)
+        students = list(self.db.scalars(enrolled.order_by(Enrollment.student_id)))
+        cells: dict[str, dict[UUID, Cell]] = {k: {} for k in t.id_of}
+        q = select(
+            MasteryRecord.student_id,
+            MasteryRecord.node_id,
+            MasteryRecord.state,
+            MasteryRecord.attempts,
+            MasteryRecord.prev_state,
+        ).where(
+            MasteryRecord.class_id == class_id,
+            MasteryRecord.node_id.in_(list(t.key_of)),
+            MasteryRecord.student_id.in_(enrolled),
+        )
+        for student_id, node_id, state, attempts, prev in self.db.execute(q):
+            cells[t.key_of[node_id]][student_id] = Cell(S(state), attempts or 0, S(prev) if prev else None)
+        return ClassMatrix(tree=t.schema, students=students, cells=cells)
 
     # ------------------------------------------------------------------ phiên (Bảng 4.8)
 
@@ -456,7 +592,8 @@ class MasteryService:
     def _commit(self, changes: list[MasteryChanged]) -> list[MasteryChanged]:
         """Commit rồi mới phát – bên nghe (heatmap, matching) đọc lại CSDL phải thấy dữ liệu mới.
         Lỗi kết nối khi phát (Redis rớt) không hoàn tác ma trận đã ghi: ghi log ERROR đủ ngữ cảnh.
-        TODO(C2-11): tổng hợp heatmap định kỳ theo CSDL để bù sự kiện mất. Lỗi khác (payload sai kiểu) vẫn ném."""
+        Sự kiện mất: heatmap được bù bởi task định kỳ `aggregation.reconcile_all` (C2-11).
+        Lỗi khác (payload sai kiểu) vẫn ném."""
         self.db.commit()
         for ev in changes:
             try:

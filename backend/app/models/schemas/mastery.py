@@ -16,7 +16,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.models.enums import HeatColor, MasteryChangeReason, MasteryState
+from app.models.enums import HeatColor, HeatSample, MasteryChangeReason, MasteryState
 from app.models.schemas.common import ApiModel
 from app.models.schemas.tree import TreeVersion
 
@@ -93,23 +93,48 @@ class HeatmapCell(ApiModel):
     student_name: str
     node_id: UUID
     state: MasteryState
+    node_key: str | None = None  # C2-13: lưới tra theo key (GridRow.statesByKey)
+    student_code: str | None = None  # C2-13: MSSV
 
 
 class HeatmapNode(ApiModel):
-    """class:{id}:heatmap → heatmap.node"""
+    """class:{id}:heatmap → heatmap.node; cũng là kết quả HeatmapService.recompute (C2-11).
+
+    Màu theo Bảng 6.6 (app/algorithms/heatmap.py). `color` luôn đi kèm `label` (chữ) và `sample`
+    (FR-HM-04: XÁM vì "chưa thử" / "chưa đủ mẫu", không phải vì "chưa đạt"). Frontend tô theo `nodeKey`.
+    """
 
     node_id: UUID
+    node_key: str | None = None  # C2-11: key ổn định giữa các phiên bản – SkillTree `heat` tra theo key
     color: HeatColor
-    pass_rate: float | None
-    attempted_rate: float
+    pass_rate: float | None  # Đạt / đã thử; None khi chưa ai thử
+    attempted_rate: float  # đã thử / sĩ số
+    sample: HeatSample | None = None  # C2-11
+    label: str | None = None  # C2-11: nhãn chữ đi kèm màu, vd. "✗ Điểm nghẽn – 2/9 Đạt"
+    enrolled_count: int | None = None  # C2-11
+    attempted_count: int | None = None  # C2-11
+    passed_count: int | None = None  # C2-11
+    min_sample: int | None = None  # C2-11: cỡ mẫu tối thiểu đang áp
 
 
 class HeatmapAlert(ApiModel):
-    """class:{id}:heatmap → heatmap.alert ("Nên giảng lại X")"""
+    """class:{id}:heatmap → heatmap.alert ("Nên giảng lại X"); cũng là kết quả HeatmapService.trace_root_causes.
+
+    C2-12 (mục 6.5.3): `nodeId` là nút ĐỎ Y, `rootCauseNodeId` là nút X nên giảng lại trước
+    (= Y khi `isSelf`: không tổ tiên nào có r(X|Y) ≥ θ). Trường thêm ở C2-12 đều tùy chọn (tương thích ngược).
+    """
 
     node_id: UUID
     root_cause_node_id: UUID
-    message: str
+    message: str  # vd. "Nên giảng lại N5 Con trỏ"
+    node_key: str | None = None  # C2-12: key của Y
+    root_cause_node_key: str | None = None  # C2-12: key của X – frontend gắn ◎ GỐC theo key
+    root_cause_title: str | None = None  # C2-12
+    is_self: bool = False  # C2-12: Y tự là điểm nghẽn
+    score: float | None = None  # C2-12: r × (1 + 0,1 × khoảng cách) – cũng ghi class_node_stats.root_cause_score
+    conditional_fail_rate: float | None = None  # C2-12: r(X|Y) ∈ [0, 1]
+    failed_count: int | None = None  # C2-12: |F| – số SV đã thử Y nhưng Chưa đạt
+    distance: int | None = None  # C2-12: số cạnh X → Y (0 khi isSelf)
 
 
 class JobProgress(ApiModel):

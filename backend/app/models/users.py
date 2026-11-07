@@ -70,6 +70,7 @@ class ClassSection(UUIDPk, Base):
     pass_threshold: Mapped[int] = mapped_column(SmallInteger, default=70)  # BR-03
     color_thresholds: Mapped[dict] = mapped_column(JSONB, default=lambda: {"green": 0.7, "yellow": 0.4})  # BR-06
     min_sample: Mapped[int] = mapped_column(SmallInteger, default=5)  # BR-06
+    challenge_count: Mapped[int] = mapped_column(SmallInteger, default=3, server_default="3")  # FR-HM-08 (C2-17)
     created_at: Mapped[datetime] = created_at_col()
 
 

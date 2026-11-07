@@ -372,6 +372,8 @@ class SessionResult(ApiModel):
     unlocked_nodes: list[str] = []
     flags: list[FlagType] = []
     is_peer_followup: bool = False
+    # C2-14 (thêm, tương thích ngược): mục ghép cặp mà phiên xác nhận lại = SessionStart.peerMatchItemId
+    peer_match_item_id: UUID | None = None
     detected_misconceptions: list[str] = []
     failed_conditions: list[PassCondition] = []  # BR-03: vì sao Chưa đạt (GV-08)
     attempt_no: int = Field(1, ge=1)

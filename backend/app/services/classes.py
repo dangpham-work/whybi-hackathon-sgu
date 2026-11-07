@@ -14,8 +14,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.algorithms.heatmap import ColorRule
 from app.core.errors import AppError
 from app.models.enums import Role
+from app.models.schemas.heatmap import ClassSettings
 from app.models.users import ClassSection, Course, Enrollment
 from app.models.users import Lecturer as LecturerProfile
 from app.models.users import Student as StudentProfile
@@ -59,6 +61,42 @@ class ClassService:
 
     def _view(self, cls: ClassSection) -> ClassView:
         return self._views([cls])[0]
+
+    def _get(self, class_id: UUID) -> ClassSection:
+        cls = self.db.get(ClassSection, class_id)
+        if cls is None:
+            raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
+        return cls
+
+    def lecturer_id(self, class_id: UUID) -> UUID:
+        """GV phụ trách lớp – lời gọi nội bộ (quyền bản đồ nhiệt C2-13), không kiểm quyền."""
+        return self._get(class_id).lecturer_id
+
+    def color_rule(self, class_id: UUID) -> ColorRule:
+        """Ngưỡng màu heatmap của lớp (BR-06) – lời gọi nội bộ (HeatmapService C2-11), không kiểm quyền."""
+        cls = self._get(class_id)
+        return ColorRule.from_class(cls.color_thresholds, cls.min_sample)
+
+    def get_settings(self, class_id: UUID) -> ClassSettings:
+        cls = self._get(class_id)
+        t = cls.color_thresholds or {}
+        return ClassSettings(
+            pass_threshold=cls.pass_threshold,
+            green_threshold=t.get("green", 0.7),
+            yellow_threshold=t.get("yellow", 0.4),
+            min_sample=cls.min_sample,
+            challenge_count=cls.challenge_count,
+        )
+
+    def save_settings(self, class_id: UUID, s: ClassSettings) -> ClassSettings:
+        """Ghi cấu hình lớp (chưa commit) – chỉ HeatmapService.update_settings gọi, sau khi kiểm quyền."""
+        cls = self._get(class_id)
+        cls.pass_threshold = s.pass_threshold
+        cls.color_thresholds = {"green": s.green_threshold, "yellow": s.yellow_threshold}
+        cls.min_sample = s.min_sample
+        cls.challenge_count = s.challenge_count
+        self.db.flush()
+        return s
 
     def list_for(self, user: "CurrentUser") -> list[ClassView]:
         """GV-01: lớp GV phụ trách (mới tạo trước). SV-01: lớp SV đã tham gia (mới tham gia trước)."""
