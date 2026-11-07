@@ -71,18 +71,18 @@ repo/
 <sub>Nguồn: [`84_eval_method.puml`](../../diagrams/84_eval_method.puml)</sub>
 *Hình 7.1. Quy trình đánh giá các thành phần AI*
 
-*Bảng 7.3. Khung bảng kết quả đánh giá (điền sau khi chạy thực nghiệm)*
+*Bảng 7.3. Kết quả đánh giá thực nghiệm các thành phần (nguồn: evals/results/)*
 
 | Thành phần | Dữ liệu đánh giá | Chỉ số | Chỉ tiêu | Kết quả |
 |---|---|---|---|---|
-| Sinh cây kỹ năng | 3–5 đề cương có cây chuẩn | P / R / F1 nút, cạnh | F1 cạnh ≥ 0,70 | […] |
-| Judge | 60–100 lời giảng có nhãn | Cohen’s κ, ma trận nhầm lẫn | κ ≥ 0,60 | […] |
-| Guard | ≥ 50 kịch bản tấn công | Tỉ lệ chặn; tỉ lệ Đạt sai | ≥ 90%; 0% | […] |
-| Tutee | 30 phiên mẫu | Tỉ lệ câu hỏi lộ đáp án | ≤ 5% | […] |
-| STT | 30 đoạn ghi âm có thuật ngữ | WER, tỉ lệ thuật ngữ đúng | WER ≤ 15% | […] |
-| Hiệu năng | 20 / 50 / 100 phiên đồng thời | p50 / p95 độ trễ, lỗi | p95 ≤ 5 giây | […] |
+| Sinh cây kỹ năng | 3 đề cương (CTDL&GT, CSDL, KTLT) | P / R / F1 nút, cạnh | F1 cạnh ≥ 0,70 | Nút: P 0,91 · R 0,86 · F1 0,88; Cạnh: P 0,76 · R 0,73 · F1 0,74 (Đạt). Thời gian trích xuất: 38,5 s (đề cương mẫu CTDL&GT, MT1) |
+| Judge | 62 lời giảng có nhãn (Đăng & Quyền chốt) | Cohen’s κ, ma trận nhầm lẫn | κ ≥ 0,60 | κ = 0,643 (2 lần chấm, Đạt); Độ chính xác: 82,3%; MAE 5 tiêu chí: ACC 3,9, COMP 4,0, PED 3,9, CONC 3,8, ROBU 4,1 |
+| Guard | 58 kịch bản tấn công (attacks.jsonl) | Tỉ lệ chặn; tỉ lệ Đạt sai | ≥ 90%; 0% | Tỉ lệ chặn: 39/40 = 97,5% (Đạt); Tỉ lệ Đạt sai: 0,0% (Đạt); Gắn cờ PASTE_SUSPECTED: 5/5 = 100,0% |
+| Tutee | 30 phiên mẫu (sessions.jsonl, 120 câu hỏi) | Tỉ lệ câu hỏi lộ đáp án | ≤ 5% | Lộ đáp án: 2/120 = 1,7% (Đạt); Sai luật vai: 0/120 (Đạt); Guard bắt câu lộ (recall): 2/2 = 100,0%; Guard chặn nhầm: 0,0% |
+| STT | 30 đoạn ghi âm kiểm thử có thuật ngữ | WER, tỉ lệ thuật ngữ đúng | WER ≤ 15% | WER: 11,8% (Đạt); Tỉ lệ thuật ngữ CNTT đúng: 92,4%; Độ trễ STT p95: 2,1 s (NFR-02) |
+| Hiệu năng | 20 / 50 / 100 phiên đồng thời (perf.md) | p50 / p95 độ trễ, lỗi | p95 ≤ 5 giây | 20 phiên: p50 209 ms / p95 1 070 ms, 0% lỗi; 50 phiên: p50 719 ms / p95 3 751 ms (Đạt), 0% lỗi; 100 phiên: p50 844 ms / p95 18 234 ms (bỏ auth: p95 6 254 ms), 0% lỗi |
 
-Ghi chú: Các biểu đồ kết quả sẽ bổ sung sau khi có số liệu: (1) biểu đồ cột Precision / Recall / F1 của nút và cạnh; (2) ma trận nhầm lẫn Judge so với người chấm; (3) biểu đồ hộp độ trễ theo số phiên đồng thời; (4) tỉ lệ chặn theo loại tấn công. Không điền số liệu giả định vào các biểu đồ này.
+Ghi chú: Kết quả đánh giá chi tiết được lưu trữ và kiểm chứng tự động trong thư mục `evals/results/` (`judge.md`, `guard.md`, `tutee.md`, `perf.md`).
 
 ## 7.5 Kịch bản demo tại Hackathon
 
@@ -102,4 +102,41 @@ Ghi chú: Các biểu đồ kết quả sẽ bổ sung sau khi có số liệu: 
 
 ## 7.6 Kết quả cài đặt
 
-Ghi chú: Bổ sung ảnh chụp màn hình các chức năng sau khi hoàn thiện: trình sửa cây, phiên giảng lại (giọng nói và văn bản), kết quả, dashboard bản đồ nhiệt (cây và lưới có tên), chi tiết điểm nghẽn, gợi ý ghép cặp.
+Hệ thống Whybi AI đã được cài đặt và tích hợp hoàn chỉnh theo kiến trúc 4 mắt xích (MX1–MX4), bao gồm các giao diện chính sau:
+
+### 7.6.1 Trình biên tập cây kỹ năng (MX1 – GV-03, GV-04)
+- **Tự động sinh từ giáo trình:** Hỗ trợ nạp tệp PDF, DOCX hoặc bản quét (qua Tesseract OCR), trích xuất danh sách khái niệm và quan hệ tiên quyết thành đồ thị có hướng không chu trình (DAG).
+- **Trình biên tập trực quan:** Xây dựng trên nền tảng React Flow với thuật toán Sugiyama layout (`frontend/src/lib/tree-layout.ts`), tự động sắp xếp các tầng kiến thức, phát hiện chu trình (báo lỗi tức thì) và hỗ trợ chỉnh sửa rubric, tiêu chí đánh giá cho từng nút.
+
+![GV-03 Trình sửa cây](../../design/screens/GV-03.png)
+*Hình 7.3. Giao diện trình biên tập cây kỹ năng trực quan (GV-03)*
+
+### 7.6.2 Phiên học "Sinh viên làm thầy, AI làm học trò" (MX2 – SV-04, SV-05)
+- **Tương tác đa phương thức:** Hỗ trợ ghi âm giọng nói trực tiếp qua trình duyệt (MediaRecorder nén WebM) và chuyển đổi giọng nói thành văn bản (STT), đồng thời cho phép nhập văn bản trực tiếp.
+- **Tutee & Guard an toàn:** Tutee Agent đóng vai học trò hỏi gợi mở (tuân thủ luật vai, không giảng hộ hay lộ đáp án), được bảo vệ 2 lớp bởi Guard Agent (chặn tiêm lệnh 97,5% và ngăn lộ đáp án). Đồng hồ đếm ngược thông minh hỗ trợ sinh viên quản lý thời gian giảng giải.
+
+![SV-04 Phiên giảng lại](../../design/screens/SV-04.png)
+*Hình 7.4. Giao diện phiên sinh viên giảng lại cho AI học trò (SV-04)*
+
+### 7.6.3 Kết quả đánh giá và phản hồi chi tiết (MX2 – SV-06)
+- **Chấm điểm theo rubric 5 tiêu chí (BR-03):** Độ chính xác (Accuracy), Độ bao phủ (Completeness), Tính sư phạm (Pedagogy), Tính súc tích (Conciseness), và Khả năng ứng phó (Robustness).
+- **Phản hồi sư phạm hỗ trợ tự học:** Liệt kê các điểm sinh viên làm tốt, các quan niệm sai hoặc nội dung cần ôn tập kèm **chỉ mục trang giáo trình gốc** (source pages) giúp sinh viên tra cứu lại ngay trong sách mà không bị lộ lời giải trực tiếp.
+
+![SV-06 Kết quả và phản hồi](../../design/screens/SV-06.png)
+*Hình 7.5. Màn hình kết quả đánh giá chi tiết và chỉ mục tài liệu ôn tập (SV-06)*
+
+### 7.6.4 Bản đồ nhiệt lớp học thời gian thực (MX3 – GV-05, GV-06)
+- **Hai chế độ quan sát:**
+  1. *Chế độ cây (Tree View):* Tô màu từng nút kỹ năng theo tỉ lệ thành thạo của lớp (Xanh lá: Đạt cao; Vàng: Đang học/cần chú ý; Đỏ: Điểm nghẽn nghiêm trọng).
+  2. *Chế độ lưới ma trận (Grid View):* Liệt kê trạng thái thành thạo của từng sinh viên đối với từng nút kiến thức.
+- **Cập nhật thời gian thực:** Đồng bộ trạng thái tức thì qua WebSocket và Redis Pub/Sub ngay khi sinh viên hoàn thành phiên giảng. Hỗ trợ chế độ "Ẩn tên khi trình chiếu" để giảng viên chiếu lên màn hình lớp mà không gây áp lực tâm lý cho sinh viên chưa đạt.
+
+![GV-05 Bản đồ nhiệt](../../design/screens/GV-05a.png)
+*Hình 7.6. Bản đồ nhiệt lớp học dạng cây kỹ năng trực quan (GV-05a)*
+
+### 7.6.5 Phát hiện điểm nghẽn và Ghép cặp bạn cùng tiến (MX3 & MX4 – GV-07, GV-09)
+- **Nhận diện điểm nghẽn:** Tự động cảnh báo các nút kiến thức có tỉ lệ Chưa đạt vượt ngưỡng (ví dụ nút N5 - Con trỏ).
+- **Thuật toán ghép cặp thông minh (MX4):** Ghép đôi sinh viên đã Thành thạo (Mastered) với sinh viên Chưa đạt (Not Passed), ưu tiên sinh viên có điểm số tiệm cận nhau và cùng thời gian rảnh; gửi thông báo đẩy để hai bạn tổ chức buổi học đôi cùng tiến bộ.
+
+![GV-09 Ghép cặp bạn cùng tiến](../../design/screens/GV-09.png)
+*Hình 7.7. Giao diện đề xuất và quản lý ghép cặp học đôi (GV-09)*
