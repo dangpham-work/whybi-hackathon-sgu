@@ -58,3 +58,4 @@
 - Test hồi quy trước sửa: 3 lỗi trong test_demo_mode.py. Sau sửa toàn bộ tests/ai có 286 passed; thêm 8 ca bảo đảm không nuốt lỗi ngân sách token/cấu hình.
 - Giữ nguyên Guard, cách bọc transcript, hợp đồng, model và migration. LLM_MODE=fake không phải số liệu đánh giá model thật.
 - Phụ thuộc PR embedding trên fix/145-c1-embedding; chưa merge hoặc đóng thêm issue.
+- Review độc lập phát hiện fallback câu hỏi từ rubric có thể xác nhận đáp án/giảng hộ khi mất LLM; đã thêm 2 ca tái hiện đỏ và áp role_violation trước trả fallback. Toàn bộ tests/ai sau sửa: 288 passed; Ruff xanh.

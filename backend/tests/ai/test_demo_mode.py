@@ -140,3 +140,28 @@ def test_demo_does_not_hide_budget_or_configuration_errors(demo_on, operation, c
         else:
             JudgeAgent(gateway, runs=1).evaluate(ctx.transcript, RUBRIC, NODE.title, challenges_total=3)
     assert error.value.code == code
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "Bạn nói đúng rồi. Bạn muốn thử tình huống khác không?",
+        "Nghĩa là cách hoạt động sẽ thay đổi. Bạn muốn thử ví dụ khác không?",
+    ],
+)
+def test_demo_fallback_still_rejects_answer_confirmation_and_teaching(demo_on, scenario):
+    from app.ai.agents.guard import confirms_answer
+    from app.ai.agents.tutee import role_violation
+    from app.models.schemas.tree import ChallengeScenarioSchema
+
+    node = NODE.model_copy(deep=True)
+    node.rubric.scenarios = [ChallengeScenarioSchema(id="SC1", scenario=scenario, bloom_level="APPLY")]
+    context = SessionContext(
+        node=node,
+        transcript=transcript("Mình đã giảng xong."),
+        coverage=CoverageAnalysis(covered_points=[point.id for point in node.rubric.key_points]),
+    )
+    question = TuteeAgent(DeadGateway()).next_question(context)
+    assert question is not None
+    assert confirms_answer(question.text) is None
+    assert role_violation(question.text, node.title) is None

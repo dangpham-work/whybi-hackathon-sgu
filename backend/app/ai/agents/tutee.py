@@ -337,7 +337,10 @@ def fallback_question(node: Node, strategy: QuestionStrategy, target: str | None
             text = f"Mình thắc mắc thế này: {sc[0].lower()}{sc[1:]}"
     elif strategy == QuestionStrategy.TRANSFER:
         text = f'Thế "{title}" giúp được gì khi mình gặp một bài toán thực tế? Bạn cho mình một ví dụ được không?'
-    if text and leaked_point(text, [k.content for k in rubric.key_points], ignore=title) is not None:
+    if text and (
+        role_violation(text, title) is not None
+        or leaked_point(text, [k.content for k in rubric.key_points], ignore=title) is not None
+    ):
         text = None  # câu trong ngân hàng (do người soạn rubric viết) lỡ chứa ý chính ⇒ dùng câu chung
     if not text:
         text = f'Mình vẫn chưa hình dung hết về "{title}". Còn điều gì quan trọng mà bạn chưa kể cho mình không?'
