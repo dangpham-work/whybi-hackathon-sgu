@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     # Hạ tầng (mặc định trỏ tới tên dịch vụ trong docker-compose.yml)
     database_url: str = "postgresql+psycopg://whybi:whybi@postgres:5432/whybi"
     redis_url: str = "redis://redis:6379/0"
+    # Bus sự kiện (C2-05). memory: một tiến trình, không cần Redis; APP_ENV=test luôn dùng memory.
+    event_bus: Literal["redis", "memory"] = "redis"
     s3_endpoint: str = "http://minio:9000"
     s3_access_key: str = "whybi"
     s3_secret_key: str = "whybi-minio-secret"
