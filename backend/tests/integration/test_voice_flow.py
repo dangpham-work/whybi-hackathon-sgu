@@ -6,12 +6,14 @@ Không tự gửi lượt khi vừa phiên âm; việc xác nhận là thao tác
 
 import io
 import wave
+from uuid import UUID
 
 import pytest
 
 from app.ai.providers.base import TranscriptResult, TransientProviderError
 from app.api.sessions import get_speech_service
 from app.main import app
+from app.models.session import SessionTurn, TeachingSession
 from app.services.speech import MemoryAudioStore, SpeechService
 from tests.unit import test_session_orchestrator_db as sessions
 
@@ -66,9 +68,14 @@ def upload(w, sid, data=None, consent=False):
 
 
 def state(w, sid):
-    response = w.api.get(f"/api/v1/sessions/{sid}")
-    assert response.status_code == 200, response.text
-    return response.json()
+    """Trạng thái phiên đọc thẳng CSDL (main chưa có GET /sessions/{id}): trạng thái + mọi lượt đã lưu."""
+    w.db.expire_all()
+    session = w.db.get(TeachingSession, UUID(sid))
+    rows = w.db.query(SessionTurn).filter_by(session_id=session.id).order_by(SessionTurn.turn_no).all()
+    turns = [
+        {"speaker": t.speaker, "text": t.content, "inputMode": t.input_mode, "audioRef": t.audio_url} for t in rows
+    ]
+    return {"status": session.status, "turns": turns}
 
 
 @pytest.mark.parametrize("consent", [False, True])
@@ -116,7 +123,11 @@ def test_stt_outage_keeps_session_usable_and_allows_retry(voice):
     assert state(w, sid) == before
 
 
-@pytest.mark.parametrize("data,code", [(b"MZ fake audio", "UNSUPPORTED_AUDIO_FORMAT"), (audio(181), "AUDIO_TOO_LONG")])
+@pytest.mark.parametrize(
+    "data,code",
+    [(b"MZ fake audio", "UNSUPPORTED_AUDIO_FORMAT"), (audio(181), "AUDIO_TOO_LONG")],
+    ids=["exe-gia-am-thanh", "wav-181-giay"],  # id ngắn: bytes dài làm PYTEST_CURRENT_TEST vượt giới hạn Windows
+)
 def test_invalid_audio_does_not_create_student_turn_or_recording(voice, data, code):
     w, sid, _, store = voice
     before = state(w, sid)
