@@ -57,7 +57,7 @@ from app.models.users import ClassSection
 from app.realtime.bus import get_bus
 from app.realtime.gateway import broadcast, channel_session
 from app.services.mastery import MasteryService
-from app.services.quota import QuotaService
+from app.services.quota import QuotaService, estimate_audio_seconds
 from app.services.skill_tree import SkillTreeService
 
 log = logging.getLogger(__name__)
@@ -576,6 +576,13 @@ class SessionOrchestrator:
         if s.status not in ACTIVE:
             raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
         return self._node(s.node_id)[1]
+
+    def reserve_audio(self, student_id: UUID, session_id: UUID, audio: bytes, ext: str) -> None:
+        """Kiểm hạn mức phút ghi âm và tính thời lượng của tệp này trước khi gọi STT (C2-18): hết hạn mức ⇒ 429
+        QUOTA_EXCEEDED; STT lỗi sau đó vẫn bị tính vì tệp đã tốn tài nguyên."""
+        s = self._session(session_id, student_id)
+        QuotaService(self.db).reserve_audio(s.id, s.student_id, s.class_id, estimate_audio_seconds(audio, ext))
+        self.db.commit()
 
     # ------------------------------------------------------------------ GET /sessions/{id}/result
 
