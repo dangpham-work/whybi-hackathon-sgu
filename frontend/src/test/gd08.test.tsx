@@ -60,6 +60,24 @@ describe("SV-05 Xác nhận bản chép lời (GD-08)", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/ghi âm lại/);
     expect((screen.getByRole("button", { name: /Xác nhận và gửi/ }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("hộp xác nhận vẽ ở lớp trên cùng (portal z-50), giới hạn rộng theo khung SV và hai nút Hủy / Xác nhận và gửi bấm được (#196)", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <div className="sticky bottom-16">
+        <TranscriptConfirm transcript={transcript} onConfirm={onConfirm} onRetry={vi.fn()} onCancel={onCancel} />
+      </div>,
+    );
+    const dialog = screen.getByRole("dialog", { name: /Kiểm tra bản chép lời/ });
+    expect(dialog.parentElement).toBe(document.body);
+    expect(dialog.className).toContain("z-50");
+    expect(dialog.firstElementChild?.className).toContain("max-w-[480px]");
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: /Xác nhận và gửi/ }));
+    expect(onConfirm).toHaveBeenCalledWith(transcript.text, false);
+  });
 });
 
 const RESULT = {

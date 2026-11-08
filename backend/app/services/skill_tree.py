@@ -40,6 +40,7 @@ from app.models.schemas.tree import (
     Edge,
     EdgeRef,
     KeyPointSchema,
+    MergeNodesIn,
     MisconceptionSchema,
     Node,
     NodePatch,
@@ -607,6 +608,119 @@ class SkillTreeService:
         self._touch(v)
         self.db.commit()
         return self._node_schema(n, self._rubrics([n]).get(n.id))
+
+    def delete_node(self, node_id: UUID, user: "CurrentUser") -> TreeVersion:
+        """Xóa nút trên bản nháp (#198): nối mọi nút tiên quyết A của X sang mọi nút đứng sau C của X (A → C),
+        bỏ cạnh trùng và kiểm tra DAG trước khi lưu."""
+        n, v = self._node(node_id, user)
+        tree = self.db.get(orm.SkillTree, v.tree_id)
+        nodes = list(self.db.scalars(select(orm.ConceptNode).where(orm.ConceptNode.version_id == v.id)))
+        key_of = {row.id: row.key for row in nodes}
+        edges = list(self.db.scalars(select(orm.PrerequisiteEdge).where(orm.PrerequisiteEdge.version_id == v.id)))
+        prereq_ids = [e.from_node_id for e in edges if e.to_node_id == n.id]
+        succ_ids = [e.to_node_id for e in edges if e.from_node_id == n.id]
+        kept_edges = [e for e in edges if e.from_node_id != n.id and e.to_node_id != n.id]
+        existing_pairs = {(e.from_node_id, e.to_node_id) for e in kept_edges}
+        to_add: list[tuple[UUID, UUID]] = []
+        for u in prereq_ids:
+            for w in succ_ids:
+                if u != w and (u, w) not in existing_pairs:
+                    existing_pairs.add((u, w))
+                    to_add.append((u, w))
+        g = nx.DiGraph([(key_of[u], key_of[w]) for u, w in existing_pairs])
+        g.add_nodes_from(row.key for row in nodes if row.id != n.id)
+        cycle = find_cycle(g)
+        if cycle:
+            raise _cycle_error([*cycle, cycle[0]])
+        for e in edges:
+            if e.from_node_id == n.id or e.to_node_id == n.id:
+                self.db.delete(e)
+        self.db.delete(n)
+        self.db.flush()
+        for u, w in to_add:
+            self.db.add(
+                orm.PrerequisiteEdge(
+                    version_id=v.id,
+                    from_node_id=u,
+                    to_node_id=w,
+                    source=EdgeSource.LECTURER,
+                    confidence=1.0,
+                )
+            )
+        self._touch(v)
+        self.db.commit()
+        return self._to_schema(v, tree.class_id)
+
+    def merge_nodes(self, version_id: UUID, body: MergeNodesIn, user: "CurrentUser") -> TreeVersion:
+        """Gộp hai nút trên bản nháp (#198): giữ nút first_key, gộp cạnh của second_key vào first_key,
+        bỏ cạnh trùng và tự vòng; tạo chu trình ⇒ 409 CYCLE_DETECTED (BR-01)."""
+        v = self._version(version_id, user)
+        if body.first_key == body.second_key:
+            raise AppError(422, "VALIDATION_ERROR", "Cần chọn hai nút khác nhau để gộp")
+        tree = self.db.get(orm.SkillTree, v.tree_id)
+        nodes = list(self.db.scalars(select(orm.ConceptNode).where(orm.ConceptNode.version_id == v.id)))
+        by_key = {row.key: row for row in nodes}
+        for k in (body.first_key, body.second_key):
+            if k not in by_key:
+                raise AppError(404, "NODE_NOT_FOUND", f"Không có nút {k} trong phiên bản này", {"key": k})
+        first, second = by_key[body.first_key], by_key[body.second_key]
+        key_of = {row.id: row.key for row in nodes}
+        edges = list(self.db.scalars(select(orm.PrerequisiteEdge).where(orm.PrerequisiteEdge.version_id == v.id)))
+
+        merged_pairs: list[tuple[str, str, EdgeSource, float | None]] = []
+        seen_pairs: set[tuple[str, str]] = set()
+        for e in edges:
+            uk = body.first_key if key_of[e.from_node_id] == body.second_key else key_of[e.from_node_id]
+            wk = body.first_key if key_of[e.to_node_id] == body.second_key else key_of[e.to_node_id]
+            if uk == wk or (uk, wk) in seen_pairs:
+                continue
+            seen_pairs.add((uk, wk))
+            src = EdgeSource.LECTURER if (e.from_node_id == second.id or e.to_node_id == second.id) else e.source
+            merged_pairs.append((uk, wk, src, e.confidence))
+
+        g = nx.DiGraph([(uk, wk) for uk, wk, _, _ in merged_pairs])
+        g.add_nodes_from(k for k in by_key if k != body.second_key)
+        cycle = find_cycle(g)
+        if cycle:
+            raise _cycle_error([*cycle, cycle[0]])
+
+        if body.mode == "SECOND":
+            second_rubric = self._rubrics([second]).get(second.id)
+            first.title = second.title
+            first.description = second.description
+            first.chapter_ref = second.chapter_ref
+            first.bloom_level = second.bloom_level
+            if second_rubric is not None:
+                self._write_rubric(first, second_rubric, user)
+        elif body.mode == "CUSTOM":
+            if body.title is not None:
+                if not body.title.strip():
+                    raise AppError(422, "VALIDATION_ERROR", "Tên nút không được rỗng", {"field": "title"})
+                first.title = body.title.strip()
+            if body.chapter_ref is not None:
+                first.chapter_ref = body.chapter_ref
+            if body.bloom_level is not None:
+                first.bloom_level = body.bloom_level
+            if body.rubric is not None:
+                self._write_rubric(first, body.rubric, user)
+
+        for e in edges:
+            self.db.delete(e)
+        self.db.delete(second)
+        self.db.flush()
+        for uk, wk, src, conf in merged_pairs:
+            self.db.add(
+                orm.PrerequisiteEdge(
+                    version_id=v.id,
+                    from_node_id=by_key[uk].id,
+                    to_node_id=by_key[wk].id,
+                    source=src,
+                    confidence=conf,
+                )
+            )
+        self._touch(v)
+        self.db.commit()
+        return self._to_schema(v, tree.class_id)
 
     def add_edge(self, version_id: UUID, body: Edge, user: "CurrentUser") -> Edge:
         """Kiểm chu trình trước khi ghi (BR-01). Cạnh GV nối luôn source=LECTURER, confidence=1."""

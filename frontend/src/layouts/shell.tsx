@@ -2,9 +2,10 @@
  * Mảnh dùng chung cho 3 layout (GD-01): sidebar mực đậm (GV, QTV), avatar chữ cái,
  * hook lấy màn đang mở từ `handle` của route.
  */
-import { Link, useMatches } from "react-router";
+import { LogOut } from "lucide-react";
+import { Link, useMatches, useNavigate } from "react-router";
 import { Logo } from "../components/Logo";
-import { ROLE_LABEL, useCurrentUser } from "../lib/auth";
+import { auth, ROLE_LABEL, useCurrentUser } from "../lib/auth";
 import { isCurrent, NEED_CLASS_HINT, type NavItem } from "../lib/nav";
 import type { Screen } from "../screens";
 
@@ -42,9 +43,14 @@ export function Avatar({ name, tone = "teal" }: { name: string; tone?: "teal" | 
   );
 }
 
-/** Sidebar 248px nền ink-900 (Figma GV-01…GV-10): logo + vai, menu, thẻ người dùng ở đáy. */
+/** Sidebar 248px nền ink-900 (Figma GV-01…GV-10): logo + vai, menu, thẻ người dùng và nút Đăng xuất ở đáy. */
 export function SideNav({ roleLabel, items, user }: { roleLabel: string; items: NavItem[]; user: { name: string; sub: string } }) {
   const current = useCurrentScreen()?.code;
+  const navigate = useNavigate();
+  async function handleLogout() {
+    await auth.logout();
+    navigate("/login", { replace: true });
+  }
   return (
     <div className="flex h-full w-62 flex-col bg-ink-900 text-white">
       <div className="flex items-center gap-3 px-6 py-6">
@@ -83,12 +89,22 @@ export function SideNav({ roleLabel, items, user }: { roleLabel: string; items: 
           })}
         </ul>
       </nav>
-      <div className="mt-auto flex items-center gap-3 border-t border-white/10 px-4 py-4">
-        <Avatar name={user.name} tone="honey" />
-        <div className="min-w-0">
-          <p className="truncate text-body-m font-semibold">{user.name}</p>
-          <p className="truncate text-body-s text-ink-300">{user.sub}</p>
+      <div className="mt-auto space-y-3 border-t border-white/10 px-4 py-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={user.name} tone="honey" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-body-m font-semibold">{user.name}</p>
+            <p className="truncate text-body-s text-ink-300">{user.sub}</p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-body-m text-ink-300 outline-honey hover:bg-white/10 hover:text-white focus-visible:outline-2"
+        >
+          <LogOut aria-hidden size={18} className="shrink-0" />
+          Đăng xuất
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
+import { LogOut } from "lucide-react";
 import { NotificationBell } from "../components/NotificationBell";
-import { Link, Outlet, useParams } from "react-router";
+import { Link, Outlet, useNavigate, useParams } from "react-router";
 import { Logo } from "../components/Logo";
+import { auth } from "../lib/auth";
 import { isCurrent, NAV, NEED_CLASS_HINT } from "../lib/nav";
 import { Avatar, useCurrentScreen, useShellUser } from "./shell";
 
@@ -9,7 +11,12 @@ export function StudentLayout() {
   const { classId } = useParams();
   const screen = useCurrentScreen();
   const USER = useShellUser();
+  const navigate = useNavigate();
   const tabs = NAV.STUDENT(classId);
+  async function handleLogout() {
+    await auth.logout();
+    navigate("/login", { replace: true });
+  }
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-app">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line-soft bg-surface px-4 py-3">
@@ -26,6 +33,14 @@ export function StudentLayout() {
           <Link to="/me" aria-label="Hồ sơ cá nhân">
             <Avatar name={USER.name} />
           </Link>
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            className="inline-flex items-center gap-1 rounded-md border border-line-soft px-2.5 py-1.5 text-body-s font-semibold text-ink-700 hover:bg-app"
+          >
+            <LogOut aria-hidden size={16} />
+            <span>Đăng xuất</span>
+          </button>
         </div>
       </header>
       <main className="flex-1 p-4 pb-24">

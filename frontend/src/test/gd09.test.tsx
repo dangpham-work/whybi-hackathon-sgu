@@ -126,6 +126,86 @@ describe("GV-04 Trình sửa cây và rubric (GD-09)", () => {
     expect(await screen.findAllByText(/Rubric N2 chưa duyệt/)).toBeTruthy();
   });
 
+  it("lỗi phát hành dạng object chỉ hiện 1 lần tiếng Việt (không in JSON thô) và bấm vào thì mở panel đúng nút (#194)", async () => {
+    mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "POST /tree-versions/v1/publish": err(422, "PUBLISH_CHECK_FAILED", "Chưa đủ điều kiện phát hành", {
+        errors: [
+          { code: "RUBRIC_NOT_APPROVED", nodeKey: "n2", message: "Rubric Con trỏ chưa duyệt" },
+          { code: "RUBRIC_NOT_APPROVED", nodeKey: "n1", message: "Rubric Biến chưa duyệt" },
+        ],
+      }),
+    });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Phát hành/ }));
+    const errButtons = await screen.findAllByText("Rubric Con trỏ chưa duyệt");
+    expect(errButtons).toHaveLength(1);
+    expect(screen.queryByText(/\{"code"/)).toBeNull();
+    fireEvent.click(errButtons[0]!);
+    expect((await screen.findByLabelText("Tên nút") as HTMLInputElement).value).toBe("Con trỏ");
+  });
+
+  it("xóa nút giữa A → X → C hiện hộp xác nhận ghi rõ cạnh nối thêm và gọi DELETE /nodes/{id} (#198)", async () => {
+    const tree3 = {
+      ...TREE(),
+      nodes: [
+        { id: "id1", key: "n1", code: "N1", title: "Biến", bloomLevel: "REMEMBER", rubric: rubric(true) },
+        { id: "id2", key: "n2", code: "N2", title: "Con trỏ", bloomLevel: "UNDERSTAND", rubric: rubric(false) },
+        { id: "id3", key: "n3", code: "N3", title: "Cấp phát", bloomLevel: "APPLY", rubric: rubric(true) },
+      ],
+      edges: [
+        { id: "e1", fromKey: "n1", toKey: "n2", source: "AI" },
+        { id: "e2", fromKey: "n2", toKey: "n3", source: "AI" },
+      ],
+    };
+    const afterDelete = {
+      ...tree3,
+      nodes: [tree3.nodes[0], tree3.nodes[2]],
+      edges: [{ id: "e3", fromKey: "n1", toKey: "n3", source: "LECTURER" }],
+    };
+    const m = mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(tree3),
+      "DELETE /nodes/id2": ok(afterDelete),
+    });
+    open();
+    fireEvent.click(await screen.findByText("nút Con trỏ"));
+    fireEvent.click(screen.getByRole("button", { name: /Xóa nút/ }));
+    const dlg = await screen.findByRole("dialog", { name: "Xác nhận xóa nút" });
+    expect(dlg.textContent).toMatch(/Biến → Cấp phát/);
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận xóa" }));
+    await waitFor(() => expect(m.called("DELETE /nodes/id2")).toHaveLength(1));
+    expect(await screen.findByText(/Đã xóa nút "Con trỏ"/)).toBeTruthy();
+  });
+
+  it("gộp hai nút cho chọn 3 cách (a/b/c) và gửi POST /tree-versions/{id}/merge-nodes (#198)", async () => {
+    const mergedTree = {
+      ...TREE(),
+      nodes: [{ id: "id1", key: "n1", code: "N1", title: "Biến & Con trỏ", bloomLevel: "APPLY", rubric: rubric(true) }],
+      edges: [],
+    };
+    const m = mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "POST /tree-versions/v1/merge-nodes": ok(mergedTree),
+    });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Gộp nút/ }));
+    await screen.findByRole("dialog", { name: "Gộp hai nút" });
+    fireEvent.click(screen.getByLabelText("Tự điền lại"));
+    fireEvent.change(screen.getByLabelText("Tên nút sau khi gộp"), { target: { value: "Biến & Con trỏ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận gộp" }));
+    await waitFor(() => expect(m.called("POST /tree-versions/v1/merge-nodes")).toHaveLength(1));
+    expect(m.called("POST /tree-versions/v1/merge-nodes")[0].body).toMatchObject({
+      firstKey: "n1",
+      secondKey: "n2",
+      mode: "CUSTOM",
+      title: "Biến & Con trỏ",
+    });
+    expect(await screen.findByText(/Đã gộp hai nút thành công/)).toBeTruthy();
+  });
+
   it("bản đã phát hành khóa sửa và cho tạo bản nháp", async () => {
     const m = mockApi({
       ...me,
@@ -162,13 +242,15 @@ describe("GV-04 lịch sử, so sánh, khôi phục (GD-14)", () => {
     expect(m.called("GET /tree-versions/v1/compare/v2")).toHaveLength(1);
   });
 
-  it("khôi phục bản cũ thành bản nháp mới và chuyển sang sửa", async () => {
+  it("khôi phục bản cũ thành bản nháp mới (Tạo bản nháp từ vX) và khóa nút ở bản nháp đang mở (#197)", async () => {
     const m = mockApi({ ...hist, "POST /tree-versions/v1/restore": ok({ ...V("v3", 3, "DRAFT") }, 201) });
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Khôi phục v1" }));
+    const currentDraftBtn = (await screen.findByRole("button", { name: "Tạo bản nháp từ v2" })) as HTMLButtonElement;
+    expect(currentDraftBtn.disabled).toBe(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Tạo bản nháp từ v1" }));
     await waitFor(() => expect(m.called("POST /tree-versions/v1/restore")).toHaveLength(1));
-    expect(await screen.findByText(/Đã khôi phục thành bản nháp v3/)).toBeTruthy();
+    expect(await screen.findByText(/Đã tạo bản nháp v3 \(Tạo bản nháp từ v1\)/)).toBeTruthy();
     expect(screen.getByText(/v3 · Bản nháp/)).toBeTruthy();
   });
 

@@ -9,6 +9,7 @@ Quy ước:
 """
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -75,6 +76,18 @@ class NodePatch(ApiModel):
     bloom_level: BloomLevel | None = None
     position_x: float | None = None
     position_y: float | None = None
+
+
+class MergeNodesIn(ApiModel):
+    """POST /tree-versions/{id}/merge-nodes (#198): gộp nút thứ hai vào nút thứ nhất trên bản nháp."""
+
+    first_key: str
+    second_key: str
+    mode: Literal["FIRST", "SECOND", "CUSTOM"] = "FIRST"
+    title: str | None = Field(None, min_length=1, max_length=200)
+    chapter_ref: str | None = None
+    bloom_level: BloomLevel | None = None
+    rubric: Rubric | None = None
 
 
 class Edge(ApiModel):

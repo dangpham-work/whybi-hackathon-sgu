@@ -116,6 +116,11 @@ describe("lỗi ghi âm / STT có thông báo riêng, gợi ý gõ chữ (#154)"
     expect(FRIENDLY.LLM_UNAVAILABLE).toMatch(/Whybi/);
   });
 
+  it("NO_SOURCE_MATERIAL có câu riêng nhắc tải giáo trình (#190)", () => {
+    expect(friendlyMessage(422, "NO_SOURCE_MATERIAL")).toBe(FRIENDLY.NO_SOURCE_MATERIAL);
+    expect(FRIENDLY.NO_SOURCE_MATERIAL).toMatch(/Lớp chưa có giáo trình.*hãy tải giáo trình lên trước/);
+  });
+
   it("errorText() của ApiError STT trả câu gợi ý gõ chữ", () => {
     expect(errorText(new ApiError(503, "STT_UNAVAILABLE", "Dịch vụ nhận dạng giọng nói lỗi"))).toMatch(/gõ chữ/);
   });

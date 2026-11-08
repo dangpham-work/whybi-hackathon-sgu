@@ -1,4 +1,4 @@
-import { Target } from "lucide-react";
+import { Search, Target } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
@@ -7,7 +7,24 @@ import { HEAT, MASTERY, type HeatColor, type MasteryState } from "../../lib/stat
 import { useApi } from "../../lib/useApi";
 
 type Detail = Schema<"NodeDetail">;
+type StudentRow = Detail["studentsByState"][string][number];
 const STATE_ORDER: MasteryState[] = ["NOT_PASSED", "IN_PROGRESS", "MASTERED", "NEEDS_REVERIFY", "AVAILABLE", "LOCKED"];
+const COLLAPSED_LIMIT = 10;
+
+function dedupStudents(rows: StudentRow[] = []): StudentRow[] {
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const out: StudentRow[] = [];
+  for (const r of rows) {
+    const idKey = r.studentId?.trim();
+    const nameKey = `${r.studentName.trim().toLowerCase()}::${(r.studentCode ?? "").trim().toLowerCase()}`;
+    if ((idKey && seenIds.has(idKey)) || seenNames.has(nameKey)) continue;
+    if (idKey) seenIds.add(idKey);
+    seenNames.add(nameKey);
+    out.push(r);
+  }
+  return out;
+}
 
 /** GV-06 Chi tiết nút & điểm nghẽn (Figma 19:1460, FR-HM-06, GD-10). */
 export default function LecturerNodeDetail() {
@@ -24,11 +41,15 @@ export default function LecturerNodeDetail() {
 
 function View({ d, classId }: { d: Detail; classId: string }) {
   const [anonymize] = useState(false);
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const stat = d.stat;
   const heat = HEAT[stat.color as HeatColor];
   const HeatIcon = heat.icon;
   const attemptedPct = stat.attemptedRate != null ? Math.round(stat.attemptedRate * 100) : null;
-  const total = Object.values(d.studentsByState).reduce((n, l) => n + l.length, 0);
+  const dedupedByState = Object.fromEntries(STATE_ORDER.map((st) => [st, dedupStudents(d.studentsByState[st])])) as Record<MasteryState, StudentRow[]>;
+  const total = Object.values(dedupedByState).reduce((n, l) => n + l.length, 0);
+  const needle = query.trim().toLowerCase();
   return (
     <>
       <header className="flex flex-wrap items-center gap-3">
@@ -56,18 +77,54 @@ function View({ d, classId }: { d: Detail; classId: string }) {
       </dl>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-        <section aria-label="Sinh viên theo trạng thái" className="space-y-2 rounded-lg border border-line-soft bg-surface p-4">
-          <h2 className="caps">Sinh viên theo trạng thái</h2>
-          {STATE_ORDER.filter((st) => d.studentsByState[st]?.length).map((st) => {
+        <section aria-label="Sinh viên theo trạng thái" className="space-y-3 rounded-lg border border-line-soft bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="caps">Sinh viên theo trạng thái</h2>
+            {total > 0 && (
+              <label className="flex items-center gap-2 rounded-md border border-line-strong px-2.5 py-1 text-body-s text-ink-500">
+                <Search aria-hidden size={14} />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tìm sinh viên…"
+                  aria-label="Tìm sinh viên"
+                  className="w-44 bg-transparent text-ink-900 outline-none placeholder:text-ink-300"
+                />
+              </label>
+            )}
+          </div>
+          {STATE_ORDER.filter((st) => dedupedByState[st]?.length).map((st) => {
             const look = MASTERY[st];
             const Icon = look.icon;
-            const list = d.studentsByState[st];
+            const allList = dedupedByState[st];
+            const list = needle
+              ? allList.filter((r) => r.studentName.toLowerCase().includes(needle) || (r.studentCode ?? "").toLowerCase().includes(needle))
+              : allList;
+            if (needle && list.length === 0) return null;
+            const isExpanded = !!expanded[st] || !!needle;
+            const shown = isExpanded ? list : list.slice(0, COLLAPSED_LIMIT);
+            const hasMore = list.length > COLLAPSED_LIMIT && !needle;
             return (
-              <div key={st} className="flex items-start gap-3 border-t border-line-soft py-2 first:border-0">
+              <div key={st} className="flex flex-col gap-2 border-t border-line-soft py-2.5 first:border-0 sm:flex-row sm:items-start sm:gap-3">
                 <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-body-s font-semibold ${look.className}`}>
                   <Icon aria-hidden size={14} /> {look.label} ({list.length})
                 </span>
-                <p className="text-body-m">{list.map((r, i) => (anonymize ? `SV ${i + 1}` : r.studentName)).join(", ")}</p>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {shown.map((r, i) => (
+                    <span key={r.studentId || `${r.studentName}-${i}`} className="rounded-md bg-app px-2 py-0.5 text-body-s text-ink-900">
+                      {anonymize ? `SV ${i + 1}` : r.studentName}
+                    </span>
+                  ))}
+                  {hasMore && (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((prev) => ({ ...prev, [st]: !isExpanded }))}
+                      className="rounded-md px-2 py-0.5 text-body-s font-semibold text-teal hover:underline"
+                    >
+                      {isExpanded ? "Thu gọn" : `Xem tất cả (${list.length})`}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

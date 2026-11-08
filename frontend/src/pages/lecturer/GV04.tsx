@@ -1,4 +1,4 @@
-import { Flag, History, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
+import { Flag, GitMerge, History, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -7,7 +7,18 @@ import { RubricEditor } from "../../components/RubricEditor";
 import { VersionHistory } from "../../components/VersionHistory";
 import { SkillTree, BLOOM_LABEL } from "../../components/SkillTree";
 import { apiCall, errorText, type Schema } from "../../lib/api";
-import { cycleMessage, emptyRubric, isEditable, newNodeKey, publishErrors, unapproved, type Rubric, type TreeVersion } from "../../lib/tree-edit";
+import {
+  autoConnectedOnDelete,
+  cycleMessage,
+  emptyRubric,
+  isEditable,
+  newNodeKey,
+  publishErrorItems,
+  unapproved,
+  type PublishErrorItem,
+  type Rubric,
+  type TreeVersion,
+} from "../../lib/tree-edit";
 import { useApi } from "../../lib/useApi";
 
 const field = "w-full rounded-md border border-line-strong px-3 py-2 text-body-m focus-visible:outline-2 focus-visible:outline-teal";
@@ -30,22 +41,25 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
   const [tree, setTree] = useState(initial);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ kind: "error" | "ok"; lines: string[] }>();
+  const [message, setMessage] = useState<{ kind: "error" | "ok"; items: PublishErrorItem[] }>();
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [merging, setMerging] = useState(false);
   const [history, setHistory] = useState(false);
   const [title, setTitle] = useState("");
   const editable = isEditable(tree);
   const selected = tree.nodes.find((n) => n.key === selectedKey);
   const missing = unapproved(tree);
+  const nodeTitle = (key: string) => tree.nodes.find((n) => n.key === key)?.title ?? key;
 
   /** Chạy một thao tác ghi: báo lỗi dễ hiểu, không làm mất bản vẽ hiện tại. */
-  async function run(action: () => Promise<void>, onError?: (e: unknown) => string[] | null) {
+  async function run(action: () => Promise<void>, onError?: (e: unknown) => PublishErrorItem[] | null) {
     setBusy(true);
     setMessage(undefined);
     try {
       await action();
     } catch (e) {
-      setMessage({ kind: "error", lines: onError?.(e) ?? [errorText(e)] });
+      setMessage({ kind: "error", items: onError?.(e) ?? [{ text: errorText(e) }] });
     } finally {
       setBusy(false);
     }
@@ -71,13 +85,40 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       setSelectedKey(node.key);
     });
 
+  const confirmDeleteNode = () => {
+    if (!selected?.id) return;
+    const removedTitle = selected.title;
+    void run(async () => {
+      const updated = await apiCall("delete", "/nodes/{node_id}", { path: { node_id: selected.id! } });
+      setTree(updated);
+      setSelectedKey(null);
+      setDeleting(false);
+      setMessage({ kind: "ok", items: [{ text: `Đã xóa nút "${removedTitle}".` }] });
+    });
+  };
+
+  const confirmMergeNodes = (body: Schema<"MergeNodesIn">) =>
+    run(
+      async () => {
+        const updated = await apiCall("post", "/tree-versions/{version_id}/merge-nodes", {
+          path: { version_id: tree.id! },
+          body,
+        });
+        setTree(updated);
+        setSelectedKey(body.firstKey);
+        setMerging(false);
+        setMessage({ kind: "ok", items: [{ text: "Đã gộp hai nút thành công." }] });
+      },
+      (e) => [{ text: cycleMessage(e, tree.nodes) ?? errorText(e) }],
+    );
+
   const connect = (from: string, to: string) =>
     run(
       async () => {
         const edge = await apiCall("post", "/tree-versions/{version_id}/edges", { path: { version_id: tree.id! }, body: { fromKey: from, toKey: to, source: "LECTURER" } });
         setTree((t) => ({ ...t, edges: [...t.edges, edge] }));
       },
-      (e) => [cycleMessage(e, tree.nodes) ?? errorText(e)],
+      (e) => [{ text: cycleMessage(e, tree.nodes) ?? errorText(e) }],
     );
 
   const removeEdge = (id: string) =>
@@ -100,21 +141,21 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         body: { title: n.title, chapterRef: n.chapterRef, bloomLevel: n.bloomLevel },
       });
       patchNode(n.key, (x) => ({ ...x, ...saved, rubric: x.rubric }));
-      setMessage({ kind: "ok", lines: ["Đã lưu thông tin nút."] });
+      setMessage({ kind: "ok", items: [{ text: "Đã lưu thông tin nút." }] });
     });
 
   const saveRubric = (n: Schema<"Node">, r: Rubric) =>
     run(async () => {
       const saved = await apiCall("put", "/nodes/{node_id}/rubric", { path: { node_id: n.id! }, body: r });
       patchNode(n.key, (x) => ({ ...x, rubric: saved }));
-      setMessage({ kind: "ok", lines: [saved.approved ? "Đã duyệt rubric." : "Đã lưu rubric (chưa duyệt)."] });
+      setMessage({ kind: "ok", items: [{ text: saved.approved ? "Đã duyệt rubric." : "Đã lưu rubric (chưa duyệt)." }] });
     });
 
   const regenerate = (n: Schema<"Node">) =>
     run(async () => {
       const fresh = await apiCall("post", "/nodes/{node_id}/rubric/regenerate", { path: { node_id: n.id! } });
       patchNode(n.key, (x) => ({ ...x, rubric: fresh }));
-      setMessage({ kind: "ok", lines: ["AI đã sinh lại rubric – hãy xem và duyệt."] });
+      setMessage({ kind: "ok", items: [{ text: "AI đã sinh lại rubric – hãy xem và duyệt." }] });
     });
 
   const publish = () =>
@@ -122,9 +163,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       async () => {
         const done = await apiCall("post", "/tree-versions/{version_id}/publish", { path: { version_id: tree.id! } });
         setTree(done);
-        setMessage({ kind: "ok", lines: [`Đã phát hành phiên bản v${done.versionNo} cho lớp.`] });
+        setMessage({ kind: "ok", items: [{ text: `Đã phát hành phiên bản v${done.versionNo} cho lớp.` }] });
       },
-      (e) => publishErrors(e) ?? [errorText(e)],
+      (e) => publishErrorItems(e) ?? [{ text: errorText(e) }],
     );
 
   return (
@@ -133,12 +174,20 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         <Button variant="secondary" disabled={!editable || busy} onClick={() => setAdding((a) => !a)}>
           <Plus aria-hidden size={16} /> Thêm nút
         </Button>
-        {/* Backend chưa có DELETE /nodes và gộp nút (cần C2) – giữ nút ở trạng thái khóa, không giả lập */}
-        <Button variant="secondary" disabled title="Chờ API xóa nút (C2)">
+        <Button
+          variant="secondary"
+          disabled={!editable || busy || !selected?.id}
+          title={selected ? `Xóa nút ${selected.title}` : "Chọn một nút trên cây để xóa"}
+          onClick={() => setDeleting((d) => !d)}
+        >
           <Trash2 aria-hidden size={16} /> Xóa nút
         </Button>
-        <Button variant="secondary" disabled title="Chờ API gộp nút (C2)">
-          Gộp nút
+        <Button
+          variant="secondary"
+          disabled={!editable || busy || tree.nodes.length < 2}
+          onClick={() => setMerging((m) => !m)}
+        >
+          <GitMerge aria-hidden size={16} /> Gộp nút
         </Button>
         <Button variant="secondary" aria-pressed={history} onClick={() => setHistory((h) => !h)}>
           <History aria-hidden size={16} /> Lịch sử
@@ -174,24 +223,70 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
           </Button>
         </form>
       )}
-      {message && (message.kind === "error" ? <ErrorBox text={message.lines.join(" ")} /> : <p role="status" className="flex items-center gap-2 text-body-m text-teal"><CircleCheck aria-hidden size={16} />{message.lines.join(" ")}</p>)}
-      {message?.kind === "error" && message.lines.length > 1 && (
-        <ul className="list-disc pl-6 text-body-s">
-          {message.lines.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
+      {deleting && selected && (
+        <DeleteNodeDialog
+          node={selected}
+          autoEdges={autoConnectedOnDelete(tree, selected.key)}
+          nodeTitle={nodeTitle}
+          busy={busy}
+          onConfirm={confirmDeleteNode}
+          onCancel={() => setDeleting(false)}
+        />
       )}
+      {merging && tree.nodes.length >= 2 && (
+        <MergeNodesDialog
+          nodes={tree.nodes}
+          defaultFirstKey={selectedKey ?? tree.nodes[0]!.key}
+          busy={busy}
+          onConfirm={(b) => void confirmMergeNodes(b)}
+          onCancel={() => setMerging(false)}
+        />
+      )}
+      {message &&
+        (message.kind === "error" ? (
+          message.items.length === 1 && !message.items[0]?.nodeKey ? (
+            <ErrorBox text={message.items[0]!.text} />
+          ) : (
+            <div role="alert" className="space-y-1 rounded-lg border border-red-700/40 bg-st-fail/40 p-4 text-body-m text-red-900">
+              <ul className="list-disc space-y-1 pl-5 text-body-s">
+                {message.items.map((item, idx) => (
+                  <li key={`${item.nodeKey ?? idx}-${item.text}`}>
+                    {item.nodeKey ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedKey(item.nodeKey!)}
+                        className="text-left font-medium underline hover:text-ink-900"
+                      >
+                        {item.text}
+                      </button>
+                    ) : (
+                      item.text
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        ) : (
+          <p role="status" className="flex items-center gap-2 text-body-m text-teal">
+            <CircleCheck aria-hidden size={16} />
+            {message.items.map((i) => i.text).join(" ")}
+          </p>
+        ))}
 
       {history && (
         <VersionHistory
           classId={classId}
-          nodeTitle={(key) => tree.nodes.find((n) => n.key === key)?.title ?? key}
-          onRestored={(draft) => {
+          currentDraftVersionNo={editable ? tree.versionNo : null}
+          nodeTitle={nodeTitle}
+          onRestored={(draft, fromVersionNo) => {
             setTree(draft);
             setSelectedKey(null);
             setHistory(false);
-            setMessage({ kind: "ok", lines: [`Đã khôi phục thành bản nháp v${draft.versionNo} – duyệt lại rubric rồi phát hành.`] });
+            setMessage({
+              kind: "ok",
+              items: [{ text: `Đã tạo bản nháp v${draft.versionNo} (Tạo bản nháp từ v${fromVersionNo}) – duyệt lại rubric rồi phát hành.` }],
+            });
           }}
         />
       )}
@@ -320,5 +415,150 @@ function NodePanel({
         <p className="text-body-s text-ink-500">Rubric: {node.rubric?.approved ? "đã duyệt" : "chưa duyệt"} ({node.rubric?.keyPoints.length ?? 0} ý chính).</p>
       )}
     </>
+  );
+}
+
+function DeleteNodeDialog({
+  node,
+  autoEdges,
+  nodeTitle,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  node: Schema<"Node">;
+  autoEdges: { fromKey: string; toKey: string }[];
+  nodeTitle: (key: string) => string;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div role="dialog" aria-label="Xác nhận xóa nút" className="space-y-3 rounded-lg border border-red-700/40 bg-surface p-4 shadow-card">
+      <p className="text-body-m font-semibold text-red-900">
+        Xóa nút “{node.title}” ({node.code ?? node.key})? Thông tin và rubric của nút này sẽ bị xóa.
+      </p>
+      {autoEdges.length > 0 ? (
+        <p className="text-body-s text-ink-700">
+          Các cạnh tiên quyết sẽ được nối thêm: {autoEdges.map((e) => `${nodeTitle(e.fromKey)} → ${nodeTitle(e.toKey)}`).join(", ")}.
+        </p>
+      ) : (
+        <p className="text-body-s text-ink-500">Không có cạnh bắc cầu nào cần nối thêm.</p>
+      )}
+      <div className="flex gap-2">
+        <Button variant="secondary" disabled={busy} onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button disabled={busy} onClick={onConfirm}>
+          Xác nhận xóa
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MergeNodesDialog({
+  nodes,
+  defaultFirstKey,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  nodes: Schema<"Node">[];
+  defaultFirstKey: string;
+  busy: boolean;
+  onConfirm: (body: Schema<"MergeNodesIn">) => void;
+  onCancel: () => void;
+}) {
+  const [firstKey, setFirstKey] = useState(defaultFirstKey);
+  const [secondKey, setSecondKey] = useState(() => nodes.find((n) => n.key !== defaultFirstKey)?.key ?? nodes[0]!.key);
+  const [mode, setMode] = useState<"FIRST" | "SECOND" | "CUSTOM">("FIRST");
+  const [customTitle, setCustomTitle] = useState("");
+  const [customChapter, setCustomChapter] = useState("");
+  const [customBloom, setCustomBloom] = useState<Schema<"BloomLevel">>("UNDERSTAND");
+
+  const valid = firstKey !== secondKey && (mode !== "CUSTOM" || !!customTitle.trim());
+
+  return (
+    <div role="dialog" aria-label="Gộp hai nút" className="space-y-3 rounded-lg border border-line-soft bg-surface p-4 shadow-card">
+      <h3 className="text-h3 font-semibold">Gộp hai nút kỹ năng</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-body-s font-semibold">
+          Nút thứ nhất
+          <select className={field} value={firstKey} onChange={(e) => setFirstKey(e.target.value)}>
+            {nodes.map((n) => (
+              <option key={n.key} value={n.key}>
+                {n.code ? `${n.code} – ${n.title}` : n.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-body-s font-semibold">
+          Nút thứ hai
+          <select className={field} value={secondKey} onChange={(e) => setSecondKey(e.target.value)}>
+            {nodes.map((n) => (
+              <option key={n.key} value={n.key}>
+                {n.code ? `${n.code} – ${n.title}` : n.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <fieldset className="space-y-1 text-body-s">
+        <legend className="font-semibold">Thông tin nút sau khi gộp</legend>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="merge-mode" checked={mode === "FIRST"} onChange={() => setMode("FIRST")} />
+          Giữ thông tin nút thứ nhất
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="merge-mode" checked={mode === "SECOND"} onChange={() => setMode("SECOND")} />
+          Giữ thông tin nút thứ hai
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="merge-mode" checked={mode === "CUSTOM"} onChange={() => setMode("CUSTOM")} />
+          Tự điền lại
+        </label>
+      </fieldset>
+      {mode === "CUSTOM" && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="space-y-1 text-body-s font-semibold">
+            Tên nút sau khi gộp
+            <input className={field} value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-body-s font-semibold">
+            Chương
+            <input className={field} value={customChapter} onChange={(e) => setCustomChapter(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-body-s font-semibold">
+            Mức Bloom
+            <select className={field} value={customBloom} onChange={(e) => setCustomBloom(e.target.value as Schema<"BloomLevel">)}>
+              {Object.entries(BLOOM_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button variant="secondary" disabled={busy} onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button
+          disabled={busy || !valid}
+          onClick={() =>
+            onConfirm({
+              firstKey,
+              secondKey,
+              mode,
+              ...(mode === "CUSTOM" ? { title: customTitle.trim(), chapterRef: customChapter || null, bloomLevel: customBloom } : {}),
+            })
+          }
+        >
+          Xác nhận gộp
+        </Button>
+      </div>
+    </div>
   );
 }
