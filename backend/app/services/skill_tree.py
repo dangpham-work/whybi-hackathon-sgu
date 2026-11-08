@@ -608,6 +608,13 @@ class SkillTreeService:
         self.db.commit()
         return self._node_schema(n, self._rubrics([n]).get(n.id))
 
+    def delete_node(self, node_id: UUID, user: "CurrentUser") -> None:
+        """Cạnh, rubric, ý chính… của nút xóa theo ON DELETE CASCADE ở CSDL. Chỉ bản nháp nên chưa có phiên học nào."""
+        n, v = self._node(node_id, user)
+        self.db.delete(n)
+        self._touch(v)
+        self.db.commit()
+
     def add_edge(self, version_id: UUID, body: Edge, user: "CurrentUser") -> Edge:
         """Kiểm chu trình trước khi ghi (BR-01). Cạnh GV nối luôn source=LECTURER, confidence=1."""
         v = self._version(version_id, user)

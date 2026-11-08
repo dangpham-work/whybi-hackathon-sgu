@@ -71,6 +71,20 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       setSelectedKey(node.key);
     });
 
+  const removeNode = () => {
+    if (!selected?.id || !window.confirm(`Xóa nút "${selected.title}" cùng các cạnh và rubric của nó?`)) return;
+    return run(async () => {
+      await apiCall("delete", "/nodes/{node_id}", { path: { node_id: selected.id! } });
+      setTree((t) => ({
+        ...t,
+        nodes: t.nodes.filter((n) => n.key !== selected.key),
+        edges: t.edges.filter((e) => e.fromKey !== selected.key && e.toKey !== selected.key),
+      }));
+      setSelectedKey(null);
+      setMessage({ kind: "ok", lines: ["Đã xóa nút. Muốn gộp: sửa nội dung nút còn lại cho đủ ý của cả hai."] });
+    });
+  };
+
   const connect = (from: string, to: string) =>
     run(
       async () => {
@@ -133,12 +147,14 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         <Button variant="secondary" disabled={!editable || busy} onClick={() => setAdding((a) => !a)}>
           <Plus aria-hidden size={16} /> Thêm nút
         </Button>
-        {/* Backend chưa có DELETE /nodes và gộp nút (cần C2) – giữ nút ở trạng thái khóa, không giả lập */}
-        <Button variant="secondary" disabled title="Chờ API xóa nút (C2)">
+        {/* Không có "Gộp nút": muốn gộp thì xóa một nút, rồi sửa nội dung nút còn lại. */}
+        <Button
+          variant="secondary"
+          disabled={!editable || busy || !selected?.id}
+          title={selected ? "Xóa nút đang chọn" : "Chọn một nút trên cây để xóa"}
+          onClick={removeNode}
+        >
           <Trash2 aria-hidden size={16} /> Xóa nút
-        </Button>
-        <Button variant="secondary" disabled title="Chờ API gộp nút (C2)">
-          Gộp nút
         </Button>
         <Button variant="secondary" aria-pressed={history} onClick={() => setHistory((h) => !h)}>
           <History aria-hidden size={16} /> Lịch sử
