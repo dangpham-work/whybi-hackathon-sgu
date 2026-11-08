@@ -31,22 +31,30 @@ def test_khong_co_loi_nghiep_vu():
     assert seed_db.check_all() == []
 
 
-def test_90_sv_dung_chung_email_va_mssv_duy_nhat():
+def test_150_sv_dung_chung_email_va_mssv_duy_nhat():
     from scripts.seed_data import users as seed_users
 
-    assert len(seed_users.STUDENTS) == 90
-    assert len(seed_users.LECTURERS) == 2
+    assert len(seed_users.STUDENTS) == 150
+    assert len(seed_users.LECTURERS) == 5
     emails = [sv.email.lower() for sv in seed_users.STUDENTS]
     assert len(emails) == len(set(emails))
     codes = [sv.student_code for sv in seed_users.STUDENTS]
     assert len(codes) == len(set(codes))
 
 
-def test_5_lop_khong_trung_ma_tham_gia():
+def test_5_lop_khong_trung_ma_tham_gia_va_5_gv_rieng_biet():
     from scripts.seed_data import classes as seed_classes
 
     codes = [c.join_code for c in seed_classes.CLASSES]
     assert len(codes) == len(set(codes)) == 5
+    gvs = [c.lecturer_key for c in seed_classes.CLASSES]
+    assert len(gvs) == len(set(gvs)) == 5
+    # Mỗi lớp có 30 SV riêng biệt, không chồng lấn
+    ranges = [c.student_range for c in seed_classes.CLASSES]
+    for start, end in ranges:
+        assert end - start == 30
+    # Đảm bảo không trùng SV giữa bất kỳ 2 lớp nào
+    assert ranges == [(0, 30), (30, 60), (60, 90), (90, 120), (120, 150)]
 
 
 def test_moi_lop_la_dag_hop_le_va_co_nut_root_cause():

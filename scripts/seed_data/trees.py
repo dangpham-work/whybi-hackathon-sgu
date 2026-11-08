@@ -14,7 +14,18 @@ from app.algorithms.dag import build_graph, find_cycle, layers
 from app.models.enums import BloomLevel, EdgeSource, TreeStatus
 from app.models.schemas.tree import Edge, Node, TreeVersion
 
-FIXTURE = Path(__file__).resolve().parents[2] / "seed" / "tree_ctdl_gt.json"
+
+def _fixture_path() -> Path:
+    default_p = Path(__file__).resolve().parents[2] / "seed" / "tree_ctdl_gt.json"
+    if default_p.exists():
+        return default_p
+    container_p = Path("/seed/tree_ctdl_gt.json")
+    if container_p.exists():
+        return container_p
+    return default_p
+
+
+FIXTURE = _fixture_path()
 BLOOM = {
     "R": BloomLevel.REMEMBER,
     "U": BloomLevel.UNDERSTAND,
@@ -151,12 +162,20 @@ D18 | Sao lưu và phục hồi | Chương 5 | U | D14
 """
 
 HDH = """
-O1 | Tiến trình và luồng | Chương 1 | U | -
-O2 | Lập lịch CPU | Chương 1 | A | O1
-O3 | Đồng bộ hóa | Chương 2 | A | O1
-O4 | Bế tắc | Chương 2 | A | O3
-O5 | Quản lý bộ nhớ | Chương 3 | U | -
-O6 | Bộ nhớ ảo | Chương 3 | A | O5
+O1 | Tổng quan hệ điều hành | Chương 1 | R | -
+O2 | Tiến trình và luồng | Chương 1 | U | O1
+O3 | Lập lịch CPU | Chương 2 | A | O2
+O4 | Đồng bộ hóa tiến trình | Chương 2 | A | O2
+O5 | Mutex và Semaphore | Chương 2 | A | O4
+O6 | Bế tắc Deadlock | Chương 2 | N | O5
+O7 | Quản lý bộ nhớ chính | Chương 3 | U | O1
+O8 | Phân trang và phân đoạn | Chương 3 | A | O7
+O9 | Bộ nhớ ảo và thay thế trang | Chương 3 | A | O8
+O10 | Cấu trúc hệ thống tệp | Chương 4 | U | O1
+O11 | Cài đặt hệ thống tệp | Chương 4 | A | O10
+O12 | Quản lý vào ra IO | Chương 5 | U | O1
+O13 | Bảo mật và bảo vệ hệ thống | Chương 5 | U | O10
+O14 | Hệ thống phân tán và ảo hóa | Chương 6 | U | O2, O10
 """
 
 LTW = """

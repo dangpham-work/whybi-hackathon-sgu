@@ -66,15 +66,33 @@ LECTURERS: dict[str, Lecturer] = {
         faculty="Khoa CNTT",
         academic_title="ThS.",
     ),
+    "cuong": Lecturer(
+        email="gv.cuong@whybi.test",
+        full_name="TS. Lê Hoàng Cường",
+        faculty="Khoa CNTT",
+        academic_title="TS.",
+    ),
+    "dung": Lecturer(
+        email="gv.dung@whybi.test",
+        full_name="ThS. Phạm Quốc Dũng",
+        faculty="Khoa Mạng & Truyền thông",
+        academic_title="ThS.",
+    ),
+    "huong": Lecturer(
+        email="gv.huong@whybi.test",
+        full_name="TS. Vũ Thị Thu Hương",
+        faculty="Khoa Hệ thống thông tin",
+        academic_title="TS.",
+    ),
 }
 
-STUDENT_COUNT = 90
+STUDENT_COUNT = 150
 STUDENTS: list[StudentAcc] = [
     StudentAcc(
         email=f"sv{i + 1:02d}@whybi.test",
         full_name=_ten(i),
         student_code=f"31224{i + 1:05d}",
-        cohort="K22" if i < 45 else "K23",
+        cohort="K22" if i < 75 else "K23",
     )
     for i in range(STUDENT_COUNT)
 ]

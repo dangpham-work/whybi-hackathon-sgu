@@ -11,11 +11,12 @@ from seed_db import check_seed, load_seed, write_db
 
 
 def prepare() -> dict:
-    from app.core.config import get_settings
-    from app.models.users import Course
     from sqlalchemy import create_engine, select, text
     from sqlalchemy.engine import make_url
     from sqlalchemy.orm import Session
+
+    from app.core.config import get_settings
+    from app.models.users import Course
 
     settings = get_settings()
     if settings.app_env not in {"dev", "test"} or settings.llm_mode != "fake":
@@ -35,9 +36,7 @@ def prepare() -> dict:
             connection.execute(text("SELECT pg_advisory_xact_lock(62006)"))
             with Session(bind=connection, join_transaction_mode="rollback_only") as db:
                 created = write_db(db, bundle)
-                course_id = db.scalar(
-                    select(Course.id).where(Course.code == bundle.klass.course.code)
-                )
+                course_id = db.scalar(select(Course.id).where(Course.code == bundle.klass.course.code))
                 if course_id is None:
                     raise ValueError("Không tìm thấy môn học sau khi nạp seed")
                 result = {"courseId": str(course_id), "created": created}

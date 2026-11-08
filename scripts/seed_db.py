@@ -11,6 +11,7 @@ MasteryService, không gọi LLM) để có ngay dữ liệu demo: dồn lỗi v
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -20,16 +21,18 @@ import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field
 
 ROOT = Path(__file__).resolve().parent.parent
-SEED = ROOT / "seed"
-sys.path.insert(0, str(ROOT / "backend"))  # để `import app...` khi chạy từ bất kỳ đâu
-sys.path.insert(0, str(ROOT))  # để `import scripts.seed_data...`
+SEED = Path(os.getenv("SEED_DIR", str(ROOT / "seed")))
+if not SEED.exists() and (ROOT / "seed").exists():
+    SEED = ROOT / "seed"
+sys.path.insert(0, str(ROOT / "backend"))  # để `import app...` khi chạy từ repo root
+sys.path.insert(0, str(ROOT))  # để `import scripts.seed_data...` khi chạy từ repo root hoặc trong container
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # fallback
 
-from scripts.seed_data import classes as seed_classes
-from scripts.seed_data import sessions as seed_sessions
-from scripts.seed_data import trees as seed_trees
-from scripts.seed_data import users as seed_users
-
-from app.models.schemas.tree import TreeVersion
+from app.models.schemas.tree import TreeVersion  # noqa: E402
+from scripts.seed_data import classes as seed_classes  # noqa: E402
+from scripts.seed_data import sessions as seed_sessions  # noqa: E402
+from scripts.seed_data import trees as seed_trees  # noqa: E402
+from scripts.seed_data import users as seed_users  # noqa: E402
 
 DEFAULT_PASSWORD = "Whybi@2026"  # chỉ dev/demo
 TREE_TITLE = "Cây kỹ năng"
@@ -525,7 +528,14 @@ def main(argv: list[str] | None = None) -> int:
                 class_id, node_code_to_id, student_ids = _read_back(db, spec.join_code)
                 node_order = [(n.code, node_code_to_id[n.code]) for n in bundle.tree.nodes if n.code in node_code_to_id]
                 seed_sessions.backfill(
-                    db, class_id, student_ids, node_order, spec.root_cause_code, seed=seed_of(spec.join_code)
+                    db,
+                    class_id,
+                    student_ids,
+                    node_order,
+                    spec.root_cause_code,
+                    seed=seed_of(spec.join_code),
+                    scenario_type=spec.scenario_type,
+                    peer_opt_in_count=spec.peer_opt_in_count,
                 )
                 print(f"Đã nạp {spec.join_code}: {created}; dựng lại tiến độ xong")
             else:

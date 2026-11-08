@@ -17,6 +17,7 @@ x-backend: &backend
     SEED_DIR: /seed     # cây mẫu cho GET /classes/{id}/tree khi chưa có CSDL (C2-02)
   volumes:
     - ./seed:/seed:ro
+    - ./scripts:/app/scripts:ro
   depends_on:
     postgres:
       condition: service_healthy
@@ -50,6 +51,7 @@ services:
       context: ./backend
     command: >
       sh -c "alembic upgrade head &&
+             python -m scripts.seed_db &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers"
     ports:
       - "${API_PORT:-8000}:8000"
