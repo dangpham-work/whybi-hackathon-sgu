@@ -105,13 +105,13 @@ def test_rejects_empty_and_too_large():
     assert e.value.details["maxBytes"] == MAX_AUDIO_BYTES
 
 
-def test_rejects_wav_longer_than_three_minutes():
+def test_rejects_wav_longer_than_five_minutes():
     with pytest.raises(AppError) as e:
-        svc().transcribe(wav(185, rate=8_000), NODE, session_id=uuid4(), consent=False)
+        svc().transcribe(wav(305, rate=8_000), NODE, session_id=uuid4(), consent=False)
     assert (e.value.status, e.value.code) == (413, "AUDIO_TOO_LONG")
 
 
-@pytest.mark.parametrize("seconds", [180.1, 182])
+@pytest.mark.parametrize("seconds", [300.1, 302])
 @pytest.mark.parametrize("metadata", [False, True])
 def test_wav_duration_limit_cannot_be_bypassed(seconds, metadata):
     audio = wav(seconds, rate=8_000)
@@ -126,13 +126,13 @@ def test_wav_duration_limit_cannot_be_bypassed(seconds, metadata):
     assert stt.calls == [] and store.objects == {}
 
 
-def test_accepts_wav_at_exactly_three_minutes():
-    assert svc().transcribe(wav(180, rate=8_000), NODE, session_id=uuid4(), consent=False).text
+def test_accepts_wav_at_exactly_five_minutes():
+    assert svc().transcribe(wav(300, rate=8_000), NODE, session_id=uuid4(), consent=False).text
 
 
 @pytest.mark.parametrize("rewrite_riff_size", [False, True])
 def test_rejects_wav_with_short_data_chunk_and_excess_trailing_bytes(rewrite_riff_size):
-    audio = wav(1, rate=8_000) + b"\0" * (180 * 8_000 * 2)
+    audio = wav(1, rate=8_000) + b"\0" * (300 * 8_000 * 2)
     if rewrite_riff_size:
         audio = audio[:4] + struct.pack("<I", len(audio) - 8) + audio[8:]
     stt, store = ScriptedSTT(), MemoryAudioStore()

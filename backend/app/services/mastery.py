@@ -21,6 +21,7 @@ Quy ước:
 - Tiên quyết NEEDS_REVERIFY vẫn tính là đã Đạt (BR-02 không khóa lại nút con khi chỉ đổi rubric).
 """
 
+import json
 import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -48,7 +49,7 @@ from app.models.schemas.mastery import (
 )
 from app.models.schemas.session import SessionResult
 from app.models.schemas.tree import Rubric, TreeVersion
-from app.models.session import MasteryRecord
+from app.models.session import Evaluation, MasteryRecord
 from app.models.users import ClassSection, Enrollment
 from app.realtime.bus import get_bus
 from app.services.skill_tree import SkillTreeService
@@ -630,7 +631,16 @@ def register_handlers(bus: "EventBus", session_factory: Callable[[], Session] | 
     def on_session_completed(event: SessionResult) -> None:
         db = session_factory()
         try:
-            MasteryService(db, bus=bus).apply_result(event)
+            changed = MasteryService(db, bus=bus).apply_result(event)
+            if changed is not None and changed.unlocked_node_ids:
+                # GET /sessions/{id}/result đọc ảnh chụp SessionResult trong Evaluation.feedback (bug #? –
+                # unlockedNodes luôn [] vì ghi tại _finish trước khi MasteryService tính xong); vá lại ở đây.
+                ev = db.scalar(select(Evaluation).where(Evaluation.session_id == event.session_id))
+                if ev is not None and ev.feedback:
+                    data = json.loads(ev.feedback)
+                    data["unlockedNodes"] = [str(n) for n in changed.unlocked_node_ids]
+                    ev.feedback = json.dumps(data)
+                    db.commit()
         except Exception as exc:
             db.rollback()
             # Pub/Sub không lưu tin: log đủ để đối soát tay (bus chỉ ghi tên handler). TODO: đường đối soát / retry.

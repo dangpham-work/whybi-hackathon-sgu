@@ -207,3 +207,19 @@ def test_bank_fallback_that_leaks_is_replaced_by_generic_question():
     leaky = N5.model_copy(update={"rubric": N5.rubric.model_copy(update={"misconceptions": [bad_mc]})})
     q = fallback_question(leaky, S.MISCONCEPTION_PROBE, "MCX")
     assert kp3 not in q.text and role_violation(q.text, N5.title) is None
+
+
+def test_leak_guard_points_collects_all_targets():
+    from app.ai.agents.tutee import _leak_guard_points
+    from app.models.schemas.tree import ChallengeScenarioSchema, KeyPointSchema, MisconceptionSchema, Rubric
+
+    rubric = Rubric(
+        key_points=[KeyPointSchema(id="KP1", content="ý 1")],
+        misconceptions=[MisconceptionSchema(id="MC1", content="sai 1")],
+        scenarios=[
+            ChallengeScenarioSchema(id="SC1", scenario="tình huống", bloom_level="APPLY", expected_points="kết quả 1"),
+            ChallengeScenarioSchema(id="SC2", scenario="không có expected", bloom_level="UNDERSTAND"),
+        ],
+    )
+    points = _leak_guard_points(rubric)
+    assert points == ["ý 1", "sai 1", "kết quả 1"]

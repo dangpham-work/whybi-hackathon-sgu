@@ -129,12 +129,12 @@ class TuteeAgent:
             )
             return Question(text=out.question.strip())
 
-        key_points = [k.content for k in node.rubric.key_points] if node.rubric else []
+        guard_points = _leak_guard_points(_rubric(node))
         fallback = Question(text=opening_template(node))
         try:
             safe = self.guard.ensure_safe_question(
                 generate,
-                key_points,
+                guard_points,
                 node_title=node.title,
                 fallback=fallback,
                 session_id=session_id,
@@ -212,7 +212,7 @@ class TuteeAgent:
         try:
             safe = self.guard.ensure_safe_question(
                 generate,
-                [k.content for k in rubric.key_points],
+                _leak_guard_points(rubric),
                 node_title=node.title,
                 fallback=fallback,
                 session_id=ctx.session_id,
@@ -289,6 +289,16 @@ def _list_points(rubric: Rubric) -> str:
 
 def _list_misconceptions(rubric: Rubric) -> str:
     return "\n".join(f"- {m.id}: {m.content}" for m in rubric.misconceptions) or "-"
+
+
+def _leak_guard_points(rubric: Rubric) -> list[str]:
+    """Mọi nội dung Guard không được để câu hỏi lộ ra: ý chính + quan niệm sai (content sửa sai) + ý mong đợi
+    của tình huống biên (FR-TB-09) – trước chỉ truyền key_points, bỏ sót misconceptions/scenarios (#leak-scope)."""
+    return [
+        *(k.content for k in rubric.key_points),
+        *(m.content for m in rubric.misconceptions),
+        *(s.expected_points for s in rubric.scenarios if s.expected_points),
+    ]
 
 
 def choose_strategy(ctx: SessionContext) -> tuple[QuestionStrategy, str | None] | None:

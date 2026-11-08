@@ -29,7 +29,7 @@ from app.core.config import Settings, get_settings
 
 STT_PROVIDERS = ("fake", "whisper", "cloud")
 DEFAULT_MODELS = {"whisper": "Systran/faster-whisper-small", "cloud": "gpt-4o-mini-transcribe", "fake": "fake"}
-STT_TIMEOUT_S = 20.0  # ghi âm ≤ 3 phút; quá hạn ⇒ lỗi tạm thời
+STT_TIMEOUT_S = 35.0  # ghi âm ≤ 5 phút; quá hạn ⇒ lỗi tạm thời
 
 
 class FakeSTTProvider:

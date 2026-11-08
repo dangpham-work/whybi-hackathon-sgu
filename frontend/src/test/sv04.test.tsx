@@ -382,7 +382,7 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
       expect(screen.getByRole("textbox", { name: /Lời giảng/ })).toBeTruthy();
     });
 
-    it("ghi đủ 3 phút thì tự dừng, vẫn gửi được bản đã ghi", async () => {
+    it("ghi đủ 5 phút thì tự dừng, vẫn gửi được bản đã ghi", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       backend({});
       stubMic();
@@ -392,15 +392,15 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
       await screen.findByText("Đang ghi");
       const rec = FakeRecorder.instances[0];
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(179_000);
+        await vi.advanceTimersByTimeAsync(299_000);
       });
       expect(rec.stop).not.toHaveBeenCalled();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1_500);
       });
       expect(rec.stop).toHaveBeenCalled();
-      expect(screen.getByText(/Đã đủ 3 phút/)).toBeTruthy();
-      expect(screen.getByText("03:00 / 03:00")).toBeTruthy();
+      expect(screen.getByText(/Đã đủ 5 phút/)).toBeTruthy();
+      expect(screen.getByText("05:00 / 05:00")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Gửi bản ghi" })).toBeTruthy();
     });
 
@@ -431,6 +431,41 @@ describe("SV-04 Phiên giảng lại (GD-07)", () => {
       fireEvent.click(screen.getByRole("button", { name: "Gửi bản ghi" }));
       expect(await screen.findByText(/đang được phát triển \(thẻ C1-12\)/)).toBeTruthy();
       expect(api.called(turnsKey)).toHaveLength(0);
+    });
+  });
+
+  describe("cảnh báo khi thoát phiên đang làm", () => {
+    it("điều hướng đi khi đang live thì hiện hộp thoại xác nhận; chọn Tiếp tục làm bài thì ở lại", async () => {
+      backend({});
+      const router = open();
+      await screen.findByText(/N5 – Con trỏ/);
+
+      await act(async () => {
+        await router.navigate("/sv");
+      });
+
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(screen.getByText("Thoát phiên giảng?")).toBeTruthy();
+      expect(screen.getByText(/kết quả của phiên này sẽ không được lưu/)).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục làm bài" }));
+      expect(screen.queryByText("Thoát phiên giảng?")).toBeNull();
+      expect(router.state.location.pathname).toBe(`/sv/sessions/${SID}`);
+    });
+
+    it("chọn Thoát, không lưu thì điều hướng đi", async () => {
+      backend({});
+      const router = open();
+      await screen.findByText(/N5 – Con trỏ/);
+
+      await act(async () => {
+        await router.navigate("/sv");
+      });
+
+      expect(screen.getByText("Thoát phiên giảng?")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Thoát, không lưu" }));
+      expect(screen.queryByText("Thoát phiên giảng?")).toBeNull();
+      expect(router.state.location.pathname).toBe("/sv");
     });
   });
 });
