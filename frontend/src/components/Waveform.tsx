@@ -23,6 +23,7 @@ export function Waveform({ stream, active = false }: { stream?: MediaStream; act
     let analyser: AnalyserNode;
     try {
       ctx = new Ctor();
+      if (ctx.state === "suspended") void ctx.resume();
       analyser = ctx.createAnalyser();
       analyser.fftSize = 64;
       ctx.createMediaStreamSource(stream).connect(analyser);
