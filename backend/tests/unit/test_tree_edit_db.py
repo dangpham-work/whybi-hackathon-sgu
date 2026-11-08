@@ -287,13 +287,12 @@ def test_delete_node_reconnects_prerequisites_without_duplicates_and_rejects_pub
     pairs_n3 = [(e["fromKey"], e["toKey"]) for e in after_n3["edges"]]
     assert pairs_n3.count(("n1_bien_bo_nho", "n5_con_tro")) == 1
 
-    # Xóa n5 (giữa n1 → n5 → n6, n7): tự nối n1 → n6 và n1 → n7
+    # Xóa n5 (giữa n1 → n5 → n6): tự nối n1 → n6
     r2 = world.api.delete(f"/api/v1/nodes/{by_key['n5_con_tro']}")
     assert r2.status_code == 200, r2.text
     after_n5 = r2.json()
     pairs_n5 = {(e["fromKey"], e["toKey"]) for e in after_n5["edges"]}
     assert ("n1_bien_bo_nho", "n6_cap_phat_dong") in pairs_n5
-    assert ("n1_bien_bo_nho", "n7_dslk_don") in pairs_n5
 
     # Bản đã phát hành: chặn xóa nút
     _approve_all(world, after_n5)

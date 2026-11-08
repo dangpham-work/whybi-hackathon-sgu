@@ -632,9 +632,11 @@ class SkillTreeService:
         cycle = find_cycle(g)
         if cycle:
             raise _cycle_error([*cycle, cycle[0]])
-        for e in edges:
-            if e.from_node_id == n.id or e.to_node_id == n.id:
-                self.db.delete(e)
+        self.db.execute(
+            delete(orm.PrerequisiteEdge).where(
+                (orm.PrerequisiteEdge.from_node_id == n.id) | (orm.PrerequisiteEdge.to_node_id == n.id)
+            )
+        )
         self.db.delete(n)
         self.db.flush()
         for u, w in to_add:
@@ -704,8 +706,7 @@ class SkillTreeService:
             if body.rubric is not None:
                 self._write_rubric(first, body.rubric, user)
 
-        for e in edges:
-            self.db.delete(e)
+        self.db.execute(delete(orm.PrerequisiteEdge).where(orm.PrerequisiteEdge.version_id == v.id))
         self.db.delete(second)
         self.db.flush()
         for uk, wk, src, conf in merged_pairs:
