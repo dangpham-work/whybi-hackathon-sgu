@@ -64,7 +64,6 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/classes/{class_id}/tree-versions"): frozenset({GV}),
     ("POST", "/tree-versions/{version_id}/nodes"): frozenset({GV}),
     ("POST", "/tree-versions/{version_id}/edges"): frozenset({GV}),
-    ("POST", "/tree-versions/{version_id}/merge-nodes"): frozenset({GV}),
     ("POST", "/tree-versions/{version_id}/publish"): frozenset({GV}),
     ("POST", "/tree-versions/{version_id}/restore"): frozenset({GV}),
     ("GET", "/tree-versions/{from_id}/compare/{to_id}"): frozenset({GV}),

@@ -1057,10 +1057,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete Node
-         * @description Xóa nút trên bản nháp (#198): tự nối các nút tiên quyết của nút bị xóa sang các nút kế tiếp, giữ DAG.
-         */
+        /** Delete Node */
         delete: operations["delete_node_api_v1_nodes__node_id__delete"];
         options?: never;
         head?: never;
@@ -1069,26 +1066,6 @@ export interface paths {
          * @description Sửa nút / vị trí kéo thả – chỉ gửi trường cần đổi.
          */
         patch: operations["update_node_api_v1_nodes__node_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/tree-versions/{version_id}/merge-nodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Merge Nodes
-         * @description Gộp hai nút trên bản nháp (#198): chọn giữ nút 1, nút 2 hoặc tự điền; gộp cạnh và kiểm tra DAG (BR-01).
-         */
-        post: operations["merge_nodes_api_v1_tree_versions__version_id__merge_nodes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/tree-versions/{version_id}/edges": {
@@ -2076,20 +2053,6 @@ export interface components {
             positionX?: number | null;
             /** Positiony */
             positionY?: number | null;
-        };
-        /**
-         * MergeNodesIn
-         * @description POST /tree-versions/{id}/merge-nodes (#198): gộp nút thứ hai vào nút thứ nhất trên bản nháp.
-         */
-        MergeNodesIn: {
-            firstKey: string;
-            secondKey: string;
-            /** @default FIRST */
-            mode?: "FIRST" | "SECOND" | "CUSTOM";
-            title?: string | null;
-            chapterRef?: string | null;
-            bloomLevel?: components["schemas"]["BloomLevel"] | null;
-            rubric?: components["schemas"]["Rubric"] | null;
         };
         /**
          * NodeProgress
@@ -5090,72 +5053,6 @@ export interface operations {
             };
         };
     };
-    delete_node_api_v1_nodes__node_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                node_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TreeVersion"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    merge_nodes_api_v1_tree_versions__version_id__merge_nodes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                version_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MergeNodesIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TreeVersion"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     add_edge_api_v1_tree_versions__version_id__edges_post: {
         parameters: {
             query?: never;
@@ -5197,6 +5094,35 @@ export interface operations {
             header?: never;
             path: {
                 edge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_node_api_v1_nodes__node_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
             };
             cookie?: never;
         };

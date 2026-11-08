@@ -156,6 +156,31 @@ def test_add_and_patch_node(world):
     assert p.status_code == 200 and p.json()["positionX"] == 120.5 and p.json()["title"] == "Heap"
 
 
+def test_delete_node_removes_its_edges(world):
+    tv = _import_seed(world)
+    ids = _key_to_id(tv)
+    touching = [e for e in tv["edges"] if "n5_con_tro" in (e["fromKey"], e["toKey"])]
+    assert touching, "seed phải có cạnh chạm n5_con_tro"
+    assert world.api.delete(f"/api/v1/nodes/{ids['n5_con_tro']}").status_code == 204
+    after = world.api.get(f"/api/v1/classes/{world.class_id}/tree", params={"draft": True}).json()
+    assert "n5_con_tro" not in _key_to_id(after)
+    assert all("n5_con_tro" not in (e["fromKey"], e["toKey"]) for e in after["edges"])
+    assert len(after["nodes"]) == len(tv["nodes"]) - 1
+    assert world.api.delete(f"/api/v1/nodes/{ids['n5_con_tro']}").status_code == 404
+
+
+def test_delete_node_rejected_on_published_or_other_lecturer(world):
+    tv = _import_seed(world)
+    ids = _key_to_id(tv)
+    world.current = world.gv_other
+    assert world.api.delete(f"/api/v1/nodes/{ids['n2_mang']}").status_code == 403
+    world.current = world.gv
+    _approve_all(world, tv)
+    assert world.api.post(f"/api/v1/tree-versions/{tv['id']}/publish").status_code == 200
+    r = world.api.delete(f"/api/v1/nodes/{ids['n2_mang']}")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "VERSION_NOT_EDITABLE"
+
+
 def test_other_lecturer_cannot_edit(world):
     tv = _import_seed(world)
     world.current = world.gv_other
@@ -274,68 +299,3 @@ def test_import_tree_with_unknown_edge_key_is_422(world):
     body = SEED | {"edges": [{"fromKey": "n1_bien_bo_nho", "toKey": "khong_co"}]}
     r = world.api.post(f"/api/v1/classes/{world.class_id}/tree-versions", json=body)
     assert r.status_code == 422
-
-
-def test_delete_node_reconnects_prerequisites_without_duplicates_and_rejects_published(world):
-    tv = _import_seed(world)
-    by_key = _key_to_id(tv)
-    # Xóa n3 (giữa n1 → n3 → n5, khi n1 → n5 đã có sẵn): không tạo cạnh trùng n1 → n5
-    r1 = world.api.delete(f"/api/v1/nodes/{by_key['n3_ham_tham_so']}")
-    assert r1.status_code == 200, r1.text
-    after_n3 = r1.json()
-    assert "n3_ham_tham_so" not in {n["key"] for n in after_n3["nodes"]}
-    pairs_n3 = [(e["fromKey"], e["toKey"]) for e in after_n3["edges"]]
-    assert pairs_n3.count(("n1_bien_bo_nho", "n5_con_tro")) == 1
-
-    # Xóa n5 (giữa n1 → n5 → n6): tự nối n1 → n6
-    r2 = world.api.delete(f"/api/v1/nodes/{by_key['n5_con_tro']}")
-    assert r2.status_code == 200, r2.text
-    after_n5 = r2.json()
-    pairs_n5 = {(e["fromKey"], e["toKey"]) for e in after_n5["edges"]}
-    assert ("n1_bien_bo_nho", "n6_cap_phat_dong") in pairs_n5
-
-    # Bản đã phát hành: chặn xóa nút
-    _approve_all(world, after_n5)
-    world.api.post(f"/api/v1/tree-versions/{after_n5['id']}/publish")
-    locked = world.api.delete(f"/api/v1/nodes/{by_key['n1_bien_bo_nho']}")
-    assert locked.status_code == 409 and locked.json()["error"]["code"] == "VERSION_NOT_EDITABLE"
-
-
-def test_merge_nodes_modes_and_cycle_rejection(world):
-    tv = _import_seed(world)
-    vid = tv["id"]
-    # Gộp n1 và n5 khi có đường n1 → n3 → n5 sẽ tạo chu trình n1 → n3 → n1 ⇒ 409 CYCLE_DETECTED
-    cyc = world.api.post(
-        f"/api/v1/tree-versions/{vid}/merge-nodes",
-        json={"firstKey": "n1_bien_bo_nho", "secondKey": "n5_con_tro", "mode": "FIRST"},
-    )
-    assert cyc.status_code == 409 and cyc.json()["error"]["code"] == "CYCLE_DETECTED"
-
-    # Gộp hai nút kề nhau n2_mang và n4_de_quy (không có nút trung gian) với mode=CUSTOM
-    ok_res = world.api.post(
-        f"/api/v1/tree-versions/{vid}/merge-nodes",
-        json={
-            "firstKey": "n2_mang",
-            "secondKey": "n4_de_quy",
-            "mode": "CUSTOM",
-            "title": "Mảng và Đệ quy",
-            "chapterRef": "Chương 2-3",
-            "bloomLevel": "APPLY",
-        },
-    )
-    assert ok_res.status_code == 200, ok_res.text
-    merged = ok_res.json()
-    keys = {n["key"]: n for n in merged["nodes"]}
-    assert "n4_de_quy" not in keys and keys["n2_mang"]["title"] == "Mảng và Đệ quy"
-    assert keys["n2_mang"]["bloomLevel"] == "APPLY"
-    edges = {(e["fromKey"], e["toKey"]) for e in merged["edges"]}
-    assert ("n3_ham_tham_so", "n2_mang") in edges
-
-    # Bản đã phát hành: chặn gộp nút
-    _approve_all(world, merged)
-    world.api.post(f"/api/v1/tree-versions/{vid}/publish")
-    locked = world.api.post(
-        f"/api/v1/tree-versions/{vid}/merge-nodes",
-        json={"firstKey": "n1_bien_bo_nho", "secondKey": "n2_mang", "mode": "SECOND"},
-    )
-    assert locked.status_code == 409 and locked.json()["error"]["code"] == "VERSION_NOT_EDITABLE"

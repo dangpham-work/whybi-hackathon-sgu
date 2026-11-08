@@ -10,7 +10,7 @@ from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
 from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.mastery import MyMap
-from app.models.schemas.tree import Edge, MergeNodesIn, Node, NodePatch, Rubric, TreeDiff, TreeVersion
+from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeDiff, TreeVersion
 from app.services.mastery import MasteryService
 from app.services.skill_tree import SkillTreeService
 
@@ -57,16 +57,10 @@ def update_node(node_id: UUID, body: NodePatch, trees: Trees, user: CurrentUser 
     return trees.update_node(node_id, body, user)
 
 
-@router.delete("/nodes/{node_id}", response_model=TreeVersion)
-def delete_node(node_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> TreeVersion:
-    """Xóa nút trên bản nháp (#198): tự nối các nút tiên quyết của nút bị xóa sang các nút kế tiếp, giữ DAG."""
-    return trees.delete_node(node_id, user)
-
-
-@router.post("/tree-versions/{version_id}/merge-nodes", response_model=TreeVersion)
-def merge_nodes(version_id: UUID, body: MergeNodesIn, trees: Trees, user: CurrentUser = Lecturer) -> TreeVersion:
-    """Gộp hai nút trên bản nháp (#198): chọn giữ nút 1, nút 2 hoặc tự điền; gộp cạnh và kiểm tra DAG (BR-01)."""
-    return trees.merge_nodes(version_id, body, user)
+@router.delete("/nodes/{node_id}", status_code=204)
+def delete_node(node_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> None:
+    """Xóa nút khỏi bản nháp, kèm cạnh và rubric của nút. Muốn "gộp" hai nút: xóa một, rồi sửa nút còn lại."""
+    trees.delete_node(node_id, user)
 
 
 @router.post("/tree-versions/{version_id}/edges", response_model=Edge, status_code=201)
