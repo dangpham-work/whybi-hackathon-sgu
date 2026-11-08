@@ -16,11 +16,13 @@ class ClassSpec:
     name: str
     course_code: str
     course_name: str
-    lecturer_key: str  # khóa trong users.LECTURERS
+    lecturer_key: str  # khóa trong users.LECTURERS (5 GV khác nhau cho 5 lớp)
     tree_spec: str  # trees.CTDL / trees.NMLT / ...
     base: str | None  # "ctdl" ⇒ mở rộng từ seed/tree_ctdl_gt.json; None ⇒ cây mới hoàn toàn
-    student_range: tuple[int, int]  # [start, end) chỉ số trong users.STUDENTS
+    student_range: tuple[int, int]  # [start, end) chỉ số trong users.STUDENTS (mỗi lớp 30 SV riêng biệt)
     root_cause_code: str  # mã nút dồn lỗi để demo cảnh báo "Nên giảng lại X"
+    scenario_type: str = "bottleneck_root_cause"  # kịch bản phân hóa tiến độ và bản đồ nhiệt
+    peer_opt_in_count: int = 12  # số SV bật tham gia ghép cặp
     semester: str = "HK1 2026-2027"
     pass_threshold: int = 70
 
@@ -36,6 +38,8 @@ CLASSES: list[ClassSpec] = [
         base="ctdl",
         student_range=(0, 30),
         root_cause_code="N5",
+        scenario_type="bottleneck_root_cause",
+        peer_opt_in_count=15,
     ),
     ClassSpec(
         join_code="HDH02026",
@@ -45,40 +49,48 @@ CLASSES: list[ClassSpec] = [
         lecturer_key="binh",
         tree_spec=trees.HDH,
         base=None,
-        student_range=(20, 50),
-        root_cause_code="O1",
+        student_range=(30, 60),
+        root_cause_code="O6",
+        scenario_type="high_performer",
+        peer_opt_in_count=12,
     ),
     ClassSpec(
         join_code="NMLT2026",
         name="Nhập môn lập trình – Nhóm 01",
         course_code="COMP1001",
         course_name="Nhập môn lập trình",
-        lecturer_key="binh",
+        lecturer_key="cuong",
         tree_spec=trees.NMLT,
         base=None,
-        student_range=(45, 75),
+        student_range=(60, 90),
         root_cause_code="P6",
+        scenario_type="early_stage",
+        peer_opt_in_count=10,
     ),
     ClassSpec(
         join_code="MMT02026",
         name="Mạng máy tính – Nhóm 01",
         course_code="COMP2021",
         course_name="Mạng máy tính",
-        lecturer_key="an",
+        lecturer_key="dung",
         tree_spec=trees.MMT,
         base=None,
-        student_range=(60, 90),
-        root_cause_code="M8",
+        student_range=(90, 120),
+        root_cause_code="M9",
+        scenario_type="bimodal_gap",
+        peer_opt_in_count=16,
     ),
     ClassSpec(
         join_code="CSDL2026",
         name="Cơ sở dữ liệu – Nhóm 01",
         course_code="COMP2011",
         course_name="Cơ sở dữ liệu",
-        lecturer_key="binh",
+        lecturer_key="huong",
         tree_spec=trees.CSDL,
         base=None,
-        student_range=(10, 40),
-        root_cause_code="D2",
+        student_range=(120, 150),
+        root_cause_code="D10",
+        scenario_type="conceptual_hurdle",
+        peer_opt_in_count=14,
     ),
 ]
