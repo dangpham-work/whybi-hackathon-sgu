@@ -211,3 +211,14 @@
 - **Xong khi:** Giáo trình lớn dừng ở GV-03 chờ chọn; chọn xong gọi build-tree đúng ranges/detail/lazyRubric; tải lại trang vẫn khôi phục hộp chọn; GV-04 sinh rubric bù và hiện dần; typecheck, test, build xanh
 - **Người phụ trách:** Thắng (làm thay: Long)
 - **Nhánh:** `feat/gd-19-chon-chuong` · commit bắt đầu bằng `GD-19:`
+
+## GD-20
+
+- **Thẻ việc:** Duyệt cây lớn (frontend): khung vẽ toàn màn hình, MiniMap, zoom out 0.1, nút Tự sắp xếp; trạng thái rubric trên nút (chưa có / chưa duyệt / đã duyệt) kèm biểu tượng và màu; tìm nút theo tên, lọc theo chương và trạng thái rubric; danh sách "N nút chưa duyệt" bấm được; duyệt hàng loạt và duyệt cả chương; Modal xác nhận phát hành với kiểm tra sức khỏe (publish-check) và ghi chú phiên bản; busy riêng từng thao tác
+- **Yêu cầu / mục đề cương:** FR-SK-06, FR-SK-08, FR-SK-10
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** GD-05, GD-09, GD-18, GD-19, C2-23
+- **Giờ:** H20+
+- **Xong khi:** Typecheck, test (Vitest), build xanh; toàn màn hình bấm ESC thoát; MiniMap thấy cây 50+ nút; lọc theo chương, trạng thái; duyệt hàng loạt 10 nút không bị 5xx; phát hành có ghi chú
+- **Người phụ trách:** Thắng (làm thay: Long)
+- **Nhánh:** `feat/gd-20-cay-lon` · commit bắt đầu bằng `GD-20:`

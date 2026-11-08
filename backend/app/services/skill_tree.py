@@ -36,6 +36,7 @@ from app.models import tree as orm
 from app.models.enums import EdgeSource, Role, RubricStatus, TreeStatus
 from app.models.schemas.session import DEFAULT_CRITERION_WEIGHTS
 from app.models.schemas.tree import (
+    ApproveRubricsResult,
     ChallengeScenarioSchema,
     Edge,
     EdgeRef,
@@ -43,9 +44,13 @@ from app.models.schemas.tree import (
     MisconceptionSchema,
     Node,
     NodePatch,
+    NodePosition,
+    PublishCheck,
+    RejectedRubric,
     Rubric,
     TreeDiff,
     TreeVersion,
+    TreeVersionSummary,
 )
 from app.models.users import ClassSection, Enrollment
 
@@ -58,6 +63,23 @@ _NS = uuid5(NAMESPACE_URL, "https://whybi.ai/seed")
 SEED_CLASS_ID = uuid5(_NS, "class/CTDL2026")
 SEED_TREE_FILE = "tree_ctdl_gt.json"
 EDITABLE = {TreeStatus.DRAFT, TreeStatus.EDITING}
+
+
+def rubric_problems(r: Rubric) -> list[str]:
+    """Lý do rubric chưa đủ điều kiện duyệt (C2-23); rỗng ⇒ hợp lệ. Dùng chung cho duyệt từng nút, duyệt hàng loạt
+    và kiểm tra phát hành. Số tình huống không bị ràng buộc: câu phản biện được sinh động từ rubric (C1-04)."""
+    problems = []
+    if any(not kp.content.strip() for kp in r.key_points):
+        problems.append("có ý chính để trống")
+    if not any(kp.is_required and kp.content.strip() for kp in r.key_points):
+        problems.append("chưa có ý chính bắt buộc nào")
+    if r.min_passed_challenges > r.min_challenges:
+        problems.append(
+            f"số câu phản biện cần Đạt ({r.min_passed_challenges}) lớn hơn số câu phản biện ({r.min_challenges})"
+        )
+    return problems
+
+
 _REQUIRED_NODE_FIELDS = {"title", "bloom_level"}
 
 
@@ -461,18 +483,47 @@ class SkillTreeService:
 
     # ------------------------------------------------------------------ lịch sử, so sánh, khôi phục (C2-16)
 
-    def list_versions(self, class_id: UUID, user: "CurrentUser") -> list[TreeVersion]:
-        """Mọi phiên bản của lớp, mới nhất trước (FR-SK-10). Lớp chưa có cây ⇒ danh sách rỗng."""
+    def list_versions(self, class_id: UUID, user: "CurrentUser") -> list[TreeVersionSummary]:
+        """Mọi phiên bản của lớp, mới nhất trước (FR-SK-10), dạng tóm tắt (không kèm cả cây). Lớp chưa có cây ⇒ rỗng."""
         self._require_owner(self._class(class_id), user)
         tree = self.db.scalar(select(orm.SkillTree).where(orm.SkillTree.class_id == class_id))
         if tree is None:
             return []
-        rows = self.db.scalars(
-            select(orm.TreeVersion)
-            .where(orm.TreeVersion.tree_id == tree.id)
-            .order_by(orm.TreeVersion.version_no.desc())
+        versions = list(
+            self.db.scalars(
+                select(orm.TreeVersion)
+                .where(orm.TreeVersion.tree_id == tree.id)
+                .order_by(orm.TreeVersion.version_no.desc())
+            )
         )
-        return [self._to_schema(v, class_id) for v in rows]
+        ids = [v.id for v in versions]
+        nodes = dict(
+            self.db.execute(
+                select(orm.ConceptNode.version_id, func.count())
+                .where(orm.ConceptNode.version_id.in_(ids))
+                .group_by(orm.ConceptNode.version_id)
+            ).all()
+        )
+        edges = dict(
+            self.db.execute(
+                select(orm.PrerequisiteEdge.version_id, func.count())
+                .where(orm.PrerequisiteEdge.version_id.in_(ids))
+                .group_by(orm.PrerequisiteEdge.version_id)
+            ).all()
+        )
+        return [
+            TreeVersionSummary(
+                id=v.id,
+                version_no=v.version_no,
+                status=v.status,
+                change_note=v.change_note,
+                created_at=v.created_at,
+                published_at=v.published_at,
+                node_count=nodes.get(v.id, 0),
+                edge_count=edges.get(v.id, 0),
+            )
+            for v in versions
+        ]
 
     def _owned_schema(self, version_id: UUID, user: "CurrentUser") -> TreeVersion:
         v = self.db.get(orm.TreeVersion, version_id)
@@ -672,6 +723,14 @@ class SkillTreeService:
             if existing is not None:
                 self.db.rollback()  # nhả khóa cây
                 return existing
+        if body.approved and (problems := rubric_problems(body)):
+            self.db.rollback()
+            raise AppError(
+                422,
+                "RUBRIC_INVALID",
+                "Rubric chưa hợp lệ nên chưa duyệt được: " + "; ".join(problems),
+                {"problems": problems},
+            )
         self._write_rubric(n, body, user)
         self._touch(v)
         self.db.commit()
@@ -679,10 +738,9 @@ class SkillTreeService:
 
     # ------------------------------------------------------------------ phát hành (FR-SK-09, BR-05)
 
-    def publish(self, version_id: UUID, user: "CurrentUser") -> TreeVersion:
-        v = self._version(version_id, user)
-        tree = self.db.get(orm.SkillTree, v.tree_id)
-        schema = self._to_schema(v, tree.class_id)
+    @staticmethod
+    def _publish_errors(schema: TreeVersion) -> list[dict[str, Any]]:
+        """Điều kiện phát hành BR-05; dùng chung cho `publish` và `publish_check`."""
         errors: list[dict[str, Any]] = []
         if not schema.nodes:
             errors.append({"code": "EMPTY_TREE", "message": "Cây chưa có nút"})
@@ -697,12 +755,85 @@ class SkillTreeService:
                 errors.append(
                     {"code": "RUBRIC_NOT_APPROVED", "nodeKey": n.key, "message": f"Rubric {n.title} chưa duyệt"}
                 )
+            elif problems := rubric_problems(n.rubric):
+                errors.append(
+                    {"code": "RUBRIC_INVALID", "nodeKey": n.key, "message": f"Rubric {n.title}: " + "; ".join(problems)}
+                )
+        return errors
+
+    def publish_check(self, class_id: UUID, user: "CurrentUser") -> PublishCheck:
+        """Xem trước phát hành bản mới nhất của lớp: lỗi chặn, rubric chưa duyệt, số SV bị ảnh hưởng. Không ghi gì."""
+        self._require_owner(self._class(class_id), user)
+        schema = self.get_class_tree(class_id, user=user, draft=True)
+        tree = self.db.scalar(select(orm.SkillTree).where(orm.SkillTree.class_id == class_id))
+        errors = self._publish_errors(schema)
+        if schema.status not in EDITABLE:
+            errors.append({"code": "NOTHING_TO_PUBLISH", "message": "Bản mới nhất đã phát hành – tạo bản nháp để sửa"})
+        published = self.db.get(orm.TreeVersion, tree.published_version_id) if tree.published_version_id else None
+        return PublishCheck(
+            ok=not errors,
+            version_id=schema.id,
+            version_no=schema.version_no,
+            errors=errors,
+            unapproved_count=sum(1 for e in errors if e["code"] == "RUBRIC_NOT_APPROVED"),
+            affected_students=self.db.scalar(
+                select(func.count()).select_from(Enrollment).where(Enrollment.class_id == class_id)
+            )
+            or 0,
+            older_than_published=published is not None and schema.version_no < published.version_no,
+        )
+
+    def approve_rubrics(self, class_id: UUID, node_ids: list[UUID], user: "CurrentUser") -> ApproveRubricsResult:
+        """Duyệt hàng loạt rubric của bản nháp mới nhất (FR-SK-08): rubric hợp lệ được duyệt, còn lại báo lý do."""
+        self._require_owner(self._class(class_id), user)
+        draft = self.get_class_tree(class_id, user=user, draft=True)
+        v = self._version(draft.id, user)  # khóa + kiểm bản chưa phát hành
+        approved: list[UUID] = []
+        rejected: list[RejectedRubric] = []
+        for nid in dict.fromkeys(node_ids):
+            n = self.db.get(orm.ConceptNode, nid)
+            if n is None or n.version_id != v.id:
+                rejected.append(RejectedRubric(node_id=nid, reason="Không tìm thấy nút trong bản nháp hiện tại"))
+                continue
+            rubric = self._rubrics([n]).get(n.id)
+            if rubric is None:
+                rejected.append(RejectedRubric(node_id=nid, reason="Nút chưa có rubric"))
+            elif problems := rubric_problems(rubric):
+                rejected.append(RejectedRubric(node_id=nid, reason="Rubric chưa hợp lệ: " + "; ".join(problems)))
+            else:
+                self._write_rubric(n, rubric.model_copy(update={"approved": True}), user)
+                approved.append(nid)
+        if approved:
+            self._touch(v)
+        self.db.commit()
+        return ApproveRubricsResult(approved=approved, rejected=rejected)
+
+    def set_positions(self, version_id: UUID, positions: list[NodePosition], user: "CurrentUser") -> None:
+        """Lưu vị trí nhiều nút một lượt (nút "Tự sắp xếp" ở GV-04) – thay cho hàng trăm PATCH lẻ."""
+        v = self._version(version_id, user)
+        rows = {n.id: n for n in self.db.scalars(select(orm.ConceptNode).where(orm.ConceptNode.version_id == v.id))}
+        unknown = [str(p.node_id) for p in positions if p.node_id not in rows]
+        if unknown:
+            self.db.rollback()
+            raise AppError(404, "NODE_NOT_FOUND", "Có nút không thuộc phiên bản này", {"nodeIds": unknown})
+        for p in positions:
+            rows[p.node_id].position_x, rows[p.node_id].position_y = p.x, p.y
+        self._touch(v)
+        self.db.commit()
+
+    def publish(self, version_id: UUID, user: "CurrentUser", change_note: str | None = None) -> TreeVersion:
+        v = self._version(version_id, user)
+        tree = self.db.get(orm.SkillTree, v.tree_id)
+        schema = self._to_schema(v, tree.class_id)
+        errors = self._publish_errors(schema)
         if errors:
             raise AppError(422, "PUBLISH_CHECK_FAILED", "Chưa đủ điều kiện phát hành (BR-05)", {"errors": errors})
 
         if tree.published_version_id and tree.published_version_id != v.id:
             old = self.db.get(orm.TreeVersion, tree.published_version_id)
             old.status = TreeStatus.ARCHIVED
+        if change_note:
+            v.change_note = change_note.strip() or v.change_note
         v.status = TreeStatus.PUBLISHED
         v.published_at = datetime.now(UTC)
         tree.published_version_id = v.id

@@ -3,13 +3,26 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
 from app.db.session import get_db
 from app.models.schemas.mastery import MyMap
-from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeDiff, TreeVersion
+from app.models.schemas.tree import (
+    ApproveRubricsBody,
+    ApproveRubricsResult,
+    Edge,
+    Node,
+    NodePatch,
+    PositionsBody,
+    PublishBody,
+    PublishCheck,
+    Rubric,
+    TreeDiff,
+    TreeVersion,
+    TreeVersionSummary,
+)
 from app.services.mastery import MasteryService
 from app.services.rubric import regenerate_rubric_for_node
 from app.services.skill_tree import SkillTreeService
@@ -82,14 +95,38 @@ def regenerate_rubric(node_id: UUID, trees: Trees, user: CurrentUser = Lecturer)
 
 
 @router.post("/tree-versions/{version_id}/publish", response_model=TreeVersion)
-def publish(version_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> TreeVersion:
-    """Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm `details.errors`.
+def publish(
+    version_id: UUID, trees: Trees, body: PublishBody | None = Body(None), user: CurrentUser = Lecturer
+) -> TreeVersion:
+    """Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt và hợp lệ) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm
+    `details.errors`. Thân tùy chọn `{changeNote}` ghi vào lịch sử phiên bản.
     Bản phát hành trước chuyển ARCHIVED. Khởi tạo / di chuyển trạng thái SV (BR-14): C2-10."""
-    return trees.publish(version_id, user)
+    return trees.publish(version_id, user, body.change_note if body else None)
 
 
-@router.get("/classes/{class_id}/tree-versions", response_model=list[TreeVersion])
-def list_versions(class_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> list[TreeVersion]:
+@router.get("/classes/{class_id}/tree/publish-check", response_model=PublishCheck)
+def publish_check(class_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> PublishCheck:
+    """Xem trước phát hành bản mới nhất: lỗi chặn, số rubric chưa duyệt, số SV bị ảnh hưởng. Không ghi gì (C2-23)."""
+    return trees.publish_check(class_id, user)
+
+
+@router.post("/classes/{class_id}/tree/rubrics/approve", response_model=ApproveRubricsResult)
+def approve_rubrics(
+    class_id: UUID, body: ApproveRubricsBody, trees: Trees, user: CurrentUser = Lecturer
+) -> ApproveRubricsResult:
+    """Duyệt hàng loạt rubric của bản nháp mới nhất: rubric hợp lệ được duyệt, còn lại kèm lý do (C2-23)."""
+    return trees.approve_rubrics(class_id, body.node_ids, user)
+
+
+@router.put("/tree-versions/{version_id}/positions", status_code=204)
+def put_positions(version_id: UUID, body: PositionsBody, trees: Trees, user: CurrentUser = Lecturer) -> Response:
+    """Lưu vị trí nhiều nút một lượt ("Tự sắp xếp" ở GV-04) (C2-23)."""
+    trees.set_positions(version_id, body.positions, user)
+    return Response(status_code=204)
+
+
+@router.get("/classes/{class_id}/tree-versions", response_model=list[TreeVersionSummary])
+def list_versions(class_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> list[TreeVersionSummary]:
     """Lịch sử phiên bản, mới nhất trước (FR-SK-10)."""
     return trees.list_versions(class_id, user)
 

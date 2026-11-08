@@ -244,3 +244,14 @@
 - **Xong khi:** Test mới cho từng lỗi xanh (chạy riêng từng file lẫn cả bộ); 2 test sinh lại rubric xanh; test `xfail` sinh lại rubric ở integration đã bỏ dấu xfail
 - **Người phụ trách:** Long (phối hợp Đăng: workers/documents.py, services/syllabus.py)
 - **Nhánh:** `fix/mx1-luong-dung-cay` · commit bắt đầu bằng `C2-22:`
+
+## C2-23
+
+- **Thẻ việc:** Duyệt cây lớn (backend): duyệt hàng loạt rubric (`POST /tree/rubrics/approve`), kiểm tra trước khi phát hành (`GET /tree/publish-check`), phát hành có ghi chú (`POST /tree-versions/{id}/publish` với `changeNote`), lịch sử phiên bản tóm tắt (`TreeVersionSummary` – không trả cả cây), lưu vị trí hàng loạt (`PUT /tree-versions/{id}/positions`), hàm `rubric_problems()` dùng chung cho duyệt/phát hành
+- **Yêu cầu / mục đề cương:** FR-SK-08, FR-SK-10, BR-05
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** C2-09, C1-20, GD-19
+- **Giờ:** H20+
+- **Xong khi:** 11 test DB xanh (`test_tree_review_db.py`), test concurrency vẫn xanh với rubric hợp lệ, `test_bao_mat_phan_quyen` bao gồm 3 endpoint mới; ruff sạch
+- **Người phụ trách:** Long
+- **Nhánh:** `feat/gd-20-cay-lon` · commit bắt đầu bằng `C2-23:`
