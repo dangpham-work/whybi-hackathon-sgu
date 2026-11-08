@@ -99,6 +99,31 @@ describe("GV-01 Danh sách lớp (GD-05)", () => {
     fireEvent.click(within(form).getByRole("button", { name: "Tạo lớp" }));
     expect((await within(form).findByRole("alert")).textContent).toContain(text);
   });
+
+  it("lưu trữ và khôi phục lớp qua nút ở GV-01", async () => {
+    const api = mockApi({
+      ...me,
+      "GET /classes": ok([CTDL]),
+      "POST /classes/c1/archive": ok({ ...CTDL, status: "ARCHIVED" }),
+      "POST /classes/c1/restore": ok({ ...CTDL, status: "ACTIVE" }),
+    });
+    open("/gv/classes");
+    const list = await screen.findByRole("list", { name: "Lớp học phần" });
+    const archiveBtn = within(list).getByRole("button", { name: "Lưu trữ lớp CTDL&GT – Nhóm 02" });
+    fireEvent.click(archiveBtn);
+
+    await waitFor(() => expect(api.called("POST /classes/c1/archive")).toHaveLength(1));
+    expect(screen.getByText(/Đã đưa lớp.*vào kho lưu trữ/)).toBeTruthy();
+
+    // Chuyển sang tab Kho lưu trữ
+    fireEvent.click(screen.getByRole("tab", { name: /Kho lưu trữ/ }));
+    const archivedList = await screen.findByRole("list", { name: "Lớp đã lưu trữ" });
+    expect(within(archivedList).getByText("Đã lưu trữ (Chỉ đọc)")).toBeTruthy();
+
+    // Khôi phục
+    fireEvent.click(within(archivedList).getByRole("button", { name: "Khôi phục" }));
+    await waitFor(() => expect(api.called("POST /classes/c1/restore")).toHaveLength(1));
+  });
 });
 
 describe("GV-02 Tổng quan lớp (GD-05)", () => {

@@ -157,3 +157,19 @@ class ClassService:
         MasteryService(self.db).ensure_student(cls.id, user.id)
         self.db.commit()
         return self._view(cls)
+
+    def archive(self, class_id: UUID, user: "CurrentUser") -> ClassView:
+        cls = self._get(class_id)
+        if user.role != Role.ADMIN and cls.lecturer_id != user.id:
+            raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp hoặc quản trị viên mới có thể lưu trữ lớp")
+        cls.status = "ARCHIVED"
+        self.db.commit()
+        return self._view(cls)
+
+    def restore(self, class_id: UUID, user: "CurrentUser") -> ClassView:
+        cls = self._get(class_id)
+        if user.role != Role.ADMIN and cls.lecturer_id != user.id:
+            raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp hoặc quản trị viên mới có thể khôi phục lớp")
+        cls.status = "ACTIVE"
+        self.db.commit()
+        return self._view(cls)

@@ -1333,6 +1333,8 @@ export interface components {
             studentCount: number;
             /** Treestatus */
             treeStatus?: string | null;
+            /** Status */
+            status?: string;
         };
         /**
          * ClassSettings
