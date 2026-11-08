@@ -207,6 +207,7 @@ export function SkillTree({
           nodesDraggable={editable}
           nodesConnectable={editable}
           elementsSelectable={editable}
+          deleteKeyCode={null} // React Flow mặc định xóa nút đang chọn khi bấm Backspace: nút biến mất mà không gọi API
           edgesFocusable={false}
           fitView
           fitViewOptions={{ padding: 0.15 }}

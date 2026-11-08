@@ -189,3 +189,14 @@
 - **Xong khi:** Slide nộp trước hạn của quy chế
 - **Người phụ trách:** Thắng
 - **Nhánh:** `feat/gd-17-<mô-tả>` · commit bắt đầu bằng `GD-17:`
+
+## GD-18
+
+- **Thẻ việc:** Sửa lỗi giao diện MX1: GV-03 chỉ báo xong khi cây đã dựng (`tree.generated`) và hiện đủ các bước dựng cây, có nút Hủy; kéo nút trên cây AI giữ đúng vị trí đã kéo; Backspace không xóa nút giả; lỗi lưu vị trí nút hiện cho GV
+- **Yêu cầu / mục đề cương:** FR-SK-03, FR-SK-06
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** GD-05, GD-09, C2-22
+- **Giờ:** H20+
+- **Xong khi:** Test GV-03 (DONE bóc chữ chưa hiện link, `tree.generated` mới hiện, Hủy gọi API), test layout nửa vời xanh; typecheck, test, build xanh
+- **Người phụ trách:** Long (làm thay, Thắng duyệt `frontend/`)
+- **Nhánh:** `fix/mx1-gv03-gv04` · commit bắt đầu bằng `GD-18:`

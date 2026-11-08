@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, FileUp, LoaderCircle, Pencil } from "lucide-react";
+import { CircleCheck, CircleX, FileUp, LoaderCircle, Pencil, Square } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { DevelopingBox, ErrorBox } from "../../components/AsyncView";
@@ -14,8 +14,16 @@ const STEP_LABEL: Record<string, string> = {
   EXTRACTING: "Trích văn bản theo trang",
   OCR: "Nhận dạng chữ trang quét (OCR)",
   SAVING: "Lưu văn bản đã tách",
+  AWAITING_SELECTION: "Giáo trình lớn – chờ bạn chọn chương trước khi dựng cây",
+  CONCEPTS: "Trích khái niệm từng chương",
+  DEDUPE: "Gộp khái niệm trùng",
+  PREREQUISITES: "Suy luận quan hệ tiên quyết",
+  TREE: "Dựng cây kỹ năng",
+  INDEXING: "Lập chỉ mục giáo trình",
+  RUBRICS: "Sinh rubric cho từng nút",
   DONE: "Hoàn tất",
   FAILED: "Xử lý lỗi",
+  CANCELLED: "Đã hủy",
 };
 interface Progress {
   percent: number;
@@ -43,10 +51,15 @@ export default function LecturerSyllabus() {
   const [failure, setFailure] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string>();
+  const [documentId, setDocumentId] = useState<string>();
   const [progress, setProgress] = useState<Progress>();
+  const [treeReady, setTreeReady] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useChannel(jobId ? `job:${jobId}` : null, (e) => {
     if (e.event === "job.progress") setProgress(e.payload as Progress);
+    // `DONE` đầu tiên chỉ là bóc chữ xong; cây dựng xong khi worker phát `tree.generated`
+    if (e.event === "tree.generated") setTreeReady(true);
   });
 
   function pick(f: File | undefined) {
@@ -60,6 +73,7 @@ export default function LecturerSyllabus() {
     if (!file || problem || busy) return;
     setBusy(true);
     setFailure(undefined);
+    setTreeReady(false);
     setProgress({ percent: 0, step: "DOWNLOADING" });
     try {
       const form = new FormData();
@@ -67,6 +81,7 @@ export default function LecturerSyllabus() {
       // OpenAPI chưa khai báo thân 202 nên kiểu trả về là void – ép về JobAccepted
       const job = (await apiCall("post", "/classes/{class_id}/syllabi", { path: { class_id: classId }, body: form as never })) as unknown as Schema<"JobAccepted">;
       setJobId(job.jobId);
+      setDocumentId(job.documentId);
     } catch (err) {
       setFailure(err);
       setProgress(undefined);
@@ -76,8 +91,24 @@ export default function LecturerSyllabus() {
   }
 
   const failed = progress?.step === "FAILED";
-  const done = progress?.step === "DONE";
-  const running = !!jobId && !done && !failed;
+  const cancelled = progress?.step === "CANCELLED";
+  const waiting = progress?.step === "AWAITING_SELECTION";
+  const done = treeReady;
+  const running = !!jobId && !done && !failed && !cancelled && !waiting;
+
+  async function cancel() {
+    if (!documentId || cancelling) return;
+    setCancelling(true);
+    try {
+      await apiCall("post", "/classes/{class_id}/syllabi/{document_id}/cancel", {
+        path: { class_id: classId, document_id: documentId },
+      });
+    } catch (err) {
+      setFailure(err);
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="space-y-6 p-4 lg:p-7">
@@ -127,9 +158,14 @@ export default function LecturerSyllabus() {
             <div className={`h-full ${failed ? "bg-red-600" : "bg-honey"}`} style={{ width: `${progress.percent}%` }} />
           </div>
           <p role="status" className="flex items-center gap-2 text-body-m">
-            {failed ? <CircleX aria-hidden size={18} className="text-red-700" /> : done ? <CircleCheck aria-hidden size={18} className="text-teal" /> : <LoaderCircle aria-hidden size={18} className="animate-spin text-teal" />}
+            {failed || cancelled ? <CircleX aria-hidden size={18} className="text-red-700" /> : done ? <CircleCheck aria-hidden size={18} className="text-teal" /> : <LoaderCircle aria-hidden size={18} className="animate-spin text-teal" />}
             {STEP_LABEL[progress.step] ?? progress.step}
           </p>
+          {running && documentId && (
+            <Button type="button" variant="secondary" onClick={cancel} disabled={cancelling}>
+              <Square aria-hidden size={16} /> {cancelling ? "Đang hủy…" : "Hủy"}
+            </Button>
+          )}
           {failed && <ErrorBox text="Không xử lý được giáo trình này. Kiểm tra tệp rồi tải lại." />}
           {done && (
             <Link to={`/gv/classes/${classId}/tree`} className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 font-semibold text-white">

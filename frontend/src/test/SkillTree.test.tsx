@@ -84,6 +84,15 @@ describe("SkillTree (GD-03)", () => {
   });
 });
 
+describe("SkillTree – chế độ sửa", () => {
+  it("bấm Backspace khi đang chọn nút không xóa nút khỏi khung vẽ (xóa nút phải đi qua API)", () => {
+    render(<SkillTree mode="edit" nodes={nodes} edges={edges} />);
+    fireEvent.click(screen.getByText("Con trỏ"));
+    fireEvent.keyDown(document.body, { key: "Backspace", code: "Backspace" });
+    expect(screen.getByText("Con trỏ")).toBeTruthy();
+  });
+});
+
 describe("layoutTree – tự sắp xếp bằng dagre", () => {
   const pos = layoutTree(nodes, edges);
 
@@ -110,6 +119,15 @@ describe("layoutTree – tự sắp xếp bằng dagre", () => {
     const saved = nodes.map((n, i) => ({ ...n, positionX: i * 10, positionY: 500 - i }));
     const p = layoutTree(saved, edges);
     expect(p.get("n1_bien_bo_nho")).toEqual({ x: 0, y: 500 });
+  });
+
+  it("chỉ một phần nút có positionX/Y: nút đã kéo giữ đúng chỗ, nút còn lại vẫn được xếp (không xếp lại cả cây)", () => {
+    const partial = nodes.map((n, i) => (i === 0 ? { ...n, positionX: 777, positionY: 333 } : n));
+    const p = layoutTree(partial, edges);
+    expect(p.get("n1_bien_bo_nho")).toEqual({ x: 777, y: 333 });
+    for (const n of nodes) expect(p.has(n.key)).toBe(true);
+    const base = layoutTree(nodes, edges);
+    expect(p.get("n11_avl")).toEqual(base.get("n11_avl")); // nút chưa kéo vẫn đúng chỗ dagre cũ
   });
 
   it("LR: nút tiên quyết luôn nằm bên trái", () => {

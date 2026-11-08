@@ -90,7 +90,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
     const n = tree.nodes.find((x) => x.key === key);
     if (!n?.id) return;
     patchNode(key, (x) => ({ ...x, positionX: pos.x, positionY: pos.y }));
-    void apiCall("patch", "/nodes/{node_id}", { path: { node_id: n.id }, body: { positionX: pos.x, positionY: pos.y } }).catch(() => {});
+    void apiCall("patch", "/nodes/{node_id}", { path: { node_id: n.id }, body: { positionX: pos.x, positionY: pos.y } }).catch((e) =>
+      setMessage({ kind: "error", lines: [`Không lưu được vị trí nút "${n.title}": ${errorText(e)}`] }),
+    );
   };
 
   const saveBasics = (n: Schema<"Node">) =>
