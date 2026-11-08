@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     s3_secret_key: str = "whybi-minio-secret"
     s3_bucket: str = "whybi"
     max_syllabus_mb: int = 20
+    # Cổng cỡ giáo trình (syllabus_toc): ước số nút cây ≥ toc_warn_nodes ⇒ AI viết cảnh báo và (khi toc_gate_enabled)
+    # dừng chờ GV chọn chương trước khi tốn token dựng cây; ≥ toc_max_nodes ⇒ mức "quá lớn".
+    toc_gate_enabled: bool = True
+    toc_warn_nodes: int = 60
+    toc_max_nodes: int = 150
 
     # Dữ liệu mẫu (seed/ ở gốc repo; trong Docker mount vào /seed). Rỗng ⇒ tự dò <repo>/seed.
     seed_dir: str = ""

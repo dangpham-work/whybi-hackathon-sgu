@@ -200,3 +200,15 @@
 - **Xong khi:** Không còn bug P0 nào mở ở H19
 - **Người phụ trách:** Đăng
 - **Nhánh:** `feat/c1-18-<mô-tả>` · commit bắt đầu bằng `C1-18:`
+
+## C1-19
+
+- **Thẻ việc:** Trích mục lục giáo trình bằng Python (bookmark/trang mục lục in sẵn), ước tính số nút và cảnh báo cỡ giáo trình (WARN/TOO_LARGE); phân loại chương bằng AI khi mơ hồ; dừng chờ GV khoanh vùng chương/khoảng trang và chọn mức chi tiết trước khi dựng cây; hỗ trợ hoãn sinh rubric (lazy rubric) và nút sinh bổ sung rubric cho các nút còn thiếu ở trình duyệt cây
+- **Yêu cầu / mục đề cương:** FR-SK-03, FR-SK-04; mục 6.1.1–6.1.3
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** C1-09, C1-10, C1-11
+- **Giờ:** H20+
+- **Xong khi:** Giáo trình lớn tự trích mục lục, cảnh báo WARN/TOO_LARGE, GV chọn được chương/khoảng trang hoặc hoãn rubric; sinh rubric bổ sung thành công; test đơn vị & DB xanh
+- **Người phụ trách:** Đăng (phối hợp Long C2, Thắng GD, Quyền KT)
+- **Nhánh:** `feat/cay-tu-de-cuong` · commit bắt đầu bằng `C1-19:`
+

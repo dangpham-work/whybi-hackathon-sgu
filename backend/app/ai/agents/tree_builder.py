@@ -137,10 +137,20 @@ class TreeBuilder:
         ]
         return self.gw.call_json(ConceptList, msgs).concepts[: self.max_concepts]
 
-    def extract_concepts(self, chapters: list[Chapter]) -> list[Concept]:
+    def extract_concepts(
+        self, chapters: list[Chapter], step: Callable[[int, str], None] | None = None
+    ) -> list[Concept]:
+        step = step or (lambda _p, _s: None)
+        out: list[Concept] = []
+        batches = list(range(0, len(chapters), self.workers))
+        total = max(1, len(batches))
         with ThreadPoolExecutor(self.workers) as ex:
-            per_chapter = list(ex.map(self._extract, chapters))
-        return [c for cs in per_chapter for c in cs]
+            for n, i in enumerate(batches, 1):
+                batch = chapters[i : i + self.workers]
+                out.extend(c for cs in ex.map(self._extract, batch) for c in cs)
+                # % thật theo số lô đã xong (15→49, mốc 50 là DEDUPE) + kiểm tra hủy, không chờ hết cả giáo trình
+                step(15 + round(34 * n / total), "CONCEPTS")
+        return out
 
     def dedupe(self, concepts: list[Concept]) -> list[Concept]:
         """Gộp trùng: cosine(tiêu đề + mô tả) ≥ 0,9 với khái niệm đã giữ ⇒ LLM xác nhận; giữ tên theo giáo trình
@@ -199,12 +209,20 @@ class TreeBuilder:
                 best[it.from_key] = max(best.get(it.from_key, 0), it.confidence)
         return [Edge(from_key=k, to_key=b.key, source=EdgeSource.AI, confidence=c) for k, c in best.items()]
 
-    def infer_edges(self, concepts: list[Concept]) -> list[Edge]:
-        pairs = self.candidate_pairs(concepts)
+    def infer_edges(self, concepts: list[Concept], step: Callable[[int, str], None] | None = None) -> list[Edge]:
+        step = step or (lambda _p, _s: None)
+        items = list(self.candidate_pairs(concepts).items())
         by_key = {c.key: c for c in concepts}
+        out: list[Edge] = []
+        batches = list(range(0, len(items), self.workers))
+        total = max(1, len(batches))
         with ThreadPoolExecutor(self.workers) as ex:
-            results = list(ex.map(lambda kv: self._judge(by_key[kv[0]], kv[1]), pairs.items()))
-        return [e for es in results for e in es]
+            for n, i in enumerate(batches, 1):
+                batch = items[i : i + self.workers]
+                out.extend(e for es in ex.map(lambda kv: self._judge(by_key[kv[0]], kv[1]), batch) for e in es)
+                # % thật theo số lô đã xong (65→89, mốc 90 là TREE) + kiểm tra hủy
+                step(65 + round(24 * n / total), "PREREQUISITES")
+        return out
 
     # --- toàn bộ ---
 
@@ -214,13 +232,13 @@ class TreeBuilder:
         if not chapters:
             raise AppError(422, "NO_CONTENT", "Tài liệu không có nội dung để dựng cây")
         step(15, "CONCEPTS")
-        concepts = self.extract_concepts(chapters)
+        concepts = self.extract_concepts(chapters, step)
         if not concepts:
             raise AppError(422, "NO_CONCEPTS", "Không trích được khái niệm nào từ tài liệu")
         step(50, "DEDUPE")
         concepts = self.dedupe(concepts)
         step(65, "PREREQUISITES")
-        edges = self.infer_edges(concepts)
+        edges = self.infer_edges(concepts, step)
         step(90, "TREE")
         nodes = [
             Node(

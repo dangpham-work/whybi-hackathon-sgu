@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
 from app.db.session import get_db
 from app.models.schemas.common import ApiModel
+from app.models.schemas.toc import BuildTreeRequest, FillRubricsAccepted, JobCancelledOut, TocReport
 from app.services.classes import ClassService, ClassView
 from app.services.storage import ObjectStorage, default_storage
 from app.services.syllabus import JobQueue, SyllabusService, default_job_queue
@@ -110,3 +111,43 @@ def upload_syllabus(
     Sai định dạng (kể cả .exe đổi đuôi .pdf – TC01) ⇒ 422 INVALID_FILE; quá 20 MB ⇒ 422 FILE_TOO_LARGE."""
     r = syllabi.upload(class_id, file.filename, file.file, user)
     return JobAccepted(job_id=r.job_id, document_id=r.document_id, channel=r.channel)
+
+
+@router.get("/classes/{class_id}/syllabi/latest/toc", response_model=TocReport)
+def get_latest_syllabus_toc(class_id: UUID, syllabi: Syllabi, user: CurrentUser = Lecturer) -> TocReport:
+    """Báo cáo mục lục của giáo trình tải lên gần nhất của lớp – GV tải lại trang GV-03 vẫn thấy cảnh báo đang chờ
+    chọn chương. Lớp chưa có giáo trình / chưa có báo cáo ⇒ 404 TOC_NOT_FOUND. Khai báo TRƯỚC `{document_id}`."""
+    return TocReport.model_validate(syllabi.latest_toc(class_id, user))
+
+
+@router.get("/classes/{class_id}/syllabi/{document_id}/toc", response_model=TocReport)
+def get_syllabus_toc(class_id: UUID, document_id: UUID, syllabi: Syllabi, user: CurrentUser = Lecturer) -> TocReport:
+    """Mục lục chương AI/chương trình đã trích + cảnh báo cỡ giáo trình trước khi dựng cây. Chưa có báo cáo ⇒ 404
+    TOC_NOT_FOUND; không phải GV phụ trách lớp ⇒ 403 NOT_CLASS_OWNER."""
+    return TocReport.model_validate(syllabi.get_toc(class_id, document_id, user))
+
+
+@router.post("/classes/{class_id}/syllabi/{document_id}/build-tree", response_model=JobAccepted, status_code=202)
+def build_tree_from_syllabus(
+    class_id: UUID, document_id: UUID, body: BuildTreeRequest, syllabi: Syllabi, user: CurrentUser = Lecturer
+) -> JobAccepted:
+    """GV chọn khoảng trang trọng tâm rồi dựng cây (rỗng ⇒ toàn bộ); tiến độ tiếp tục trên kênh job:{jobId}.
+    Khoảng trang sai ⇒ 422 INVALID_RANGE; chưa bóc chữ xong ⇒ 409 DOCUMENT_NOT_READY."""
+    r = syllabi.request_build(class_id, document_id, body.ranges, user, body.detail, body.lazy_rubric)
+    return JobAccepted(job_id=r.job_id, document_id=r.document_id, channel=r.channel)
+
+
+@router.post("/classes/{class_id}/tree/rubrics/generate-missing", response_model=FillRubricsAccepted, status_code=202)
+def generate_missing_rubrics(class_id: UUID, syllabi: Syllabi, user: CurrentUser = Lecturer) -> FillRubricsAccepted:
+    """Sinh rubric (chưa duyệt) cho các nút CHƯA có rubric của bản nháp – dùng sau khi dựng cây với lazyRubric và cắt
+    tỉa nút. Chạy nền; giao diện hỏi lại cây để thấy rubric xuất hiện. Cây đã phát hành ⇒ 409 TREE_NOT_EDITABLE."""
+    return FillRubricsAccepted(missing=syllabi.request_fill_rubrics(class_id, user))
+
+
+@router.post("/classes/{class_id}/syllabi/{document_id}/cancel", response_model=JobCancelledOut)
+def cancel_syllabus_job(
+    class_id: UUID, document_id: UUID, syllabi: Syllabi, user: CurrentUser = Lecturer
+) -> JobCancelledOut:
+    """Hủy tiến trình bóc chữ hoặc dựng cây đang chạy của giáo trình (khi GV tải nhầm tệp hoặc đổi ý)."""
+    r = syllabi.cancel(class_id, document_id, user)
+    return JobCancelledOut(document_id=r["documentId"], status=r["status"])

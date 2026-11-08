@@ -81,6 +81,27 @@ def test_trich_nhieu_chuong_giu_thu_tu():
     assert [c.key for c in got] == ["a", "b", "c"]
 
 
+def test_huy_giua_luot_khong_cho_het_ca_giao_trinh():
+    """GV bấm Hủy: dừng ngay sau lô đang chạy (workers=1 ⇒ mỗi chương một lô), không đợi hết mọi chương."""
+
+    class Huy(Exception):
+        pass
+
+    gw = ScriptedGateway({"Chương 1": [concept("a")], "Chương 2": [concept("b")], "Chương 3": [concept("c")]})
+    calls: list[str] = []
+
+    def step(percent, label):
+        calls.append(label)
+        if len(calls) == 1:  # vừa xong lô đầu (step gọi 1 lần/lô) ⇒ coi như người dùng vừa bấm hủy
+            raise Huy
+
+    with pytest.raises(Huy):
+        TreeBuilder(gw, workers=1).extract_concepts(
+            [Chapter("Chương 1", "t"), Chapter("Chương 2", "t"), Chapter("Chương 3", "t")], step
+        )
+    assert gw.calls == ["ConceptList"]  # chỉ lô đầu được gọi, chương 2–3 chưa tốn token
+
+
 def test_gop_trung_khi_cosine_cao_va_llm_dong_y():
     gw = ScriptedGateway({}, vectors={"Con trỏ": [1, 0], "Pointer": [1, 0.01], "Mảng": [0, 1]})
     cs = [
