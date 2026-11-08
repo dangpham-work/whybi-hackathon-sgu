@@ -233,3 +233,14 @@
 - **Xong khi:** Bản deploy luôn chạy được; không còn bug P0 nào mở ở H19
 - **Người phụ trách:** Long
 - **Nhánh:** `feat/c2-21-<mô-tả>` · commit bắt đầu bằng `C2-21:`
+
+## C2-22
+
+- **Thẻ việc:** Sửa lỗi luồng dựng cây MX1: hủy lúc dựng cây không làm tài liệu thành FAILED, xóa cờ hủy cũ khi dựng lại, AI không ghi đè rubric GV vừa sửa/duyệt, khóa chống bấm "sinh rubric bù" hai lần, nối API sinh lại rubric 1 nút (FR-SK-08), lỗi truy hồi một nút không làm hỏng cả job
+- **Yêu cầu / mục đề cương:** FR-SK-04, FR-SK-05, FR-SK-08
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** C1-10, C1-11, C1-19, C2-09
+- **Giờ:** H20+
+- **Xong khi:** Test mới cho từng lỗi xanh (chạy riêng từng file lẫn cả bộ); 2 test sinh lại rubric xanh; test `xfail` sinh lại rubric ở integration đã bỏ dấu xfail
+- **Người phụ trách:** Long (phối hợp Đăng: workers/documents.py, services/syllabus.py)
+- **Nhánh:** `fix/mx1-luong-dung-cay` · commit bắt đầu bằng `C2-22:`

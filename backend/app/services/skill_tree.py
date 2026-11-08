@@ -648,9 +648,24 @@ class SkillTreeService:
         self._touch(v)
         self.db.commit()
 
-    def put_rubric(self, node_id: UUID, body: Rubric, user: "CurrentUser") -> Rubric:
-        """Sửa / duyệt rubric (FR-SK-08). `approved=true` ghi người duyệt và thời điểm."""
+    def node_for_edit(self, node_id: UUID, user: "CurrentUser") -> tuple[UUID, Node]:
+        """Kiểm quyền sửa nút (GV chủ lớp, bản chưa phát hành) rồi trả (class_id, nút dạng schema) – dùng cho sinh lại
+        rubric: đọc xong rồi nhả khóa để chờ LLM."""
         n, v = self._node(node_id, user)
+        class_id = self.db.get(orm.SkillTree, v.tree_id).class_id
+        schema = self._to_schema(v, class_id)
+        return class_id, next(x for x in schema.nodes if x.key == n.key)
+
+    def put_rubric(self, node_id: UUID, body: Rubric, user: "CurrentUser", only_if_missing: bool = False) -> Rubric:
+        """Sửa / duyệt rubric (FR-SK-08). `approved=true` ghi người duyệt và thời điểm.
+        `only_if_missing`: dùng cho AI sinh hàng loạt – dưới khóa cây, nút đã có rubric (GV vừa nhập / duyệt
+        trong lúc AI chạy) thì giữ nguyên, không ghi đè."""
+        n, v = self._node(node_id, user)
+        if only_if_missing:
+            existing = self._rubrics([n]).get(n.id)
+            if existing is not None:
+                self.db.rollback()  # nhả khóa cây
+                return existing
         self._write_rubric(n, body, user)
         self._touch(v)
         self.db.commit()

@@ -173,3 +173,64 @@ def test_cau_hinh_lop_quyet_dinh_nguong_va_so_cau(world):
     drafter.run(doc.id, "job-5")
     r = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"][0]["rubric"]
     assert (r["passThreshold"], r["minChallenges"]) == (80, 4)
+
+
+def test_ai_khong_ghi_de_rubric_gv_vua_duyet(world):
+    """GV đã sửa và duyệt rubric một nút; lượt sinh rubric của AI chạy sau (dựng cây / sinh bù) không được ghi đè."""
+    from app.api.deps import CurrentUser
+    from app.models.enums import Role
+    from app.services.skill_tree import SkillTreeService
+
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    drafter.run(doc.id, "job-5")
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    mang = next(n for n in nodes if n["key"] == "mang")
+    mine = {**mang["rubric"], "approved": True}
+    mine["keyPoints"] = [{"id": "KP1", "content": "GV tự viết", "isRequired": True}]
+    assert world.api.put(f"/api/v1/nodes/{mang['id']}/rubric", json=mine).status_code == 200
+
+    user = CurrentUser(id=world.gv, role=Role.LECTURER)
+    trees = SkillTreeService(world.db)
+    version = trees.get_class_tree(world.class_id, user=user, draft=True)
+    drafter._rubrics(trees, world.class_id, version, user)  # lượt AI thứ hai chụp sẵn danh sách nút
+
+    after = next(
+        n
+        for n in world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+        if n["key"] == "mang"
+    )
+    assert after["rubric"]["keyPoints"][0]["content"] == "GV tự viết" and after["rubric"]["approved"] is True
+
+
+def test_loi_truy_hoi_mot_nut_khong_lam_hong_job(world, monkeypatch):
+    """Cây đã lưu rồi mà truy hồi RAG của một nút báo lỗi: job vẫn xong, nút đó để trống và GV được báo."""
+    from app.core.errors import AppError
+    from app.services import retrieval as retrieval_mod
+
+    real = retrieval_mod.RetrievalService.retrieve
+
+    def flaky(self, class_id, query, k, *a, **kw):
+        if "Mảng" in query:
+            raise AppError(503, "EMBEDDING_UNAVAILABLE", "Dịch vụ nhúng tạm thời không dùng được")
+        return real(self, class_id, query, k, *a, **kw)
+
+    monkeypatch.setattr(retrieval_mod.RetrievalService, "retrieve", flaky)
+    gw = RagGateway()
+    doc, drafter, progress = _setup(world, gw)
+    assert drafter.run(doc.id, "job-6") is not None  # trước đây ném AppError ⇒ FAILED dù cây đã lưu
+    world.db.refresh(doc)
+    assert doc.status == "PARSED" and "1 nút chưa sinh được rubric" in doc.error_message
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    assert {n["key"] for n in nodes if not n["rubric"]} == {"mang"}
+    assert progress.events[-1][1] == "tree.generated" or any(e[1] == "tree.generated" for e in progress.events)
+
+
+def test_dung_lai_thanh_cong_xoa_thong_bao_loi_cu(world):
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    doc.error_message = "Đã hủy dựng cây theo yêu cầu"
+    world.db.commit()
+    assert drafter.run(doc.id, "job-7") is not None
+    world.db.refresh(doc)
+    assert doc.error_message is None

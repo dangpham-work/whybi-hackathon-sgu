@@ -44,6 +44,7 @@ SCAN_MIN_CHARS = 40
 OCR_DPI = 300
 OCR_LANG = "vie+eng"  # giáo trình CNTT lẫn thuật ngữ tiếng Anh
 OCR_TIMEOUT_S = 120
+FILL_LOCK_TTL_S = 900  # khóa sinh rubric bù theo lớp: hết hạn sau 15 phút phòng worker chết giữa chừng
 HEADING_SIZE_RATIO = 1.2  # cỡ chữ ≥ 1,2 × cỡ thân bài ⇒ tiêu đề
 HEADING_MAX_CHARS = 150
 
@@ -307,6 +308,9 @@ class InMemoryJobProgress:
         self.cancelled.add(job_id)
         self.report(job_id, 0, "CANCELLED")
 
+    def uncancel(self, job_id: str) -> None:
+        self.cancelled.discard(job_id)
+
 
 class RedisJobProgress:
     """PUBLISH lên kênh Redis `ws:job:{jobId}` (tiền tố `gateway.REDIS_PREFIX` – RedisRelay của cổng WebSocket
@@ -347,6 +351,27 @@ class RedisJobProgress:
             self.report(job_id, 0, "CANCELLED")
         except Exception as exc:
             log.warning("không ghi được cờ hủy cho job %s: %s", job_id, exc)
+
+    def uncancel(self, job_id: str) -> None:
+        """Xóa cờ hủy cũ trước khi xếp lại job cùng id (job_id = documentId), kẻo job mới bị hủy ngay."""
+        try:
+            self._redis().delete(f"job:{job_id}:cancelled")
+        except Exception as exc:
+            log.warning("không xóa được cờ hủy của job %s: %s", job_id, exc)
+
+    def lock_fill(self, class_id: Any) -> bool:
+        """Khóa 'đang sinh rubric bù' theo lớp (hết hạn sau 15 phút phòng worker chết). Redis lỗi ⇒ cho qua."""
+        try:
+            return bool(self._redis().set(f"job:fill:{class_id}", "1", nx=True, ex=FILL_LOCK_TTL_S))
+        except Exception as exc:
+            log.warning("không đặt được khóa sinh rubric lớp %s: %s", class_id, exc)
+            return True
+
+    def unlock_fill(self, class_id: Any) -> None:
+        try:
+            self._redis().delete(f"job:fill:{class_id}")
+        except Exception as exc:
+            log.warning("không nhả được khóa sinh rubric lớp %s: %s", class_id, exc)
 
     def _publish(self, e: dict[str, Any]) -> None:
         import redis
@@ -682,14 +707,15 @@ class TreeDrafter:
             removed: list[tuple[str, str]] = []
             trees = SkillTreeService(self.db)
             version = trees.create_version(doc.class_id, user, body, sanitize_graph=True, removed_edges=removed)
+            doc.error_message = None  # dựng lại thành công: bỏ thông báo hủy / lỗi của lần trước
+            self.db.commit()
             prog(92, "INDEXING")
             try:
                 RetrievalService(self.db).index_document(doc.id, pages)  # C1-11: nhúng đoạn giáo trình vào pgvector
             except AppError as exc:
-                if not demo.active(exc):
-                    raise
+                # Cây đã commit: không nhúng được giáo trình thì rubric không truy hồi được, nhưng cây vẫn dùng được.
                 self.db.rollback()
-                log.warning("job %s: không nhúng được giáo trình, bỏ qua (DEMO_MODE)", job_id)
+                log.warning("job %s: không nhúng được giáo trình, bỏ qua: %s", job_id, exc.message)
             if not lazy_rubric:
                 prog(95, "RUBRICS")
                 missing = self._rubrics(trees, doc.class_id, version, user, only_missing=demo_tree)
@@ -746,14 +772,17 @@ class TreeDrafter:
             try:
                 jobs.append((n, retrieval.retrieve(class_id, query_for(n), TOP_PASSAGES)))
             except AppError as exc:
+                # Cây đã lưu: lỗi truy hồi/nhúng của một nút (kể cả không ở DEMO_MODE) chỉ làm nút đó để trống, GV sinh
+                # lại sau; không làm hỏng cả job.
                 if not demo.active(exc):
-                    raise
-                failed += 1  # C1-13: LLM mất kết nối ⇒ nút chưa có rubric lưu sẵn để trống, GV sinh lại sau
+                    log.warning("không truy hồi được đoạn giáo trình cho nút %s: %s", n.key, exc.message)
+                self.db.rollback()
+                failed += 1
         with ThreadPoolExecutor(RUBRIC_WORKERS) as ex:
             futures = [(n, ex.submit(gen.generate, n, passages)) for n, passages in jobs]
             for n, fut in futures:
                 try:
-                    trees.put_rubric(n.id, fut.result(), user)
+                    trees.put_rubric(n.id, fut.result(), user, only_if_missing=True)  # không đè rubric GV vừa nhập
                 except Exception:
                     log.exception("không sinh được rubric cho nút %s", n.key)
                     self.db.rollback()
@@ -818,7 +847,10 @@ def build_tree(
 @celery.task(name="app.workers.documents.fill_rubrics")
 def fill_rubrics(class_id: str, user_id: str) -> None:
     """Sinh rubric cho các nút còn thiếu của bản nháp (GV bấm ở trình sửa cây). Giao diện hỏi lại cây định kỳ."""
-    with open_tree_drafter() as drafter:
-        failed = drafter.fill_rubrics(UUID(class_id), UUID(user_id))
+    try:
+        with open_tree_drafter() as drafter:
+            failed = drafter.fill_rubrics(UUID(class_id), UUID(user_id))
+    finally:
+        RedisJobProgress().unlock_fill(class_id)  # nhả khóa kể cả khi lỗi để GV bấm lại được
     if failed:
         log.warning("lớp %s: %d nút chưa sinh được rubric", class_id, failed)

@@ -254,11 +254,6 @@ def test_executable_disguised_as_pdf_is_rejected_before_enqueue(pipeline):
     assert not p.w.db.query(SyllabusDocument).filter_by(class_id=p.w.class_id).all()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="chờ C1-11 (Đăng) + Long: api/trees.py regenerate vẫn NotImplementedYet (501) và services/skill_tree.py "
-    "chưa có node_for_edit mà services/rubric.py gọi. Nối xong thì bỏ dấu xfail.",
-)
 def test_partial_rubric_failure_is_recoverable_through_regenerate_api(pipeline):
     p = pipeline
     p.provider.fail_pointer_rubric = True

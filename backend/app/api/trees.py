@@ -7,11 +7,11 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
-from app.core.errors import NotImplementedYet
 from app.db.session import get_db
 from app.models.schemas.mastery import MyMap
 from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeDiff, TreeVersion
 from app.services.mastery import MasteryService
+from app.services.rubric import regenerate_rubric_for_node
 from app.services.skill_tree import SkillTreeService
 
 router = APIRouter(tags=["trees"])
@@ -76,9 +76,9 @@ def put_rubric(node_id: UUID, body: Rubric, trees: Trees, user: CurrentUser = Le
 
 
 @router.post("/nodes/{node_id}/rubric/regenerate", response_model=Rubric)
-def regenerate_rubric(node_id: UUID, user: CurrentUser = Lecturer) -> Rubric:
-    """Sinh lại rubric bằng AI (RAG) – thẻ của Đăng."""
-    raise NotImplementedYet("C1-11")
+def regenerate_rubric(node_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> Rubric:
+    """Sinh lại rubric bằng AI (RAG) cho một nút; kết quả về trạng thái chưa duyệt (FR-SK-08)."""
+    return regenerate_rubric_for_node(trees, node_id, user)
 
 
 @router.post("/tree-versions/{version_id}/publish", response_model=TreeVersion)

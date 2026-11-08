@@ -94,6 +94,12 @@ class JobQueue(Protocol):
 
     def cancel(self, job_id: str) -> None: ...
 
+    def uncancel(self, job_id: str) -> None: ...
+
+    def lock_fill(self, class_id: UUID) -> bool: ...
+
+    def unlock_fill(self, class_id: UUID) -> None: ...
+
 
 class CeleryJobQueue:
     """Đẩy task theo tên (không import mô-đun worker); task_routes đưa vào hàng đợi `documents`.
@@ -124,6 +130,35 @@ class CeleryJobQueue:
             RedisJobProgress(r).cancel(job_id)
         except Exception as exc:
             log.warning("không gửi được cờ hủy cho job %s qua Redis: %s", job_id, exc)
+
+    def uncancel(self, job_id: str) -> None:
+        import redis
+
+        from app.core.config import get_settings
+        from app.workers.documents import RedisJobProgress
+
+        try:
+            r = redis.Redis.from_url(get_settings().redis_url, socket_timeout=2, socket_connect_timeout=2)
+            RedisJobProgress(r).uncancel(job_id)
+        except Exception as exc:
+            log.warning("không xóa được cờ hủy của job %s qua Redis: %s", job_id, exc)
+
+    @staticmethod
+    def _progress():
+        import redis
+
+        from app.core.config import get_settings
+        from app.workers.documents import RedisJobProgress
+
+        return RedisJobProgress(
+            redis.Redis.from_url(get_settings().redis_url, socket_timeout=2, socket_connect_timeout=2)
+        )
+
+    def lock_fill(self, class_id: UUID) -> bool:
+        return self._progress().lock_fill(class_id)
+
+    def unlock_fill(self, class_id: UUID) -> None:
+        self._progress().unlock_fill(class_id)
 
     @staticmethod
     def _send(task: str, args: list, task_id: str) -> None:
@@ -157,6 +192,7 @@ class InMemoryJobQueue:
         self.builds: list[tuple[UUID, str, list[list[int]] | None, str, bool]] = []
         self.fills: list[tuple[UUID, UUID]] = []
         self.cancelled: set[str] = set()
+        self.fill_locks: set[UUID] = set()
 
     def enqueue_syllabus(self, document_id: UUID, job_id: str) -> None:
         self.jobs.append((document_id, job_id))
@@ -171,6 +207,18 @@ class InMemoryJobQueue:
 
     def cancel(self, job_id: str) -> None:
         self.cancelled.add(job_id)
+
+    def uncancel(self, job_id: str) -> None:
+        self.cancelled.discard(job_id)
+
+    def lock_fill(self, class_id: UUID) -> bool:
+        if class_id in self.fill_locks:
+            return False
+        self.fill_locks.add(class_id)
+        return True
+
+    def unlock_fill(self, class_id: UUID) -> None:
+        self.fill_locks.discard(class_id)
 
 
 @lru_cache
@@ -293,9 +341,12 @@ class SyllabusService:
             raise AppError(409, "TREE_NOT_EDITABLE", "Cây đã phát hành – hãy tạo bản nháp mới trước khi sinh rubric")
         missing = sum(1 for n in tree.nodes if n.rubric is None)
         if missing:
+            if not self.queue.lock_fill(class_id):
+                raise AppError(409, "FILL_IN_PROGRESS", "Đang sinh rubric cho lớp này, vui lòng chờ xong rồi bấm lại")
             try:
                 self.queue.enqueue_fill_rubrics(class_id, user.id)
             except (KombuError, OSError) as exc:
+                self.queue.unlock_fill(class_id)
                 log.exception("không đẩy được job sinh rubric lớp %s", class_id)
                 raise AppError(503, "JOB_QUEUE_UNAVAILABLE", "Hàng đợi xử lý tạm thời không dùng được") from exc
         return missing
@@ -326,6 +377,7 @@ class SyllabusService:
         except (AppError, StorageUnavailable):
             log.warning("không cập nhật được cờ gated của %s", doc.id)
         job_id = str(doc.id)
+        self.queue.uncancel(job_id)  # cờ hủy lần trước (TTL 1 giờ) sẽ hủy ngay job dựng lại vì dùng chung job_id
         try:
             self.queue.enqueue_build_tree(doc.id, job_id, ranges or None, detail, lazy_rubric)
         except (KombuError, OSError) as exc:
@@ -340,8 +392,12 @@ class SyllabusService:
         doc = self._own_doc(class_id, document_id, user)
         job_id = str(document_id)
         self.queue.cancel(job_id)
-        doc.error_message = "Đã hủy theo yêu cầu"
-        doc.status = DocumentStatus.FAILED
+        if doc.status == DocumentStatus.PARSED:
+            # Hủy lúc dựng cây: chữ đã bóc xong, giữ PARSED để GV dựng lại và đoạn giáo trình còn trong RAG.
+            doc.error_message = "Đã hủy dựng cây theo yêu cầu"
+        else:
+            doc.error_message = "Đã hủy theo yêu cầu"
+            doc.status = DocumentStatus.FAILED
         self.db.commit()
         return {"documentId": str(document_id), "status": "CANCELLED"}
 

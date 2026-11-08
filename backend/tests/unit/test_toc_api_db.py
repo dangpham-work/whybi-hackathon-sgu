@@ -159,6 +159,19 @@ def test_sinh_rubric_cho_nut_con_thieu_xep_hang_mot_lan(world, infra):
     assert queue.fills == [(w.class_id, w.gv)]
 
 
+def test_bam_sinh_bu_hai_lan_lien_tiep_bi_chan(world, infra):
+    """Đang có job sinh bù chạy cho lớp thì bấm lần nữa trả 409 – không xếp thêm job, không tốn token gấp đôi."""
+    w, (_, queue) = world, infra
+    _draft_without_rubrics(w)
+    url = f"/api/v1/classes/{w.class_id}/tree/rubrics/generate-missing"
+    assert w.api.post(url).status_code == 202
+    r = w.api.post(url)
+    assert r.status_code == 409 and r.json()["error"]["code"] == "FILL_IN_PROGRESS"
+    assert len(queue.fills) == 1
+    queue.unlock_fill(w.class_id)  # job xong (worker nhả khóa)
+    assert w.api.post(url).status_code == 202 and len(queue.fills) == 2
+
+
 def test_khong_con_nut_thieu_rubric_thi_khong_xep_hang(world, infra):
     w, (_, queue) = world, infra
     _c209._import_seed(w)  # cây mẫu: mọi nút đã có rubric (chưa duyệt)
@@ -176,7 +189,7 @@ def test_sinh_rubric_chi_gv_phu_trach_lop(world, infra):
 
 def test_huy_giao_trinh_dang_xu_ly(world, infra):
     w, (storage, queue) = world, infra
-    doc = _doc(w, storage)
+    doc = _doc(w, storage, status="PARSING")
     url = f"/api/v1/classes/{w.class_id}/syllabi/{doc.id}/cancel"
 
     # GV khác không hủy được
@@ -195,3 +208,26 @@ def test_huy_giao_trinh_dang_xu_ly(world, infra):
     reloaded = w.db.get(SyllabusDocument, doc.id)
     assert reloaded.status == "FAILED"
     assert "Đã hủy theo yêu cầu" in reloaded.error_message
+
+
+def test_huy_luc_dung_cay_giu_parsed_va_dung_lai_duoc(world, infra):
+    """Đã bóc chữ xong (PARSED) rồi hủy lúc dựng cây: tài liệu vẫn PARSED để dựng lại và RAG còn đoạn giáo trình."""
+    w, (storage, _) = world, infra
+    doc = _doc(w, storage)  # PARSED
+    assert w.api.post(f"{_base(w, doc)}/cancel").status_code == 200
+    w.db.expire_all()
+    reloaded = w.db.get(SyllabusDocument, doc.id)
+    assert reloaded.status == "PARSED" and "hủy" in reloaded.error_message.lower()
+    r = w.api.post(f"{_base(w, doc)}/build-tree", json={"ranges": [[3, 10]], "detail": "STANDARD", "lazyRubric": False})
+    assert r.status_code == 202, r.text
+
+
+def test_dung_lai_sau_huy_xoa_co_huy(world, infra):
+    """Cờ hủy cũ không được làm job dựng lại bị hủy ngay (job_id = documentId dùng chung)."""
+    w, (storage, queue) = world, infra
+    doc = _doc(w, storage)
+    w.api.post(f"{_base(w, doc)}/cancel")
+    assert str(doc.id) in queue.cancelled
+    r = w.api.post(f"{_base(w, doc)}/build-tree", json={"ranges": [], "detail": "STANDARD", "lazyRubric": False})
+    assert r.status_code == 202
+    assert str(doc.id) not in queue.cancelled and queue.builds
