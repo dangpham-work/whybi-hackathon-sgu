@@ -38,7 +38,7 @@ Mức ưu tiên: M – bắt buộc cho bản Hackathon (MVP); S – nên có; C
 | FR-SK-03 | Phân tích tài liệu nền, hiển thị tiến độ theo thời gian thực; OCR khi là bản quét | Hệ thống | M |
 | FR-SK-04 | Trích xuất khái niệm, suy luận quan hệ tiên quyết, đảm bảo kết quả là DAG | Hệ thống | M |
 | FR-SK-05 | Sinh rubric cho từng nút: ý chính bắt buộc, quan niệm sai, tình huống phản biện, mức Bloom, có trích dẫn trang | Hệ thống | M |
-| FR-SK-06 | Trình sửa cây kéo thả: thêm / sửa / xóa / gộp nút, thêm / xóa cạnh, tự sắp xếp | GV | M |
+| FR-SK-06 | Trình sửa cây kéo thả: thêm / sửa / xóa nút (không có gộp: xóa một nút rồi sửa nút còn lại), thêm / xóa cạnh, tự sắp xếp | GV | M |
 | FR-SK-07 | Chặn thao tác tạo chu trình và chỉ rõ đường đi của chu trình | Hệ thống | M |
 | FR-SK-08 | Duyệt / sửa rubric; sinh lại rubric bằng AI cho một nút | GV | M |
 | FR-SK-09 | Phát hành cây; khởi tạo hoặc di chuyển trạng thái thành thạo của SV | GV, Hệ thống | M |

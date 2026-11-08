@@ -1,7 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { getToken, setToken } from "../lib/api";
+import { auth } from "../lib/auth";
 import { NAV } from "../lib/nav";
 import { routes } from "../router";
+import { mockApi, ok } from "./mock-api";
 
 const menuOf = async (url: string) => {
   render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [url] })} />);
@@ -59,4 +62,20 @@ describe("layout hiển thị điều hướng đúng vai (GD-01)", () => {
   it("mọi mục menu đều có biểu tượng", () => {
     for (const item of [...NAV.LECTURER("x"), ...NAV.STUDENT("x"), ...NAV.ADMIN()]) expect(item.icon).toBeTruthy();
   });
+
+  it.each(["/gv/classes", "/sv/classes/abc", "/admin/users"])(
+    "khung %s có nút Đăng xuất; bấm vào thì xóa phiên và về trang đăng nhập (#195)",
+    async (url) => {
+      auth.reset();
+      setToken("tok-195");
+      const m = mockApi({ "POST /auth/logout": ok(undefined, 204) });
+      const router = createMemoryRouter(routes, { initialEntries: [url] });
+      render(<RouterProvider router={router} />);
+      const btn = await screen.findByRole("button", { name: /Đăng xuất/ });
+      fireEvent.click(btn);
+      await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+      expect(getToken()).toBeNull();
+      expect(m.called("POST /auth/logout")).toHaveLength(1);
+    },
+  );
 });

@@ -1,5 +1,6 @@
 import { Play, RotateCcw, Check, TriangleAlert } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { Schema } from "../lib/api";
 import { editRatio, markUncertain, MAX_EDIT_RATIO, STT_THRESHOLD } from "../lib/transcript";
 import { Button } from "./Button";
@@ -30,9 +31,9 @@ export function TranscriptConfirm({
   const empty = !text.trim();
   const uncertain = transcript.lowConfidenceWords;
 
-  return (
-    <div role="dialog" aria-modal="true" aria-labelledby="sv05-title" className="fixed inset-0 z-40 flex items-end bg-ink-900/50">
-      <div className="max-h-[90vh] w-full space-y-3 overflow-y-auto rounded-t-2xl bg-surface p-4 shadow-dialog">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-labelledby="sv05-title" className="fixed inset-0 z-50 flex items-end justify-center bg-ink-900/50">
+      <div className="max-h-[90vh] w-full max-w-[480px] space-y-3 overflow-y-auto rounded-t-2xl bg-surface p-4 pb-6 shadow-dialog">
         <h2 id="sv05-title" className="flex items-center gap-2 text-h2 font-bold">
           <TriangleAlert aria-hidden size={20} className="text-honey-deep" /> Kiểm tra bản chép lời
         </h2>
@@ -93,6 +94,7 @@ export function TranscriptConfirm({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

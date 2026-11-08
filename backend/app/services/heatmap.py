@@ -287,8 +287,15 @@ class HeatmapService:
                 404, "NODE_NOT_FOUND", "Nút không thuộc cây đang phát hành của lớp", {"nodeId": str(node_id)}
             )
         by_state: dict[str, list[out.GridRow]] = {}
+        seen_in_state: set[tuple[str, str, str]] = set()
         for sid, c in v.matrix.cells[key].items():
-            by_state.setdefault(MasteryState(c.state).value, []).append(rows[sid])
+            st_val = MasteryState(c.state).value
+            row = rows[sid]
+            sig = (st_val, row.student_name.strip(), (row.student_code or "").strip())
+            if sig in seen_in_state:
+                continue
+            seen_in_state.add(sig)
+            by_state.setdefault(st_val, []).append(row)
         for group in by_state.values():
             group.sort(key=lambda r: (r.student_name, r.student_code))
         stat = v.node_stats[key]

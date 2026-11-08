@@ -156,6 +156,31 @@ def test_add_and_patch_node(world):
     assert p.status_code == 200 and p.json()["positionX"] == 120.5 and p.json()["title"] == "Heap"
 
 
+def test_delete_node_removes_its_edges(world):
+    tv = _import_seed(world)
+    ids = _key_to_id(tv)
+    touching = [e for e in tv["edges"] if "n5_con_tro" in (e["fromKey"], e["toKey"])]
+    assert touching, "seed phải có cạnh chạm n5_con_tro"
+    assert world.api.delete(f"/api/v1/nodes/{ids['n5_con_tro']}").status_code == 204
+    after = world.api.get(f"/api/v1/classes/{world.class_id}/tree", params={"draft": True}).json()
+    assert "n5_con_tro" not in _key_to_id(after)
+    assert all("n5_con_tro" not in (e["fromKey"], e["toKey"]) for e in after["edges"])
+    assert len(after["nodes"]) == len(tv["nodes"]) - 1
+    assert world.api.delete(f"/api/v1/nodes/{ids['n5_con_tro']}").status_code == 404
+
+
+def test_delete_node_rejected_on_published_or_other_lecturer(world):
+    tv = _import_seed(world)
+    ids = _key_to_id(tv)
+    world.current = world.gv_other
+    assert world.api.delete(f"/api/v1/nodes/{ids['n2_mang']}").status_code == 403
+    world.current = world.gv
+    _approve_all(world, tv)
+    assert world.api.post(f"/api/v1/tree-versions/{tv['id']}/publish").status_code == 200
+    r = world.api.delete(f"/api/v1/nodes/{ids['n2_mang']}")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "VERSION_NOT_EDITABLE"
+
+
 def test_other_lecturer_cannot_edit(world):
     tv = _import_seed(world)
     world.current = world.gv_other

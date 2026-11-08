@@ -27,6 +27,8 @@ export const FRIENDLY: Record<string, string> = {
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.",
   NOT_IMPLEMENTED: "Chức năng đang được phát triển.",
   CLASS_NOT_FOUND: "Không tìm thấy lớp học (có thể đã bị xóa hoặc bạn chưa tham gia).",
+  COURSE_NOT_FOUND: "Không tìm thấy môn học, vui lòng kiểm tra lại mã môn học.",
+  LECTURER_PROFILE_MISSING: "Tài khoản của bạn chưa có hồ sơ giảng viên.",
   NOT_FOUND: "Không tìm thấy nội dung bạn cần.",
   VALIDATION_ERROR: "Dữ liệu gửi lên chưa hợp lệ, vui lòng kiểm tra lại.",
   RATE_LIMITED: "Bạn thao tác quá nhanh, chờ một chút rồi thử lại.",
@@ -53,6 +55,7 @@ export const FRIENDLY: Record<string, string> = {
   AUDIO_TOO_LARGE: "Tệp ghi âm quá lớn. Hãy ghi ngắn hơn, hoặc gõ chữ.",
   AUDIO_STORE_UNAVAILABLE: "Chưa lưu được bản ghi. Hãy ghi lại sau ít phút, hoặc gõ chữ để giảng tiếp.",
   LLM_UNAVAILABLE: "Whybi đang tạm nghỉ một chút. Lời giảng của bạn vẫn còn – hãy gửi lại sau ít phút.",
+  NO_SOURCE_MATERIAL: "Lớp chưa có giáo trình đã xử lý – hãy tải giáo trình lên trước rồi thử lại.",
 };
 
 const BY_STATUS: [test: (s: number) => boolean, text: string][] = [
