@@ -1,10 +1,12 @@
-"""Nạp dữ liệu mẫu seed/ vào CSDL (KT-02): 1 GV, 1 QTV, 30 SV, lớp CTDL&GT – Nhóm 02, cây mẫu 11 nút.
+"""Nạp dữ liệu demo đa lớp vào CSDL: 2 GV, 1 QTV, 90 SV dùng chung, 5 lớp nhiều môn (scripts/seed_data/).
 
     cd backend && uv run python ../scripts/seed_db.py           # nạp vào DATABASE_URL (cần đã `alembic upgrade head`)
-    cd backend && uv run python ../scripts/seed_db.py --check   # chỉ đọc + kiểm seed/, không đụng CSDL
+    cd backend && uv run python ../scripts/seed_db.py --check   # chỉ kiểm dữ liệu mẫu, không đụng CSDL
 
 Chạy lại an toàn: bỏ qua bản ghi đã có (theo email, mã môn, mã tham gia lớp, cây của lớp).
-Cây đọc đúng schema hợp đồng `app/models/schemas/tree.py` (camelCase).
+Sau khi ghi user/lớp/cây, mỗi lớp được "dựng lại tiến độ" qua scripts/seed_data/sessions.py (ghi thẳng qua
+MasteryService, không gọi LLM) để có ngay dữ liệu demo: dồn lỗi vào 1 nút (MX3 cảnh báo), vài SV còn nguyên
+để demo phiên thật (MX2), một nhóm SV bật tham gia ghép cặp (MX4).
 """
 
 import argparse
@@ -20,13 +22,17 @@ from pydantic import BaseModel, ConfigDict, Field
 ROOT = Path(__file__).resolve().parent.parent
 SEED = ROOT / "seed"
 sys.path.insert(0, str(ROOT / "backend"))  # để `import app...` khi chạy từ bất kỳ đâu
+sys.path.insert(0, str(ROOT))  # để `import scripts.seed_data...`
+
+from scripts.seed_data import classes as seed_classes
+from scripts.seed_data import sessions as seed_sessions
+from scripts.seed_data import trees as seed_trees
+from scripts.seed_data import users as seed_users
 
 from app.models.schemas.tree import TreeVersion
 
-DEFAULT_PASSWORD = "Whybi@2026"  # chỉ dev/demo – xem seed/users.json
-TREE_TITLE = "Cây kỹ năng CTDL&GT"
-EXPECTED_STUDENTS = 30
-NODE_RANGE = (11, 11)  # Điều phối duyệt giữ cây C2-02 đã merge (gồm AVL).
+DEFAULT_PASSWORD = "Whybi@2026"  # chỉ dev/demo
+TREE_TITLE = "Cây kỹ năng"
 SEED_NAMESPACE = uuid5(NAMESPACE_URL, "https://whybi.ai/seed")
 
 # Bảng 6.4 đề cương: 5 tiêu chí, trọng số mặc định (Σ = 1)
@@ -42,9 +48,7 @@ CRITERIA = [
 # ---------- Mô hình đọc seed/ (snake_case như file JSON) ----------
 
 # Không dùng EmailStr: email-validator chặn đuôi `.test` (tên miền dành riêng) mà tài khoản demo dùng.
-Email = Annotated[
-    str, Field(pattern=r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$", max_length=150)
-]
+Email = Annotated[str, Field(pattern=r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$", max_length=150)]
 
 
 class _Seed(BaseModel):
@@ -114,12 +118,8 @@ def _read(path: Path) -> dict:
 
 
 def load_seed(seed_dir: Path = SEED) -> SeedBundle:
-    """Đọc và parse seed/*.json; sai schema → pydantic.ValidationError."""
-    tree_raw = {
-        k: v
-        for k, v in _read(seed_dir / "tree_ctdl_gt.json").items()
-        if not k.startswith("_")
-    }
+    """Tương thích ngược (KT-02/KT-15): đọc seed/*.json ra đúng lớp CTDL2026 gốc, như trước khi có đa lớp."""
+    tree_raw = {k: v for k, v in _read(seed_dir / "tree_ctdl_gt.json").items() if not k.startswith("_")}
     return SeedBundle(
         users=SeedUsers.model_validate(_read(seed_dir / "users.json")),
         klass=SeedClass.model_validate(_read(seed_dir / "class.json")),
@@ -128,10 +128,9 @@ def load_seed(seed_dir: Path = SEED) -> SeedBundle:
 
 
 def check_seed(bundle: SeedBundle) -> list[str]:
-    """Kiểm ràng buộc nghiệp vụ của dữ liệu mẫu. Trả danh sách lỗi (rỗng = sạch)."""
+    """Tương thích ngược: kiểm 1 bundle đơn lẻ (như check_all() nhưng cho gọi trực tiếp với 1 bundle)."""
     errors: list[str] = []
     users, tree = bundle.users, bundle.tree
-
     emails = [u.email.lower() for u in users.all_accounts()]
     dup = sorted({e for e in emails if emails.count(e) > 1})
     if dup:
@@ -139,33 +138,110 @@ def check_seed(bundle: SeedBundle) -> list[str]:
     codes = [s.student_code for s in users.students]
     if len(codes) != len(set(codes)):
         errors.append("MSSV trùng")
-    if len(users.students) != EXPECTED_STUDENTS:
-        errors.append(f"cần {EXPECTED_STUDENTS} SV, có {len(users.students)}")
-    if len(users.lecturers) != 1 or len(users.admins) != 1:
-        errors.append("cần đúng 1 GV và 1 QTV")
     if bundle.klass.class_.lecturer_email not in {gv.email for gv in users.lecturers}:
         errors.append("lecturer_email của lớp không có trong danh sách GV")
-
     keys = [n.key for n in tree.nodes]
     if len(keys) != len(set(keys)):
         errors.append("key nút trùng")
-    if not NODE_RANGE[0] <= len(keys) <= NODE_RANGE[1]:
-        errors.append(f"cây cần {NODE_RANGE[0]}–{NODE_RANGE[1]} nút, có {len(keys)}")
     missing = {k for e in tree.edges for k in (e.from_key, e.to_key)} - set(keys)
     if missing:
         errors.append(f"cạnh trỏ tới key không tồn tại: {sorted(missing)}")
-    # TODO(C2-09): khi algorithms/dag.py xong, dùng chung hàm kiểm chu trình ở đó (một chỗ duy nhất)
     g = nx.DiGraph()
     g.add_nodes_from(keys)
     g.add_edges_from((e.from_key, e.to_key) for e in tree.edges)
     if not nx.is_directed_acyclic_graph(g):
         errors.append(f"cây có chu trình: {nx.find_cycle(g)}")
-
     n5 = next((n for n in tree.nodes if n.code == "N5"), None)
     if n5 is None or n5.title != "Con trỏ":
         errors.append('thiếu nút N5 "Con trỏ" (kịch bản demo)')
     elif n5.rubric is None or not n5.rubric.approved:
         errors.append("N5 Con trỏ cần rubric đã duyệt")
+    return errors
+
+
+def seed_of(join_code: str) -> int:
+    """Seed tất định cho random.Random (hash() của str không ổn định giữa các lần chạy – PYTHONHASHSEED)."""
+    return sum(ord(c) for c in join_code)
+
+
+def build_tree(spec: "seed_classes.ClassSpec") -> TreeVersion:
+    base = seed_trees.fixture_tree() if spec.base == "ctdl" else None
+    return seed_trees.build(spec.tree_spec, base=base)
+
+
+def build_bundle(spec: "seed_classes.ClassSpec") -> SeedBundle:
+    """Lớp dùng toàn bộ GV/QTV (idempotent, bỏ qua trùng) nhưng chỉ phần SV trong student_range."""
+    start, end = spec.student_range
+    return SeedBundle(
+        users=SeedUsers(
+            lecturers=[
+                SeedLecturer(
+                    email=gv.email, full_name=gv.full_name, faculty=gv.faculty, academic_title=gv.academic_title
+                )
+                for gv in seed_users.LECTURERS.values()
+            ],
+            admins=[SeedAdmin(email=seed_users.ADMIN.email, full_name=seed_users.ADMIN.full_name)],
+            students=[
+                SeedStudent(email=sv.email, full_name=sv.full_name, student_code=sv.student_code, cohort=sv.cohort)
+                for sv in seed_users.STUDENTS[start:end]
+            ],
+        ),
+        klass=SeedClass(
+            course=SeedCourse(code=spec.course_code, name=spec.course_name),
+            **{
+                "class": SeedClassSection(
+                    name=spec.name,
+                    semester=spec.semester,
+                    join_code=spec.join_code,
+                    lecturer_email=seed_users.LECTURERS[spec.lecturer_key].email,
+                    pass_threshold=spec.pass_threshold,
+                    color_thresholds={"green": 0.7, "yellow": 0.4},
+                    min_sample=5,
+                )
+            },
+            enroll_all_students=True,
+            peer_opt_in_all=False,
+        ),
+        tree=build_tree(spec),
+    )
+
+
+def check_all() -> list[str]:
+    """Kiểm ràng buộc nghiệp vụ của toàn bộ dữ liệu demo (users + classes). Trả danh sách lỗi (rỗng = sạch)."""
+    errors: list[str] = []
+
+    emails = [sv.email.lower() for sv in seed_users.STUDENTS] + [
+        gv.email.lower() for gv in seed_users.LECTURERS.values()
+    ]
+    dup = sorted({e for e in emails if emails.count(e) > 1})
+    if dup:
+        errors.append(f"email trùng: {dup}")
+    codes = [sv.student_code for sv in seed_users.STUDENTS]
+    if len(codes) != len(set(codes)):
+        errors.append("MSSV trùng")
+
+    join_codes = [c.join_code for c in seed_classes.CLASSES]
+    if len(join_codes) != len(set(join_codes)):
+        errors.append(f"mã tham gia lớp trùng: {join_codes}")
+
+    for spec in seed_classes.CLASSES:
+        if spec.lecturer_key not in seed_users.LECTURERS:
+            errors.append(f"{spec.join_code}: lecturer_key {spec.lecturer_key!r} không có trong seed_data.users")
+            continue
+        tree = build_tree(spec)
+        keys = [n.key for n in tree.nodes]
+        if len(keys) != len(set(keys)):
+            errors.append(f"{spec.join_code}: key nút trùng")
+        missing = {k for e in tree.edges for k in (e.from_key, e.to_key)} - set(keys)
+        if missing:
+            errors.append(f"{spec.join_code}: cạnh trỏ tới key không tồn tại: {sorted(missing)}")
+        g = nx.DiGraph()
+        g.add_nodes_from(keys)
+        g.add_edges_from((e.from_key, e.to_key) for e in tree.edges)
+        if not nx.is_directed_acyclic_graph(g):
+            errors.append(f"{spec.join_code}: cây có chu trình: {nx.find_cycle(g)}")
+        if not any(n.code == spec.root_cause_code for n in tree.nodes):
+            errors.append(f"{spec.join_code}: không có nút root_cause_code={spec.root_cause_code!r}")
     return errors
 
 
@@ -184,8 +260,11 @@ def _hash_password(plain: str) -> str:
         return PasswordHasher().hash(plain)
 
 
-def write_db(db, bundle: SeedBundle) -> dict[str, int]:
-    """Upsert (bỏ qua nếu đã có) toàn bộ dữ liệu mẫu trong một transaction. Trả số bản ghi mới tạo."""
+def write_db(db, bundle: SeedBundle) -> tuple[dict[str, int], object, dict[str, object], list[object]]:
+    """Upsert (bỏ qua nếu đã có) toàn bộ dữ liệu mẫu của 1 lớp trong một transaction.
+    Trả (số bản ghi mới tạo, id lớp, {mã nút: id nút}, [id SV] theo đúng thứ tự bundle.users.students)."""
+    from sqlalchemy import select
+
     from app.models.tree import (
         ChallengeScenario,
         ConceptNode,
@@ -205,7 +284,6 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
         Student,
         User,
     )
-    from sqlalchemy import select
 
     created = {"users": 0, "classes": 0, "enrollments": 0, "trees": 0}
     pw_hash = _hash_password(DEFAULT_PASSWORD)
@@ -239,9 +317,7 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
     for sv in users.students:
         user, new = get_or_create_user(sv.email, sv.full_name, "STUDENT")
         if new:
-            db.add(
-                Student(user_id=user.id, student_code=sv.student_code, cohort=sv.cohort)
-            )
+            db.add(Student(user_id=user.id, student_code=sv.student_code, cohort=sv.cohort))
         student_ids.append(user.id)
     db.flush()
 
@@ -252,9 +328,7 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
         course = Course(code=c.code, name=c.name, credits=c.credits)
         db.add(course)
         db.flush()
-    section = db.scalar(
-        select(ClassSection).where(ClassSection.join_code == k.join_code)
-    )
+    section = db.scalar(select(ClassSection).where(ClassSection.join_code == k.join_code))
     if section is None:
         section = ClassSection(
             id=class_id,
@@ -271,16 +345,10 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
         db.flush()
         created["classes"] += 1
     elif section.id != class_id:
-        raise ValueError(
-            "Lớp seed cũ có UUID khác hợp đồng API; cần xử lý dữ liệu cũ trước khi nạp lại"
-        )
+        raise ValueError("Lớp seed cũ có UUID khác hợp đồng API; cần xử lý dữ liệu cũ trước khi nạp lại")
 
     if bundle.klass.enroll_all_students:
-        enrolled = set(
-            db.scalars(
-                select(Enrollment.student_id).where(Enrollment.class_id == section.id)
-            )
-        )
+        enrolled = set(db.scalars(select(Enrollment.student_id).where(Enrollment.class_id == section.id)))
         for sid in student_ids:
             if sid not in enrolled:
                 db.add(
@@ -400,34 +468,68 @@ def write_db(db, bundle: SeedBundle) -> dict[str, int]:
     return created
 
 
+def _read_back(db, join_code: str) -> tuple[object, dict[str, object], list[object]]:
+    """Dùng sau write_db() để lấy id lớp, {mã nút: id nút}, [id SV theo đúng thứ tự email sv01..sv90]
+    (phần đa lớp mới – không đụng write_db())."""
+    from sqlalchemy import select
+
+    from app.models.tree import ConceptNode, SkillTree
+    from app.models.tree import TreeVersion as TreeVersionRow
+    from app.models.users import ClassSection, Enrollment, User
+
+    section_id = db.scalar(select(ClassSection.id).where(ClassSection.join_code == join_code))
+    tree_row = db.scalar(select(SkillTree).where(SkillTree.class_id == section_id))
+    latest_version_q = select(TreeVersionRow.id).where(TreeVersionRow.tree_id == tree_row.id)
+    version_id = tree_row.published_version_id or db.scalar(latest_version_q.order_by(TreeVersionRow.version_no.desc()))
+    node_rows = db.scalars(select(ConceptNode).where(ConceptNode.version_id == version_id))
+    node_code_to_id = {n.code: n.id for n in node_rows if n.code}
+    student_ids = list(
+        db.scalars(
+            select(Enrollment.student_id)
+            .join(User, User.id == Enrollment.student_id)
+            .where(Enrollment.class_id == section_id)
+            .order_by(User.email)
+        )
+    )
+    return section_id, node_code_to_id, student_ids
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # console Windows
-    parser = argparse.ArgumentParser(description="Nạp dữ liệu mẫu seed/ (KT-02)")
-    parser.add_argument(
-        "--check", action="store_true", help="chỉ đọc và kiểm seed/, không ghi CSDL"
-    )
+    parser = argparse.ArgumentParser(description="Nạp dữ liệu demo đa lớp")
+    parser.add_argument("--check", action="store_true", help="chỉ kiểm dữ liệu mẫu, không ghi CSDL")
     args = parser.parse_args(argv)
 
-    bundle = load_seed()
-    errors = check_seed(bundle)
-    u, t = bundle.users, bundle.tree
-    print(
-        f"{len(u.lecturers)} GV, {len(u.admins)} QTV, {len(u.students)} SV;"
-        f" lớp {bundle.klass.class_.join_code}; cây {len(t.nodes)} nút / {len(t.edges)} cạnh"
-    )
+    errors = check_all()
+    n_gv, n_sv, n_lop = len(seed_users.LECTURERS), len(seed_users.STUDENTS), len(seed_classes.CLASSES)
+    print(f"{n_gv} GV, 1 QTV, {n_sv} SV dùng chung; {n_lop} lớp:")
+    for spec in seed_classes.CLASSES:
+        n = len(build_tree(spec).nodes)
+        so_sv = spec.student_range[1] - spec.student_range[0]
+        print(f"  - {spec.join_code} ({spec.name}): cây {n} nút, {so_sv} SV ghi danh")
     if errors:
         for e in errors:
             print(f"LỖI: {e}", file=sys.stderr)
         return 1
     if args.check:
-        print("seed/ hợp lệ (chế độ --check, không ghi CSDL)")
+        print("Dữ liệu mẫu hợp lệ (chế độ --check, không ghi CSDL)")
         return 0
 
     from app.db.session import SessionLocal
 
     with SessionLocal() as db:
-        created = write_db(db, bundle)
-    print(f"Đã nạp: {created} (0 = đã có từ trước)")
+        for spec in seed_classes.CLASSES:
+            bundle = build_bundle(spec)
+            created = write_db(db, bundle)
+            if created["classes"]:
+                class_id, node_code_to_id, student_ids = _read_back(db, spec.join_code)
+                node_order = [(n.code, node_code_to_id[n.code]) for n in bundle.tree.nodes if n.code in node_code_to_id]
+                seed_sessions.backfill(
+                    db, class_id, student_ids, node_order, spec.root_cause_code, seed=seed_of(spec.join_code)
+                )
+                print(f"Đã nạp {spec.join_code}: {created}; dựng lại tiến độ xong")
+            else:
+                print(f"Đã nạp {spec.join_code}: {created} (lớp đã có từ trước – không dựng lại tiến độ)")
     return 0
 
 
