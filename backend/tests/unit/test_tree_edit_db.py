@@ -340,4 +340,3 @@ def test_merge_nodes_modes_and_cycle_rejection(world):
         json={"firstKey": "n1_bien_bo_nho", "secondKey": "n2_mang", "mode": "SECOND"},
     )
     assert locked.status_code == 409 and locked.json()["error"]["code"] == "VERSION_NOT_EDITABLE"
-
