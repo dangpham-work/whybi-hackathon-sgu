@@ -63,7 +63,13 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
     run(async () => {
       const node = await apiCall("post", "/tree-versions/{version_id}/nodes", {
         path: { version_id: tree.id! },
-        body: { key: newNodeKey(tree.nodes), title: title.trim(), bloomLevel: "UNDERSTAND", rubric: emptyRubric() },
+        body: {
+          key: newNodeKey(tree.nodes),
+          title: title.trim(),
+          bloomLevel: "UNDERSTAND",
+          aliases: [],
+          rubric: emptyRubric(),
+        },
       });
       setTree((t) => ({ ...t, nodes: [...t.nodes, node] }));
       setTitle("");
