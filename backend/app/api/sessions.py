@@ -90,6 +90,14 @@ _SESSION_ERRORS = {
     409: {"model": ErrorResponse, "description": "SESSION_NOT_ACTIVE – phiên đã kết thúc"},
 }
 
+_AUDIO_ERRORS = {
+    **_SESSION_ERRORS,
+    413: {"model": ErrorResponse, "description": "AUDIO_TOO_LARGE (> 20 MB) · AUDIO_TOO_LONG (> 5 phút)"},
+    415: {"model": ErrorResponse, "description": "UNSUPPORTED_AUDIO_FORMAT – chỉ webm, ogg, wav, mp3, m4a"},
+    422: {"model": ErrorResponse, "description": "EMPTY_AUDIO · NO_SPEECH_DETECTED · VALIDATION_ERROR"},
+    503: {"model": ErrorResponse, "description": "STT_UNAVAILABLE · AUDIO_STORE_UNAVAILABLE"},
+}
+
 
 @router.post(
     "/sessions",
@@ -113,7 +121,7 @@ def start_session(
     return orch.start_session(user.id, body)
 
 
-@router.post("/sessions/{session_id}/audio", response_model=Transcript, responses=_SESSION_ERRORS)
+@router.post("/sessions/{session_id}/audio", response_model=Transcript, responses=_AUDIO_ERRORS)
 def upload_audio(
     session_id: UUID,
     file: UploadFile = File(...),
@@ -122,7 +130,9 @@ def upload_audio(
     orch: SessionOrchestrator = Depends(get_orchestrator),
     speech: SpeechService = Depends(get_speech_service),
 ) -> Transcript:
-    """Transcribe the owner's active session; save recording only with consent (BR-13)."""
+    """Ghi âm ≤ 5 phút (multipart: `file`, `consent`) → STT tiếng Việt, chuẩn hóa thuật ngữ theo nút, độ tin cậy
+    từng từ (FR-TB-05…07). `consent=true` (BR-13) mới lưu ghi âm vào MinIO, `audioRef = "s3://audio/…"`;
+    không đồng ý ⇒ không lưu, `audioRef = "unsaved:<uuid>"`. Gửi lượt: POST /turns với inputMode=VOICE, audioRef."""
     node = orch.audio_node(user.id, session_id)
     audio = file.file.read(MAX_AUDIO_BYTES + 1)  # đọc tối đa giới hạn + 1 byte, không nạp tệp khổng lồ vào RAM
     # Kiểm rỗng / định dạng / kích thước / độ dài TRƯỚC: tệp bị từ chối thì không bị trừ hạn mức phút ghi âm

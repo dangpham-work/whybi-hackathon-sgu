@@ -3,7 +3,7 @@ Chủ: Đăng (C1-12 STT; C1-14 TTS ở `TtsService` cuối tệp).
 
 Luồng POST /sessions/{id}/audio (FR-TB-05…07):
 1. Kiểm tệp (bảo mật upload): không rỗng, ≤ MAX_AUDIO_BYTES, nhận dạng định dạng bằng chữ ký byte (không tin
-   tên tệp / Content-Type), WAV thì kiểm thời lượng ≤ 3 phút.
+   tên tệp / Content-Type), WAV thì kiểm thời lượng ≤ 5 phút.
 2. Gọi adapter STT (`ai/providers/stt.py`) với ngôn ngữ vi + thuật ngữ của nút làm gợi ý; lỗi tạm thời thử lại 1 lần.
 3. Chuẩn hóa bí danh phát âm rõ nghĩa theo nút ("phờ ri" → free(), "con chỏ" → con trỏ).
    Giữ nguyên cụm gần giống và bí danh ngắn đa nghĩa để không sửa hộ kiến thức của SV.
@@ -32,8 +32,8 @@ from app.models.schemas.tree import Node
 
 log = logging.getLogger(__name__)
 
-MAX_AUDIO_SECONDS = 180  # FR-TB-05: ghi âm ≤ 3 phút
-MAX_AUDIO_BYTES = 12 * 1024 * 1024  # webm/opus 3 phút ≈ 3 MB; WAV 16 kHz mono 3 phút ≈ 5,8 MB
+MAX_AUDIO_SECONDS = 300  # FR-TB-05: ghi âm ≤ 5 phút
+MAX_AUDIO_BYTES = 20 * 1024 * 1024  # webm/opus 5 phút ≈ 5 MB; WAV 16 kHz mono 5 phút ≈ 9,6 MB
 AUDIO_PREFIX = "audio/"
 
 
@@ -69,7 +69,7 @@ def _wav_seconds(data: bytes) -> float:
             if audio.getframerate() <= 0:
                 raise wave.Error("invalid framerate")
             # Toàn bộ tệp sẽ được gửi/lưu: bảo thủ tính cả chunk phụ/byte nối sau PCM.
-            # Trừ header đã đọc để WAV đúng 180 giây vẫn được chấp nhận.
+            # Trừ header đã đọc để WAV đúng 300 giây vẫn được chấp nhận.
             payload_frames = (len(data) - stream.tell()) / (audio.getnchannels() * audio.getsampwidth())
             return max(audio.getnframes(), payload_frames) / audio.getframerate()
     except (wave.Error, EOFError) as e:
@@ -93,7 +93,7 @@ def validate_audio(data: bytes) -> AudioFormat:
         secs = _wav_seconds(data)
         if secs > MAX_AUDIO_SECONDS:
             raise AppError(
-                413, "AUDIO_TOO_LONG", "Ghi âm dài quá 3 phút", {"maxSeconds": MAX_AUDIO_SECONDS, "seconds": int(secs)}
+                413, "AUDIO_TOO_LONG", "Ghi âm dài quá 5 phút", {"maxSeconds": MAX_AUDIO_SECONDS, "seconds": int(secs)}
             )
     return fmt
 
