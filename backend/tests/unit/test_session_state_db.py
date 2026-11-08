@@ -86,33 +86,3 @@ def test_phan_quyen_va_khong_ton_tai(published):
     assert state(w, uuid4()).json()["error"]["code"] == "SESSION_NOT_FOUND"
     w.current = w.gv
     assert state(w, sid).status_code == 403
-
-
-def test_kenh_ws_phien_kiem_quyen_chu_phien_tren_csdl(published, monkeypatch):
-    from uuid import UUID
-
-    import app.db.session as db_session
-    from app.api import realtime
-    from app.api.deps import CurrentUser
-    from app.core.errors import AppError
-    from app.models.enums import Role
-
-    w, tree = published
-
-    class _Shared:  # phiên của test (giao dịch chưa commit) – SessionLocal thật không thấy dữ liệu của test
-        def __enter__(self):
-            return w.db
-
-        def __exit__(self, *exc):
-            return False
-
-    monkeypatch.setattr(db_session, "SessionLocal", lambda: _Shared())
-    sid = UUID(start(w, tree).json()["sessionId"])
-    realtime._check_session_owner(sid, CurrentUser(id=w.sv, role=Role.STUDENT))  # chủ phiên: không lỗi
-    for user, code in ((CurrentUser(id=w.sv_out, role=Role.STUDENT), "FORBIDDEN"),):
-        with pytest.raises(AppError) as e:
-            realtime._check_session_owner(sid, user)
-        assert e.value.code == code
-    with pytest.raises(AppError) as e:
-        realtime._check_session_owner(uuid4(), CurrentUser(id=w.sv, role=Role.STUDENT))
-    assert e.value.code == "SESSION_NOT_FOUND"

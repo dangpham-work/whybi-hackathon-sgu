@@ -47,6 +47,8 @@ from app.models.schemas.session import (
     SessionCreated,
     SessionResult,
     SessionStart,
+    SessionState,
+    SessionTurnView,
     Turn,
     TurnReply,
 )
@@ -425,6 +427,48 @@ class SessionOrchestrator:
             self.db.rollback()
             raise
         return reply
+
+    def abandon(self, student_id: UUID, session_id: UUID) -> None:
+        """SV tự bỏ phiên đang dở của chính mình (bug #5/#189: phiên hỏng giữa chừng do lỗi LLM
+        ở lượt sau câu mở đầu kẹt mãi IN_PROGRESS). Phiên đã kết thúc ⇒ 409 SESSION_NOT_ACTIVE."""
+        s = self._session(session_id, student_id, lock=True)
+        if s.status not in ACTIVE:
+            raise AppError(409, "SESSION_NOT_ACTIVE", "Phiên đã kết thúc", {"status": s.status})
+        s.status = SessionStatus.ABANDONED
+        s.ended_at = datetime.now(UTC)
+        MasteryService(self.db).abandon(student_id, s.node_id, s.id)  # commit
+
+    # ------------------------------------------------------------------ GET /sessions/{id} (bug #120)
+
+    def get_state(self, student_id: UUID, session_id: UUID) -> SessionState:
+        """Trạng thái phiên của chính SV để UI khôi phục khi tải lại: hội thoại, câu đang chờ (hạn, TTS), tiến độ."""
+        s = self._session(session_id, student_id)
+        h = self._history(s.id)
+        active = s.status in ACTIVE
+        asked = len(h.asked())
+        return SessionState(
+            session_id=s.id,
+            node_id=s.node_id,
+            status=SessionStatus(s.status),
+            input_mode=InputMode(s.input_mode),
+            tts_enabled=bool(s.tts_enabled),
+            turns=[
+                SessionTurnView(
+                    turn_no=t.turn_no,
+                    speaker=Speaker(t.speaker),
+                    turn_type=TurnType(t.turn_type),
+                    text=t.content or "",
+                    input_mode=InputMode(t.input_mode),
+                    created_at=t.created_at,
+                )
+                for t in h.turns
+            ],
+            question=self._current_question(s, h) if active else None,
+            questions_asked=asked,
+            questions_total=max(asked, self.max_questions) if active else asked,
+            started_at=s.started_at,
+            ended_at=s.ended_at,
+        )
 
     # ------------------------------------------------------------------ vòng phản biện / chấm
 

@@ -324,6 +324,40 @@ def test_abandon_failure_does_not_commit_half_flagged_session(published, monkeyp
     assert state_of(w, tree, ROOT) == "AVAILABLE"
 
 
+def test_abandon_lets_student_open_new_session_on_same_node(published):
+    """Bug #5/#189: LLM lỗi giữa chừng (không phải câu mở đầu) kẹt phiên IN_PROGRESS mãi; SV tự bỏ phiên để mở lại."""
+    w, tree = published
+    sid = start(w, tree).json()["sessionId"]
+    turn(w, sid, "Lời giảng.", "EXPLANATION")
+    assert state_of(w, tree, ROOT) == "IN_PROGRESS"
+    assert start(w, tree).status_code == 409  # vẫn chặn trước khi bỏ phiên
+
+    r = w.api.post(f"/api/v1/sessions/{sid}/abandon")
+    assert r.status_code == 204
+
+    w.db.expire_all()
+    session = w.db.get(TeachingSession, UUID(sid))
+    assert session.status == "ABANDONED" and session.ended_at is not None
+    assert state_of(w, tree, ROOT) == "AVAILABLE"
+
+    r2 = start(w, tree)
+    assert r2.status_code == 201 and r2.json()["sessionId"] != sid
+
+
+def test_abandon_rejects_other_student_and_finished_session(published):
+    w, tree = published
+    sid = start(w, tree).json()["sessionId"]
+
+    w.current = w.sv_out
+    r = w.api.post(f"/api/v1/sessions/{sid}/abandon")
+    assert r.status_code == 403 and r.json()["error"]["code"] == "FORBIDDEN"
+
+    w.current = w.sv
+    assert w.api.post(f"/api/v1/sessions/{sid}/abandon").status_code == 204
+    r3 = w.api.post(f"/api/v1/sessions/{sid}/abandon")
+    assert r3.status_code == 409 and r3.json()["error"]["code"] == "SESSION_NOT_ACTIVE"
+
+
 @pytest.mark.parametrize("failure", [RedisConnectionError("redis down"), TypeError("bad payload")])
 def test_publish_failure_after_commit_is_logged_or_propagated(published, completed, monkeypatch, caplog, failure):
     w, tree = published

@@ -13,6 +13,11 @@ HỢP ĐỒNG (C1-07) – JSON camelCase, lỗi {"error": {code, message, detail
     404 SESSION_NOT_FOUND · 403 FORBIDDEN (phiên của SV khác) · 409 SESSION_NOT_ACTIVE {status}.
 - POST /sessions/{id}/timeout (SV chủ phiên) → 200 TurnReply: câu hiện tại tính là chưa trả lời, sang câu kế.
     Lỗi như /turns.
+- GET /sessions/{id} (SV chủ phiên) → 200 SessionState: khôi phục màn SV-04 sau khi tải lại trang (hội thoại, câu
+    đang chờ, tiến độ). Phiên đã kết thúc vẫn xem được (question = null). 404 SESSION_NOT_FOUND · 403 FORBIDDEN.
+- POST /sessions/{id}/abandon (SV chủ phiên) → 204: SV tự bỏ phiên đang dở (bug #189) để mở phiên mới ở cùng nút.
+    Phiên chuyển ABANDONED, ô ma trận trả về trạng thái trước phiên.
+    404/403 như /turns · 409 SESSION_NOT_ACTIVE {status} khi phiên đã kết thúc.
 - GET /sessions/{id}/result (SV chủ phiên, GV) → 200 SessionResult.
     404 SESSION_NOT_FOUND · 403 FORBIDDEN · 409 RESULT_NOT_READY {status}.
 - Kênh WebSocket session:{id}: sự kiện session.question {text, audioUrl?, deadline?} (Bảng 5.11).
@@ -35,6 +40,7 @@ from app.models.schemas.session import (
     SessionCreated,
     SessionResult,
     SessionStart,
+    SessionState,
     Transcript,
     Turn,
     TurnReply,
@@ -147,6 +153,21 @@ def question_audio(
     return Response(audio, media_type=content_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
+@router.get(
+    "/sessions/{session_id}",
+    response_model=SessionState,
+    responses={k: v for k, v in _SESSION_ERRORS.items() if k != 409},
+)
+def get_session(
+    session_id: UUID,
+    user: CurrentUser = Student,
+    orch: SessionOrchestrator = Depends(get_orchestrator),
+) -> SessionState:
+    """Khôi phục màn SV-04 sau khi tải lại trang: hội thoại đã có, câu Tutee đang chờ (hạn, audioUrl), tiến độ.
+    Chỉ SV chủ phiên (người khác ⇒ 403); phiên đã kết thúc vẫn xem được (question = null)."""
+    return orch.get_state(user.id, session_id)
+
+
 @router.post("/sessions/{session_id}/turns", response_model=TurnReply, responses=_SESSION_ERRORS)
 def post_turn(
     session_id: UUID,
@@ -166,6 +187,16 @@ def timeout(
 ) -> TurnReply:
     """Hết giờ trả lời một câu (FR-TB-11). Đồng hồ và hạn cấu hình theo lớp: C1-15."""
     return orch.handle_timeout(user.id, session_id)
+
+
+@router.post("/sessions/{session_id}/abandon", status_code=204, responses=_SESSION_ERRORS)
+def abandon(
+    session_id: UUID,
+    user: CurrentUser = Student,
+    orch: SessionOrchestrator = Depends(get_orchestrator),
+) -> None:
+    """SV tự bỏ phiên đang dở của chính mình (bug #189) để mở phiên mới ở cùng nút."""
+    orch.abandon(user.id, session_id)
 
 
 @router.get(

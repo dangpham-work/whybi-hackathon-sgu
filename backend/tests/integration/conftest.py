@@ -60,9 +60,6 @@ def api(http: httpx.Client) -> Iterator[httpx.Client]:
 
 # --- Lỗi/thiếu sót của người khác mà test KT đã phát hiện -------------------------------------------
 # xfail(strict): test vẫn chạy; khi chủ thư mục sửa xong, test XPASS làm đỏ CI ⇒ người sửa xóa dòng tương ứng ở đây.
-_CHO_GET_PHIEN = (
-    "chờ Đăng (C1-07): chưa có GET /api/v1/sessions/{id} (trạng thái, questionsAsked) – SV-04 cần để khôi phục phiên"
-)
 _CHO_CAU_HINH_GIO = (
     "chờ Đăng/Long (C1-15, C2-17): Settings chưa có answer_time_limit_s; phiên mới chưa áp ngưỡng Đạt, số câu của GV"
 )
@@ -71,17 +68,20 @@ _XFAIL_THEO_TEN = {
         "lỗi của Long (C2): services/mastery.py my_map gọi _tree() trước _require_enrolled ⇒ SV ngoài lớp "
         "nhận 404 TREE_NOT_PUBLISHED thay vì 403 NOT_ENROLLED"
     ),
-    "test_bao_mat_phan_quyen_db.py::test_khoi_phuc_va_lich_su_chi_chu_phien_xem_duoc[sessions/{sid}]": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_demo_bat_llm_sap_phien_van_chay_tron_va_judge_ap_br03": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_demo_tat_llm_sap_giua_phien_bao_503_va_khong_mat_trang_thai": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_het_ngan_sach_token_phien_bao_429_va_khong_mat_trang_thai": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_het_ngan_sach_token_sv_bat_dau_lai_duoc": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_may_chu_khoi_dong_lai_giua_phan_bien_khoi_phuc_du_phien": _CHO_GET_PHIEN,
-    "test_du_phong.py::test_stt_loi_hoac_audio_hong_bao_ma_ro_va_go_chu_van_gui_duoc": _CHO_GET_PHIEN,
+    "test_du_phong.py::test_demo_bat_llm_sap_phien_van_chay_tron_va_judge_ap_br03": (
+        "lỗi của Đăng (C1-13): app/ai/demo.py judge_result() đối chiếu từ khóa (MATCH_RATIO) không nhận diện "
+        "đủ ý bắt buộc của rubric trong mẫu GOOD ⇒ REQUIRED_POINTS fail dù totalScore (78.35) ≥ passThreshold"
+    ),
+    "test_du_phong.py::test_het_ngan_sach_token_sv_bat_dau_lai_duoc": (
+        "lỗi của Đăng (C1-07): hết ngân sách token (429 TOKEN_BUDGET_EXCEEDED) giữa phiên không gọi "
+        "MasteryService.abandon như đường FLAGGED ⇒ ô mastery giữ IN_PROGRESS, SV không mở được phiên mới dù "
+        "thông báo lỗi nói 'Hãy bắt đầu phiên mới' (SV có thể tự POST /sessions/{id}/abandon để gỡ, bug #189)"
+    ),
     "test_vong2_db.py::test_cau_hinh_lop_doi_nguong_dat_va_so_cau_ap_vao_phien_moi": _CHO_CAU_HINH_GIO,
     "test_vong2_db.py::test_cau_phan_bien_co_han_tra_loi_theo_cau_hinh": _CHO_CAU_HINH_GIO,
     "test_vong2_db.py::test_het_gio_ghi_chua_tra_loi_va_sang_cau_ke": _CHO_CAU_HINH_GIO,
     "test_vong2_db.py::test_tra_loi_tre_qua_han_bi_tinh_het_gio_loi_tre_khong_vao_transcript": _CHO_CAU_HINH_GIO,
+    "test_du_phong.py::test_may_chu_khoi_dong_lai_giua_phan_bien_khoi_phuc_du_phien": _CHO_CAU_HINH_GIO,
 }
 
 

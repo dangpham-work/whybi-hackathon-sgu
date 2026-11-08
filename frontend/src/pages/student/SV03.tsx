@@ -1,12 +1,12 @@
-import { ChevronLeft, CircleCheck, CircleSlash, Clock, Ellipsis, Play, PlayCircle } from "lucide-react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { ChevronLeft, CircleCheck, CircleSlash, Clock, Ellipsis, Play, PlayCircle, RotateCcw, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
-import { AsyncView, EmptyBox } from "../../components/AsyncView";
+import { AsyncView, EmptyBox, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { BLOOM_LABEL } from "../../components/SkillTree";
 import { StartSessionError, useStartSession } from "../../components/StartSession";
 import { StatusBadge } from "../../components/StatusBadge";
-import { apiCall } from "../../lib/api";
+import { apiCall, errorText } from "../../lib/api";
 import { clock, learnerView, prerequisitesOf, waitingRetry, type LearnerItem, type LearnerView } from "../../lib/learner";
 import { MASTERY } from "../../lib/status";
 import { useApi } from "../../lib/useApi";
@@ -53,7 +53,7 @@ export default function NodeDetail() {
       <AsyncView state={map} loadingText="Đang tải chi tiết nút…">
         {() =>
           item && view ? (
-            <Detail key={item.progress.nodeId} item={item} view={view} />
+            <Detail key={item.progress.nodeId} item={item} view={view} onAbandoned={map.reload} />
           ) : (
             <EmptyBox>Không tìm thấy nút này trong bản đồ học tập của bạn (cây có thể vừa được cập nhật).</EmptyBox>
           )
@@ -63,7 +63,7 @@ export default function NodeDetail() {
   );
 }
 
-function Detail({ item, view }: { item: LearnerItem; view: LearnerView }) {
+function Detail({ item, view, onAbandoned }: { item: LearnerItem; view: LearnerView; onAbandoned: () => void }) {
   const p = item.progress;
   const look = MASTERY[p.state];
   const Icon = look.icon;
@@ -107,7 +107,7 @@ function Detail({ item, view }: { item: LearnerItem; view: LearnerView }) {
       </section>
 
       <section className="space-y-3 rounded-lg border border-line-soft bg-surface p-4 shadow-card">
-        <Eligibility item={item} view={view} />
+        <Eligibility item={item} view={view} onAbandoned={onAbandoned} />
         <h2 id="sv03-prereq" className="caps">
           Nút tiên quyết
         </h2>
@@ -164,7 +164,7 @@ function Stat({ value, label, align }: { value: string; label: string; align: "s
 }
 
 /** Dòng "có bắt đầu được không" – chữ trung tính + biểu tượng (màu trạng thái đã ở thẻ trên, lấy từ MASTERY); lý do lấy từ NodeProgress. */
-function Eligibility({ item, view }: { item: LearnerItem; view: LearnerView }) {
+function Eligibility({ item, view, onAbandoned }: { item: LearnerItem; view: LearnerView; onAbandoned: () => void }) {
   const p = item.progress;
   const row = (icon: ReactNode, text: string, cls: string) => (
     <p className={`flex items-center gap-2 text-body-m font-bold ${cls}`}>
@@ -178,9 +178,12 @@ function Eligibility({ item, view }: { item: LearnerItem; view: LearnerView }) {
       <div className="space-y-2">
         {row(<Ellipsis aria-hidden size={16} />, "Bạn đang có phiên giảng ở nút này", "text-ink-900")}
         {p.lastSessionId && (
-          <Link to={`/sv/sessions/${p.lastSessionId}`} className="inline-flex items-center gap-1 text-body-m font-semibold text-teal hover:underline">
-            <PlayCircle aria-hidden size={16} /> Tiếp tục phiên đang giảng
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to={`/sv/sessions/${p.lastSessionId}`} className="inline-flex items-center gap-1 text-body-m font-semibold text-teal hover:underline">
+              <PlayCircle aria-hidden size={16} /> Tiếp tục phiên đang giảng
+            </Link>
+            <AbandonSession sessionId={p.lastSessionId} onAbandoned={onAbandoned} />
+          </div>
         )}
       </div>
     );
@@ -197,4 +200,104 @@ function Eligibility({ item, view }: { item: LearnerItem; view: LearnerView }) {
     return row(<CircleSlash aria-hidden size={16} />, `Còn thiếu tiên quyết: ${names.join(", ")}`, "text-ink-700");
   }
   return row(<CircleSlash aria-hidden size={16} />, `Chưa bắt đầu được nút này (${MASTERY[p.state].label})`, "text-ink-700");
+}
+
+/** Bug #189: phiên hỏng giữa chừng (lỗi LLM ở lượt sau câu mở đầu) kẹt mãi IN_PROGRESS – SV tự bỏ để mở lại. */
+function AbandonSession({ sessionId, onAbandoned }: { sessionId: string; onAbandoned: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<unknown>();
+
+  async function confirm() {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      await apiCall("post", "/sessions/{session_id}/abandon", { path: { session_id: sessionId } });
+      setAsking(false);
+      onAbandoned();
+    } catch (err) {
+      setFailure(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        className="inline-flex items-center gap-1 text-body-m font-semibold text-ink-500 hover:text-ink-700 hover:underline"
+      >
+        <RotateCcw aria-hidden size={16} /> Bỏ phiên này, bắt đầu lại
+      </button>
+      {asking && (
+        <AbandonConfirmDialog
+          busy={busy}
+          failure={failure}
+          onCancel={() => setAsking(false)}
+          onConfirm={confirm}
+        />
+      )}
+    </>
+  );
+}
+
+function AbandonConfirmDialog({
+  busy,
+  failure,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  failure: unknown;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.querySelectorAll<HTMLButtonElement>("button")?.[0]?.focus();
+  }, []);
+  function trap(e: ReactKeyboardEvent) {
+    if (e.key === "Escape") return onCancel();
+    if (e.key !== "Tab") return;
+    const buttons = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    e.preventDefault();
+    buttons[(i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus();
+  }
+  return (
+    <div className="fixed inset-0 z-20 flex items-end justify-center bg-ink-900/40 p-4 sm:items-center">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="abandon-title"
+        aria-describedby="abandon-desc"
+        onKeyDown={trap}
+        className="w-full max-w-sm space-y-3 rounded-xl bg-surface p-5 shadow-dialog"
+      >
+        <h2 id="abandon-title" className="flex items-center gap-2 text-h3 font-semibold">
+          <TriangleAlert aria-hidden size={20} className="text-honey-deep" /> Bỏ phiên đang dở?
+        </h2>
+        <p id="abandon-desc" className="text-body-m text-ink-700">
+          Phiên đang dở sẽ bị hủy, không được chấm. Dùng khi phiên cũ bị lỗi và không tiếp tục được nữa.
+        </p>
+        {failure !== undefined && <ErrorBox text={errorText(failure)} />}
+        <div className="flex flex-col gap-2 sm:flex-row-reverse">
+          <Button onClick={onConfirm} disabled={busy} className="justify-center">
+            Bỏ phiên, bắt đầu lại
+          </Button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-md px-4 py-2 text-body-m font-semibold text-ink-700 hover:bg-app"
+          >
+            Hủy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
