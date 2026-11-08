@@ -58,6 +58,8 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/classes"): frozenset({GV}),
     ("POST", "/classes/join"): frozenset({SV}),
     ("POST", "/classes/{class_id}/syllabi"): frozenset({GV}),
+    ("POST", "/classes/{class_id}/archive"): frozenset({GV, QTV}),
+    ("POST", "/classes/{class_id}/restore"): frozenset({GV, QTV}),
     # Cây: tạo / sửa / phát hành – GV; xem cây đã phát hành – GV, SV; QTV ✗
     ("GET", "/classes/{class_id}/tree"): frozenset({GV, SV}),
     ("POST", "/classes/{class_id}/tree-versions"): frozenset({GV}),

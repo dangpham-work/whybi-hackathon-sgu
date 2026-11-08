@@ -109,9 +109,11 @@ class SkillTreeService:
         return cls
 
     @staticmethod
-    def _require_owner(cls: ClassSection, user: "CurrentUser") -> None:
+    def _require_owner(cls: ClassSection, user: "CurrentUser", *, check_active: bool = True) -> None:
         if user.role != Role.LECTURER or cls.lecturer_id != user.id:
             raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
+        if check_active and cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể chỉnh sửa cây kỹ năng")
 
     def _require_member(self, cls: ClassSection, user: "CurrentUser") -> None:
         if user.role == Role.STUDENT:
@@ -121,7 +123,7 @@ class SkillTreeService:
             if enrolled is None:
                 raise AppError(403, "NOT_ENROLLED", "Bạn chưa tham gia lớp này")
         else:
-            self._require_owner(cls, user)
+            self._require_owner(cls, user, check_active=False)
 
     def _version(self, version_id: UUID, user: "CurrentUser", editable: bool = True) -> orm.TreeVersion:
         tree_id = self.db.scalar(select(orm.TreeVersion.tree_id).where(orm.TreeVersion.id == version_id))
@@ -141,7 +143,7 @@ class SkillTreeService:
             .with_for_update()
             .execution_options(populate_existing=True)
         )
-        self._require_owner(self._class(tree.class_id), user)
+        self._require_owner(self._class(tree.class_id), user, check_active=editable)
         if editable and v.status not in EDITABLE:
             raise AppError(
                 409,
@@ -460,7 +462,7 @@ class SkillTreeService:
 
     def list_versions(self, class_id: UUID, user: "CurrentUser") -> list[TreeVersion]:
         """Mọi phiên bản của lớp, mới nhất trước (FR-SK-10). Lớp chưa có cây ⇒ danh sách rỗng."""
-        self._require_owner(self._class(class_id), user)
+        self._require_owner(self._class(class_id), user, check_active=False)
         tree = self.db.scalar(select(orm.SkillTree).where(orm.SkillTree.class_id == class_id))
         if tree is None:
             return []

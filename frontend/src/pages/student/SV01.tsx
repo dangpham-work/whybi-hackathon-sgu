@@ -1,7 +1,7 @@
-import { ArrowRight, ChevronRight, Network, Plus } from "lucide-react";
+import { Archive, ArrowRight, ChevronRight, LayoutGrid, Network, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { AsyncView, DevelopingBox, ErrorBox } from "../../components/AsyncView";
+import { AsyncView, DevelopingBox, EmptyBox, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { emptyCode, JoinCodeInput, JOIN_CODE_LENGTH } from "../../components/JoinCodeInput";
 import { ApiError, apiCall, errorText, type Schema } from "../../lib/api";
@@ -29,6 +29,8 @@ export default function StudentClasses() {
   const [code, setCode] = useState(emptyCode);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>();
+  const [tab, setTab] = useState<"active" | "archived">("active");
+
   const joinCode = code.join("");
   const complete = joinCode.length === JOIN_CODE_LENGTH;
 
@@ -67,27 +69,63 @@ export default function StudentClasses() {
         </Button>
       </form>
 
-      <section className="space-y-2">
+      <section className="space-y-3">
         <AsyncView
           state={classes}
           isEmpty={(list) => list.length === 0}
           empty="Bạn chưa tham gia lớp nào. Nhập mã giảng viên cung cấp ở trên để bắt đầu."
         >
-          {(list) => (
-            <>
-              <div className="flex items-center justify-between">
-                <h2 className="caps">Lớp của bạn</h2>
-                <span className="text-body-s text-ink-500">{list.length} lớp</span>
-              </div>
-              <ul aria-label="Lớp của bạn" className="space-y-3">
-                {list.map((c) => (
-                  <li key={c.id}>
-                    <ClassCard c={c} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          {(list) => {
+            const activeClasses = list.filter((c) => c.status !== "ARCHIVED");
+            const archivedClasses = list.filter((c) => c.status === "ARCHIVED");
+            const currentList = tab === "active" ? activeClasses : archivedClasses;
+
+            return (
+              <>
+                <div className="flex items-center justify-between border-b border-line-soft pb-2">
+                  <div role="tablist" aria-label="Lọc lớp của bạn" className="flex items-center gap-2">
+                    <button
+                      role="tab"
+                      aria-selected={tab === "active"}
+                      onClick={() => setTab("active")}
+                      className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body-m font-semibold transition ${
+                        tab === "active" ? "bg-teal-soft text-teal" : "text-ink-500 hover:text-ink-900"
+                      }`}
+                    >
+                      <LayoutGrid size={15} /> Đang học ({activeClasses.length})
+                    </button>
+                    <button
+                      role="tab"
+                      aria-selected={tab === "archived"}
+                      onClick={() => setTab("archived")}
+                      className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body-m font-semibold transition ${
+                        tab === "archived" ? "bg-teal-soft text-teal" : "text-ink-500 hover:text-ink-900"
+                      }`}
+                    >
+                      <Archive size={15} /> Kho lưu trữ ({archivedClasses.length})
+                    </button>
+                  </div>
+                  <span className="text-body-s text-ink-500">{list.length} lớp</span>
+                </div>
+
+                {currentList.length === 0 ? (
+                  <EmptyBox>
+                    {tab === "active"
+                      ? "Bạn không có lớp nào đang học. Hãy nhập mã tham gia ở trên."
+                      : "Không có lớp học phần nào trong kho lưu trữ."}
+                  </EmptyBox>
+                ) : (
+                  <ul aria-label={tab === "active" ? "Lớp của bạn" : "Lớp đã lưu trữ"} className="space-y-3">
+                    {currentList.map((c) => (
+                      <li key={c.id}>
+                        <ClassCard c={c} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          }}
         </AsyncView>
       </section>
     </div>
@@ -95,6 +133,7 @@ export default function StudentClasses() {
 }
 
 function ClassCard({ c }: { c: ClassOut }) {
+  const isArchived = c.status === "ARCHIVED";
   // SV chỉ cần biết cây đã mở học chưa: PUBLISHED → "Đã phát hành", còn lại → "Chưa có cây kỹ năng" (màu + biểu tượng từ status.ts)
   const look = c.treeStatus === "PUBLISHED" ? TREE_STATUS.PUBLISHED : NO_TREE;
   const TreeIcon = look.icon;
@@ -112,11 +151,17 @@ function ClassCard({ c }: { c: ClassOut }) {
         </div>
         <ChevronRight aria-hidden size={18} className="shrink-0 text-ink-300" />
       </div>
-      {/* TODO(GD-06): tiến độ "4/7 nút" theo Figma cần GET /classes/{id}/my-map (C2-10) – ClassOut chưa có */}
-      <p className={`mt-3 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-body-s font-semibold ${look.className}`}>
-        <TreeIcon aria-hidden size={14} />
-        {look === NO_TREE ? "Giảng viên đang chuẩn bị cây kỹ năng" : `Cây kỹ năng ${look.label.toLowerCase()}`}
-      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <p className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-body-s font-semibold ${look.className}`}>
+          <TreeIcon aria-hidden size={14} />
+          {look === NO_TREE ? "Giảng viên đang chuẩn bị cây kỹ năng" : `Cây kỹ năng ${look.label.toLowerCase()}`}
+        </p>
+        {isArchived && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-ink-300 bg-surface px-2 py-1 text-body-s font-semibold text-ink-700">
+            <Archive size={14} /> Đã lưu trữ (Xem lại lịch sử)
+          </span>
+        )}
+      </div>
     </Link>
   );
 }

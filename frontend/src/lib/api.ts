@@ -27,6 +27,7 @@ export const FRIENDLY: Record<string, string> = {
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.",
   NOT_IMPLEMENTED: "Chức năng đang được phát triển.",
   CLASS_NOT_FOUND: "Không tìm thấy lớp học (có thể đã bị xóa hoặc bạn chưa tham gia).",
+  CLASS_ARCHIVED: "Lớp học phần đã được lưu trữ (chỉ đọc). Không thể thực hiện thao tác này.",
   COURSE_NOT_FOUND: "Không tìm thấy môn học, vui lòng kiểm tra lại mã môn học.",
   LECTURER_PROFILE_MISSING: "Tài khoản của bạn chưa có hồ sơ giảng viên.",
   NOT_FOUND: "Không tìm thấy nội dung bạn cần.",
