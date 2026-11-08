@@ -1,16 +1,17 @@
 import { Download, EyeOff, Maximize2, Mic, Search, TriangleAlert, Users, Wifi, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
 import { HeatGrid } from "../../components/HeatGrid";
 import { SkillTree } from "../../components/SkillTree";
+import { StatsTab } from "../../components/stats/StatsTab";
 import { apiCall, errorText } from "../../lib/api";
 import { downloadFile } from "../../lib/download";
 import { applyHeatmapEvent, detailsByKey, heatByKey, rootCauseKey, type Snapshot } from "../../lib/heatmap";
 import { useApi } from "../../lib/useApi";
 import { useChannel, type WsStatus } from "../../lib/ws";
 
-type Tab = "tree" | "grid";
+type Tab = "tree" | "grid" | "stats";
 
 /** GV-05 Dashboard bản đồ nhiệt (Figma 17:1447, FR-HM-01…06, GD-10). Ảnh chụp + kênh `class:{id}:heatmap`, không cần tải lại trang. */
 export default function LecturerHeatmap() {
@@ -105,7 +106,15 @@ function Toolbar(p: { classId: string; search: string; onSearch: (v: string) => 
 
 function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: string; wsStatus: WsStatus; hideNames: boolean }) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("tree");
+  const [params, setParams] = useSearchParams();
+  const [tab, setTabState] = useState<Tab>(params.get("tab") === "thong-ke" ? "stats" : "tree"); // link chia sẻ mở thẳng tab Thống kê
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    const p = new URLSearchParams(params);
+    if (t === "stats") p.set("tab", "thong-ke");
+    else p.delete("tab");
+    setParams(p, { replace: true });
+  };
   const alerts = s.alerts ?? [];
   const goNode = (nodeId?: string | null) => nodeId && navigate(`/gv/classes/${classId}/nodes/${nodeId}`);
   return (
@@ -132,6 +141,7 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
           [
             ["tree", "Chế độ cây"],
             ["grid", "Lưới SV × Nút"],
+            ["stats", "Thống kê"],
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-md px-4 py-1.5 text-body-m font-semibold ${tab === id ? "bg-surface shadow-card" : "text-ink-500"}`}>
@@ -140,7 +150,12 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className={`grid gap-4 ${tab === "stats" ? "" : "xl:grid-cols-[1fr_380px]"}`}>
+        {tab === "stats" ? (
+          <div className="min-w-0">
+            <StatsTab s={s} classId={classId} hideNames={hideNames} />
+          </div>
+        ) : (
         <section aria-label={tab === "tree" ? "Cây kỹ năng theo tỉ lệ Đạt" : "Lưới sinh viên"} className="space-y-3 rounded-lg border border-line-soft bg-surface p-4">
           {tab === "tree" ? (
             s.tree ? (
@@ -161,6 +176,7 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
             <HeatGrid rows={s.grid} nodes={s.nodes} hideNames={hideNames} />
           )}
         </section>
+        )}
 
         <aside aria-label="Cảnh báo điểm nghẽn" className="space-y-3">
           <h2 className="flex items-center gap-2 text-h3 font-semibold">
