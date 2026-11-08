@@ -109,6 +109,9 @@ class HeatmapService:
     def update_settings(self, class_id: UUID, user: "CurrentUser", body: out.ClassSettings) -> out.ClassSettings:
         """PUT /classes/{id}/settings (FR-HM-08): lưu cấu hình rồi tính lại màu cả lớp và đẩy lên kênh heatmap."""
         self.require_owner(class_id, user)
+        cls = ClassService(self.db).info(class_id)
+        if cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể sửa cấu hình lớp")
         saved = ClassService(self.db).save_settings(class_id, body)
         nodes = self.recompute_class(class_id)
         alerts = self.trace_root_causes(class_id) if nodes else []

@@ -252,3 +252,24 @@ def test_upload_queue_down_503_marks_document_failed(world, infra):
     assert r.status_code == 503 and r.json()["error"]["code"] == "JOB_QUEUE_UNAVAILABLE"
     [doc] = docs(world)
     assert doc.status == "FAILED" and doc.error_message
+
+
+def test_archive_and_restore_class(world, infra):
+    world.current = world.gv
+    # Archive class
+    r = world.api.post(f"/api/v1/classes/{world.class_id}/archive")
+    assert r.status_code == 200 and r.json()["status"] == "ARCHIVED"
+
+    # When archived: upload syllabus is blocked
+    r_up = upload(world, "giao-trinh.pdf", PDF)
+    assert r_up.status_code == 403 and r_up.json()["error"]["code"] == "CLASS_ARCHIVED"
+
+    # Restore class
+    r_res = world.api.post(f"/api/v1/classes/{world.class_id}/restore")
+    assert r_res.status_code == 200 and r_res.json()["status"] == "ACTIVE"
+
+
+def test_archive_class_forbidden_for_other_lecturer(world):
+    world.current = world.gv_other
+    r = world.api.post(f"/api/v1/classes/{world.class_id}/archive")
+    assert r.status_code == 403 and r.json()["error"]["code"] == "NOT_CLASS_OWNER"

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import StringConstraints
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
+from app.api.deps import CurrentUser, Lecturer, LecturerOrAdmin, LecturerOrStudent, Student
 from app.db.session import get_db
 from app.models.schemas.common import ApiModel
 from app.services.classes import ClassService, ClassView
@@ -35,6 +35,7 @@ class ClassOut(ApiModel):
     join_code: str
     student_count: int = 0
     tree_status: str | None = None
+    status: str = "ACTIVE"
 
     @classmethod
     def of(cls, v: ClassView) -> "ClassOut":
@@ -46,6 +47,7 @@ class ClassOut(ApiModel):
             join_code=c.join_code,
             student_count=v.student_count,
             tree_status=v.tree_status,
+            status=c.status,
         )
 
 
@@ -110,3 +112,15 @@ def upload_syllabus(
     Sai định dạng (kể cả .exe đổi đuôi .pdf – TC01) ⇒ 422 INVALID_FILE; quá 20 MB ⇒ 422 FILE_TOO_LARGE."""
     r = syllabi.upload(class_id, file.filename, file.file, user)
     return JobAccepted(job_id=r.job_id, document_id=r.document_id, channel=r.channel)
+
+
+@router.post("/classes/{class_id}/archive", response_model=ClassOut)
+def archive_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrAdmin) -> ClassOut:
+    """Lưu trữ lớp học phần: chuyển sang trạng thái chỉ đọc (FR-SK-01)."""
+    return ClassOut.of(classes.archive(class_id, user))
+
+
+@router.post("/classes/{class_id}/restore", response_model=ClassOut)
+def restore_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrAdmin) -> ClassOut:
+    """Khôi phục lớp học phần từ kho lưu trữ về trạng thái hoạt động."""
+    return ClassOut.of(classes.restore(class_id, user))

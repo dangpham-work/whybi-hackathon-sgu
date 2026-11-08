@@ -128,6 +128,8 @@ def _owned_class(db: Session, class_id: UUID, user: "CurrentUser") -> ClassSecti
         raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
     if user.role != Role.LECTURER or cls.lecturer_id != user.id:
         raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
+    if cls.status != "ACTIVE":
+        raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể tải giáo trình")
     return cls
 
 
