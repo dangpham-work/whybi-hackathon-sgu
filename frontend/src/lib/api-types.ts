@@ -92,8 +92,6 @@ export interface paths {
         /**
          * Put Ai Config
          * @description Cấu hình nhà cung cấp LLM/STT/TTS và model dự phòng (FR-AD-05) – thẻ của Đăng.
-         *     LLM, STT áp ngay (giữ trong bộ nhớ tiến trình); lưu CSDL khi C2-06 xong. STT: fake | whisper | cloud (C1-12),
-         *     TTS: fake | cloud (C1-14). Model "default" ⇒ model mặc định của adapter.
          */
         put: operations["put_ai_config_api_v1_admin_ai_config_put"];
         post?: never;
@@ -811,9 +809,7 @@ export interface paths {
         put?: never;
         /**
          * Upload Audio
-         * @description Ghi âm ≤ 3 phút (multipart: `file`, `consent`) → STT tiếng Việt, chuẩn hóa thuật ngữ theo nút, độ tin cậy
-         *     từng từ (FR-TB-05…07). `consent=true` (BR-13) mới lưu ghi âm vào MinIO, `audioRef = "s3://audio/…"`;
-         *     không đồng ý ⇒ không lưu, `audioRef = "unsaved:<uuid>"`. Gửi lượt: POST /turns với inputMode=VOICE, audioRef.
+         * @description Transcribe the owner's active session; save recording only with consent (BR-13).
          */
         post: operations["upload_audio_api_v1_sessions__session_id__audio_post"];
         delete?: never;
@@ -831,8 +827,7 @@ export interface paths {
         };
         /**
          * Question Audio
-         * @description Đọc to câu hỏi của Tutee (FR-TB-10): địa chỉ này nằm ở `Question.audioUrl` khi SV bật `ttsEnabled`.
-         *     Tổng hợp lần đầu rồi lưu đệm; cần Bearer như mọi API (client tải blob rồi phát).
+         * @description Read a question for the session owner; synthesize on first playback, then cache.
          */
         get: operations["question_audio_api_v1_sessions__session_id__turns__turn_no__tts_get"];
         put?: never;
@@ -898,6 +893,26 @@ export interface paths {
          * @description Hết giờ trả lời một câu (FR-TB-11). Đồng hồ và hạn cấu hình theo lớp: C1-15.
          */
         post: operations["timeout_api_v1_sessions__session_id__timeout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon
+         * @description SV tự bỏ phiên đang dở của chính mình (bug #189) để mở phiên mới ở cùng nút.
+         */
+        post: operations["abandon_api_v1_sessions__session_id__abandon_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1121,8 +1136,7 @@ export interface paths {
         put?: never;
         /**
          * Regenerate Rubric
-         * @description Sinh lại rubric bằng AI (RAG trên giáo trình của lớp, FR-SK-08). Rubric mới ở trạng thái chưa duyệt;
-         *     lớp chưa có giáo trình đã xử lý ⇒ 422 NO_SOURCE_MATERIAL.
+         * @description Sinh lại rubric bằng AI (RAG) – thẻ của Đăng.
          */
         post: operations["regenerate_rubric_api_v1_nodes__node_id__rubric_regenerate_post"];
         delete?: never;
@@ -1318,10 +1332,6 @@ export interface components {
             studentCount: number;
             /** Treestatus */
             treeStatus?: string | null;
-            /** Enrollmentid */
-            enrollmentId?: string | null;
-            /** Peeroptin */
-            peerOptIn?: boolean | null;
         };
         /**
          * ClassSettings
@@ -4454,40 +4464,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description AUDIO_TOO_LARGE (> 12 MB) · AUDIO_TOO_LONG (> 3 phút) */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description UNSUPPORTED_AUDIO_FORMAT – chỉ webm, ogg, wav, mp3, m4a */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description EMPTY_AUDIO · NO_SPEECH_DETECTED · VALIDATION_ERROR */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description STT_UNAVAILABLE · AUDIO_STORE_UNAVAILABLE */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4504,7 +4487,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Giọng đọc câu hỏi */
+            /** @description Question audio */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4524,17 +4507,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description SESSION_NOT_FOUND */
+            /** @description SESSION_NOT_FOUND / TTS_NOT_ENABLED / TURN_NOT_FOUND */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4551,7 +4525,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description TTS_UNAVAILABLE – phiên vẫn chạy, đọc bằng chữ */
+            /** @description TTS_UNAVAILABLE */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -4692,6 +4666,62 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TurnReply"];
                 };
+            };
+            /** @description FORBIDDEN – phiên của sinh viên khác */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description SESSION_NOT_ACTIVE – phiên đã kết thúc */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abandon_api_v1_sessions__session_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description FORBIDDEN – phiên của sinh viên khác */
             403: {

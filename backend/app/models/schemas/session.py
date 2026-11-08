@@ -22,6 +22,7 @@ from app.models.enums import (
     MasteryState,
     QuestionStrategy,
     SessionStatus,
+    Speaker,
     TurnType,
     Verdict,
 )
@@ -109,6 +110,37 @@ class TurnReply(ApiModel):
         if self.questions_total and self.questions_asked > self.questions_total:
             raise ValueError("questionsAsked không được vượt questionsTotal")
         return self
+
+
+class SessionTurnView(ApiModel):
+    """Một lượt hội thoại để dựng lại màn hình khi tải lại trang (GET /sessions/{id})."""
+
+    turn_no: int = Field(ge=1)
+    speaker: Speaker
+    turn_type: TurnType
+    text: str
+    input_mode: InputMode
+    created_at: datetime
+
+
+class SessionState(ApiModel):
+    """GET /sessions/{id} – trạng thái phiên của chính SV để khôi phục UI sau khi tải lại (bug #120).
+
+    `turns` theo thứ tự lượt, gồm cả thông báo của hệ thống (SYSTEM_NOTICE). `question` là câu Tutee đang chờ SV trả lời
+    (kèm hạn `deadline`, `audioUrl`); None khi phiên đã kết thúc. Giai đoạn tiếp theo suy ra từ `status`:
+    EXPLAINING ⇒ gửi EXPLANATION, CHALLENGING ⇒ gửi ANSWER."""
+
+    session_id: UUID
+    node_id: UUID
+    status: SessionStatus
+    input_mode: InputMode
+    tts_enabled: bool = False
+    turns: list[SessionTurnView]
+    question: Question | None = None
+    questions_asked: int = Field(0, ge=0)
+    questions_total: int = Field(0, ge=0)
+    started_at: datetime
+    ended_at: datetime | None = None
 
 
 class WordConfidence(ApiModel):

@@ -74,10 +74,12 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/classes/{class_id}/my-map"): frozenset({SV}),
     # Phiên giảng lại – chỉ SV thực hiện; xem kết quả: GV (SV lớp mình), SV (của mình)
     ("POST", "/sessions"): frozenset({SV}),
+    ("GET", "/sessions/{session_id}"): frozenset({SV}),
     ("GET", "/sessions/{session_id}/turns/{turn_no}/tts"): frozenset({SV}),
     ("POST", "/sessions/{session_id}/audio"): frozenset({SV}),
     ("POST", "/sessions/{session_id}/turns"): frozenset({SV}),
     ("POST", "/sessions/{session_id}/timeout"): frozenset({SV}),
+    ("POST", "/sessions/{session_id}/abandon"): frozenset({SV}),
     ("GET", "/sessions/{session_id}/result"): frozenset({GV, SV}),
     ("GET", "/me/sessions"): frozenset({SV}),
     ("GET", "/me/sessions/{session_id}"): frozenset({SV}),
