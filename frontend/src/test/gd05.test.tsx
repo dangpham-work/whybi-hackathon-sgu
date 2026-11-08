@@ -95,7 +95,7 @@ describe("GV-03 Tải giáo trình và tiến độ (GD-05)", () => {
     expect(screen.queryByRole("link", { name: /Mở trình sửa cây/ })).toBeNull();
 
     act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 30, step: "CONCEPTS" } }));
-    expect(screen.getByText("Trích khái niệm từng chương")).toBeTruthy();
+    expect(screen.getByText("Trích khái niệm")).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Mở trình sửa cây/ })).toBeNull();
 
     act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 100, step: "DONE" } }));

@@ -200,3 +200,14 @@
 - **Xong khi:** Test GV-03 (DONE bóc chữ chưa hiện link, `tree.generated` mới hiện, Hủy gọi API), test layout nửa vời xanh; typecheck, test, build xanh
 - **Người phụ trách:** Long (làm thay, Thắng duyệt `frontend/`)
 - **Nhánh:** `fix/mx1-gv03-gv04` · commit bắt đầu bằng `GD-18:`
+
+## GD-19
+
+- **Thẻ việc:** GV-03 hiện cảnh báo cỡ giáo trình và cho GV chọn chương / khoảng trang, mức chi tiết (Tóm lược, Chuẩn, Chi tiết) và hoãn sinh rubric trước khi dựng cây (`TocPanel`); GV-04 có nút "Sinh rubric cho nút còn thiếu"
+- **Yêu cầu / mục đề cương:** FR-SK-03, FR-SK-04
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** GD-05, GD-09, C1-19, C2-22, GD-18
+- **Giờ:** H20+
+- **Xong khi:** Giáo trình lớn dừng ở GV-03 chờ chọn; chọn xong gọi build-tree đúng ranges/detail/lazyRubric; tải lại trang vẫn khôi phục hộp chọn; GV-04 sinh rubric bù và hiện dần; typecheck, test, build xanh
+- **Người phụ trách:** Thắng (làm thay: Long)
+- **Nhánh:** `feat/gd-19-chon-chuong` · commit bắt đầu bằng `GD-19:`
