@@ -9,6 +9,7 @@ import {
   Controls,
   Handle,
   MarkerType,
+  MiniMap,
   Position,
   ReactFlow,
   useNodesState,
@@ -17,7 +18,8 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo } from "react";
+import { CircleCheck, Clock, Maximize2, Minimize2, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { components } from "../lib/api-types";
 import { HEAT, MASTERY, ROOT_CAUSE, type HeatColor, type MasteryState } from "../lib/status";
 import { layoutTree, NODE_H, NODE_W, type Direction } from "../lib/tree-layout";
@@ -116,6 +118,26 @@ function SkillNodeView({ data }: NodeProps<SkillFlowNode>) {
   );
 }
 
+function EditLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 text-body-s text-ink-700" aria-label="Chú giải trạng thái biên tập">
+      <span className="font-semibold text-ink-900">Chú giải:</span>
+      <span className="flex items-center gap-1.5 rounded border border-teal/40 bg-teal-soft px-2 py-0.5 font-medium text-teal">
+        <CircleCheck size={14} /> Đã duyệt
+      </span>
+      <span className="flex items-center gap-1.5 rounded border border-honey/60 bg-honey-soft px-2 py-0.5 font-medium text-honey-deep">
+        <Clock size={14} /> Chưa duyệt
+      </span>
+      <span className="flex items-center gap-1.5 rounded border border-dashed border-ink-300 bg-surface px-2 py-0.5 font-medium text-ink-500">
+        <TriangleAlert size={14} /> Chưa có rubric
+      </span>
+      <span className="flex items-center gap-1.5 text-ink-500">
+        <span className="inline-block w-4 border-b-2 border-dashed border-ink-400"></span> Nét đứt = Cạnh AI đề xuất
+      </span>
+    </div>
+  );
+}
+
 const nodeTypes = { skill: SkillNodeView };
 
 export function SkillTree({
@@ -136,11 +158,43 @@ export function SkillTree({
 }: SkillTreeProps) {
   const editable = mode === "edit";
   const vertical = direction === "TB";
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const pos = useMemo(() => layoutTree(nodes, edges, direction), [nodes, edges, direction]);
 
   const flowNodes = useMemo<SkillFlowNode[]>(() => {
-    const pos = layoutTree(nodes, edges, direction);
     const lookOf = (key: string): Look | null => {
       if (mode === "heatmap") return HEAT[heat?.[key] ?? "GREY"];
+      if (mode === "edit") {
+        const n = nodes.find((x) => x.key === key);
+        if (!n?.rubric) {
+          return {
+            label: "Chưa có rubric",
+            icon: TriangleAlert,
+            className: "border-dashed border-ink-300 bg-surface text-ink-500",
+          };
+        }
+        if (!n.rubric.approved) {
+          return {
+            label: "Chưa duyệt",
+            icon: Clock,
+            className: "border-honey/60 bg-honey-soft text-honey-deep",
+          };
+        }
+        return {
+          label: "Đã duyệt",
+          icon: CircleCheck,
+          className: "border-teal/40 bg-teal-soft text-teal",
+        };
+      }
       const state = mastery?.[key] ?? (mode === "learner" ? "LOCKED" : undefined);
       return state ? MASTERY[state] : null;
     };
@@ -172,7 +226,7 @@ export function SkillTree({
         vertical,
       },
     }));
-  }, [nodes, edges, direction, mode, mastery, heat, details, rootCauseKey, selectedKey, editable, vertical]);
+  }, [nodes, pos, direction, mode, mastery, heat, details, rootCauseKey, selectedKey, editable, vertical]);
 
   const flowEdges = useMemo<Edge[]>(
     () =>
@@ -194,32 +248,59 @@ export function SkillTree({
   useEffect(() => setRfNodes(flowNodes), [flowNodes, setRfNodes]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div style={{ height }} className="overflow-hidden rounded-lg border border-line-soft bg-app">
-        <ReactFlow<SkillFlowNode>
-          nodes={rfNodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          onNodesChange={editable ? onNodesChange : undefined}
-          onNodeClick={(_, n) => onNodeClick?.(n.data.node)}
-          onNodeDragStop={(_, n) => onNodeMove?.(n.id, n.position)}
-          onConnect={(c) => c.source && c.target && onConnect?.(c.source, c.target)}
-          nodesDraggable={editable}
-          nodesConnectable={editable}
-          elementsSelectable={editable}
-          deleteKeyCode={null} // React Flow mặc định xóa nút đang chọn khi bấm Backspace: nút biến mất mà không gọi API
-          edgesFocusable={false}
-          fitView
-          fitViewOptions={{ padding: 0.15 }}
-          minZoom={0.3}
-          proOptions={{ hideAttribution: true }}
-          aria-label="Cây kỹ năng"
+    <div className={`flex flex-col gap-3 ${fullscreen ? "fixed inset-0 z-50 bg-app p-4 shadow-2xl" : ""}`}>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setFullscreen((f) => !f)}
+          aria-label={fullscreen ? "Thu nhỏ màn hình" : "Toàn màn hình"}
+          title={fullscreen ? "Thu nhỏ màn hình (Esc)" : "Toàn màn hình"}
+          className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-md border border-line-strong bg-surface/90 px-2.5 py-1 text-body-s font-medium text-ink-700 shadow-sm backdrop-blur hover:bg-surface"
         >
-          <Background gap={24} color="var(--color-line-soft)" />
-          <Controls showInteractive={false} position="top-right" />
-        </ReactFlow>
+          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          <span>{fullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
+        </button>
+        <div style={{ height: fullscreen ? "calc(100vh - 80px)" : height }} className="overflow-hidden rounded-lg border border-line-soft bg-app">
+          <ReactFlow<SkillFlowNode>
+            nodes={rfNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            onNodesChange={editable ? onNodesChange : undefined}
+            onNodeClick={(_, n) => onNodeClick?.(n.data.node)}
+            onNodeDragStop={(_, n) => onNodeMove?.(n.id, n.position)}
+            onConnect={(c) => c.source && c.target && onConnect?.(c.source, c.target)}
+            nodesDraggable={editable}
+            nodesConnectable={editable}
+            elementsSelectable={editable}
+            deleteKeyCode={null} // React Flow mặc định xóa nút đang chọn khi bấm Backspace: nút biến mất mà không gọi API
+            edgesFocusable={false}
+            fitView
+            fitViewOptions={{ padding: 0.15 }}
+            minZoom={0.1}
+            onlyRenderVisibleElements={nodes.length > 30}
+            proOptions={{ hideAttribution: true }}
+            aria-label="Cây kỹ năng"
+          >
+            <Background gap={24} color="var(--color-line-soft)" />
+            <Controls showInteractive={false} position="top-right" />
+            <MiniMap
+              position="bottom-right"
+              zoomable
+              pannable
+              aria-label="Bản đồ thu nhỏ"
+              className="!border !border-line-soft !bg-surface"
+              nodeColor={(n) => {
+                const look = (n.data as SkillNodeData)?.look;
+                if (look?.label === "Đã duyệt") return "#0d9488";
+                if (look?.label === "Chưa duyệt") return "#d97706";
+                if (look?.label === "Chưa có rubric") return "#94a3b8";
+                return "#cbd5e1";
+              }}
+            />
+          </ReactFlow>
+        </div>
       </div>
-      {legend && <StatusLegend kind={mode === "heatmap" ? "heat" : "mastery"} />}
+      {legend && (mode === "edit" ? <EditLegend /> : <StatusLegend kind={mode === "heatmap" ? "heat" : "mastery"} />)}
     </div>
   );
 }

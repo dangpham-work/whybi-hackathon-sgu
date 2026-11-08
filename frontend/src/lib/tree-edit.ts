@@ -46,3 +46,19 @@ export const emptyRubric = (): Rubric => ({
   sourcePages: [],
   approved: false,
 });
+
+/** Kiểm tra rubric hợp lệ trước khi duyệt (C2-23 / GD-20). Rỗng = hợp lệ. */
+export function rubricProblems(r: Rubric): string[] {
+  const problems: string[] = [];
+  if (r.keyPoints.some((kp) => !kp.content.trim())) {
+    problems.push("Có ý chính để trống");
+  }
+  if (!r.keyPoints.some((kp) => kp.isRequired && kp.content.trim())) {
+    problems.push("Chưa có ý chính bắt buộc nào");
+  }
+  if (r.minPassedChallenges > r.minChallenges) {
+    problems.push(`Số câu phản biện cần Đạt (${r.minPassedChallenges}) lớn hơn số câu phản biện (${r.minChallenges})`);
+  }
+  return problems;
+}
+

@@ -7,6 +7,7 @@ import { AsyncView, ErrorBox } from "./AsyncView";
 import { Button } from "./Button";
 
 type Version = Schema<"TreeVersion">;
+type VersionSummary = Schema<"TreeVersionSummary">;
 type Diff = Schema<"TreeDiff">;
 
 const vn = (iso?: string | null) => (iso ? new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "");
@@ -34,7 +35,7 @@ export function VersionHistory({ classId, nodeTitle, onRestored }: { classId: st
       setBusy(false);
     }
   }
-  const compare = (list: Version[]) => {
+  const compare = (list: VersionSummary[]) => {
     // luôn so bản cũ → bản mới
     const [a, b] = picked.map((id) => list.find((v) => v.id === id)!).sort((x, y) => x.versionNo - y.versionNo);
     return run(() => apiCall("get", "/tree-versions/{from_id}/compare/{to_id}", { path: { from_id: a.id!, to_id: b.id! } }), setDiff);

@@ -1,6 +1,7 @@
 import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Rubric } from "../lib/tree-edit";
+import { rubricProblems } from "../lib/tree-edit";
 import { Button } from "./Button";
 
 const field = "w-full rounded-md border border-line-strong px-3 py-2 text-body-m focus-visible:outline-2 focus-visible:outline-teal";
@@ -107,6 +108,12 @@ export function RubricEditor({
       )}
       {r.sourcePages.length > 0 && <p className="rounded-md bg-app px-3 py-2 text-body-s">Trích dẫn giáo trình: tr. {r.sourcePages.join(", ")}</p>}
 
+      {rubricProblems(r).length > 0 && (
+        <p className="rounded-md bg-honey-soft px-3 py-1.5 text-body-s font-medium text-honey-deep">
+          Chưa đủ điều kiện duyệt: {rubricProblems(r).join("; ")}
+        </p>
+      )}
+
       <div className="grid grid-cols-3 gap-2">
         <Button variant="secondary" disabled={busy} onClick={onRegenerate}>
           <Sparkles aria-hidden size={16} /> Sinh lại AI
@@ -114,7 +121,12 @@ export function RubricEditor({
         <Button variant="secondary" disabled={busy || !dirty} onClick={() => onSave({ ...r, approved: false })}>
           Lưu nháp
         </Button>
-        <Button variant="teal" disabled={busy || (r.approved && !dirty)} onClick={() => onSave({ ...r, approved: true })}>
+        <Button
+          variant="teal"
+          disabled={busy || rubricProblems(r).length > 0 || (r.approved && !dirty)}
+          title={rubricProblems(r).length > 0 ? `Chưa thể duyệt: ${rubricProblems(r).join("; ")}` : undefined}
+          onClick={() => onSave({ ...r, approved: true })}
+        >
           <Check aria-hidden size={16} /> {r.approved && !dirty ? "Đã duyệt" : "Duyệt rubric"}
         </Button>
       </div>

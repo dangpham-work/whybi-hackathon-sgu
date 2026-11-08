@@ -1260,10 +1260,71 @@ export interface paths {
         put?: never;
         /**
          * Publish
-         * @description Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm `details.errors`.
+         * @description Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt và hợp lệ) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm
+         *     `details.errors`. Thân tùy chọn `{changeNote}` ghi vào lịch sử phiên bản.
          *     Bản phát hành trước chuyển ARCHIVED. Khởi tạo / di chuyển trạng thái SV (BR-14): C2-10.
          */
         post: operations["publish_api_v1_tree_versions__version_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree/publish-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Publish Check
+         * @description Xem trước phát hành bản mới nhất: lỗi chặn, số rubric chưa duyệt, số SV bị ảnh hưởng. Không ghi gì (C2-23).
+         */
+        get: operations["publish_check_api_v1_classes__class_id__tree_publish_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree/rubrics/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Rubrics
+         * @description Duyệt hàng loạt rubric của bản nháp mới nhất: rubric hợp lệ được duyệt, còn lại kèm lý do (C2-23).
+         */
+        post: operations["approve_rubrics_api_v1_classes__class_id__tree_rubrics_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tree-versions/{version_id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Positions
+         * @description Lưu vị trí nhiều nút một lượt ("Tự sắp xếp" ở GV-04) (C2-23).
+         */
+        put: operations["put_positions_api_v1_tree_versions__version_id__positions_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1346,6 +1407,21 @@ export interface components {
              * @default 30
              */
             audioRetentionDays: number;
+        };
+        /** ApproveRubricsBody */
+        ApproveRubricsBody: {
+            /** Nodeids */
+            nodeIds: string[];
+        };
+        /**
+         * ApproveRubricsResult
+         * @description Duyệt hàng loạt (FR-SK-08): chỉ rubric hợp lệ được duyệt, phần còn lại kèm lý do để GV sửa.
+         */
+        ApproveRubricsResult: {
+            /** Approved */
+            approved: string[];
+            /** Rejected */
+            rejected: components["schemas"]["RejectedRubric"][];
         };
         /** AuditLogOut */
         AuditLogOut: {
@@ -2200,6 +2276,18 @@ export interface components {
             /** Positiony */
             positionY?: number | null;
         };
+        /** NodePosition */
+        NodePosition: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /**
          * NodeProgress
          * @description Một ô của SV: trạng thái + đủ dữ liệu cho SV-03 Chi tiết nút.
@@ -2308,6 +2396,11 @@ export interface components {
             /** Peeroptin */
             peerOptIn: boolean;
         };
+        /** PositionsBody */
+        PositionsBody: {
+            /** Positions */
+            positions: components["schemas"]["NodePosition"][];
+        };
         /** ProfileSession */
         ProfileSession: {
             /**
@@ -2394,6 +2487,42 @@ export interface components {
          */
         ProviderKind: "LLM" | "STT" | "TTS";
         /**
+         * PublishBody
+         * @description Thân tùy chọn của POST /tree-versions/{id}/publish: ghi chú thay đổi hiện ở lịch sử phiên bản (FR-SK-10).
+         */
+        PublishBody: {
+            /** Changenote */
+            changeNote?: string | null;
+        };
+        /**
+         * PublishCheck
+         * @description GET /classes/{id}/tree/publish-check: xem trước phát hành (BR-05, BR-14) mà không đổi gì.
+         */
+        PublishCheck: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Versionid
+             * Format: uuid
+             */
+            versionId: string;
+            /** Versionno */
+            versionNo: number;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Unapprovedcount */
+            unapprovedCount: number;
+            /** Affectedstudents */
+            affectedStudents: number;
+            /** Olderthanpublished */
+            olderThanPublished: boolean;
+        };
+        /**
          * Question
          * @description Câu hỏi của Tutee (kênh session:{id} → session.question; cũng là câu mở đầu).
          */
@@ -2466,6 +2595,16 @@ export interface components {
         RefreshRequest: {
             /** Refreshtoken */
             refreshToken: string;
+        };
+        /** RejectedRubric */
+        RejectedRubric: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** Reason */
+            reason: string;
         };
         /** ResetPasswordRequest */
         ResetPasswordRequest: {
@@ -3081,6 +3220,30 @@ export interface components {
             nodes: components["schemas"]["Node"][];
             /** Edges */
             edges: components["schemas"]["Edge"][];
+        };
+        /**
+         * TreeVersionSummary
+         * @description Một dòng lịch sử phiên bản (FR-SK-10): không kèm cả cây như TreeVersion.
+         */
+        TreeVersionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Versionno */
+            versionNo: number;
+            status: components["schemas"]["TreeStatus"];
+            /** Changenote */
+            changeNote?: string | null;
+            /** Createdat */
+            createdAt?: string | null;
+            /** Publishedat */
+            publishedAt?: string | null;
+            /** Nodecount */
+            nodeCount: number;
+            /** Edgecount */
+            edgeCount: number;
         };
         /**
          * Turn
@@ -5344,7 +5507,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TreeVersion"][];
+                    "application/json": components["schemas"]["TreeVersionSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -5604,7 +5767,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishBody"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5614,6 +5781,105 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TreeVersion"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_check_api_v1_classes__class_id__tree_publish_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_rubrics_api_v1_classes__class_id__tree_rubrics_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRubricsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveRubricsResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_positions_api_v1_tree_versions__version_id__positions_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
