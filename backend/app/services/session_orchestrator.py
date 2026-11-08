@@ -30,7 +30,6 @@ from app.ai.agents.tutee import MAX_QUESTIONS, MIN_QUESTIONS, CoverageAnalysis, 
 from app.ai.gateway import LLMGateway, get_gateway
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.services.classes import ClassService
 from app.models.enums import (
     FlagType,
     InputMode,

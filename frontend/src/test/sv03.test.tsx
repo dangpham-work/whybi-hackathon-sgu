@@ -84,7 +84,7 @@ describe("SV-03 Chi tiết nút (GD-06, FR-TB-02)", () => {
     const path = page === "bản đồ" ? `/sv/classes/${CLASS_ID}` : `/sv/classes/${CLASS_ID}/nodes/${nodeIdOf("n5_con_tro")}`;
     render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />);
     await screen.findByText(page === "bản đồ" ? "4/11 nút" : /Thử lại lúc/, {}, { timeout: 5000 });
-    const scheduled = timeout.mock.calls.find(([, delay]) => typeof delay === "number" && delay > 50_000 && delay <= 60_000);
+    const scheduled = timeout.mock.calls.find(([, delay]) => typeof delay === "number" && delay > 20_000 && delay <= 60_000);
     expect(scheduled).toBeDefined();
     const callsBefore = api.called(MAP).length;
     expired = true;

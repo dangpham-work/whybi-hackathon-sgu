@@ -97,7 +97,9 @@ class MatchingService:
             raise AppError(403, "FORBIDDEN", "Đây không phải ghi danh của bạn")
         cls = self.db.get(ClassSection, e.class_id)
         if cls and cls.status != "ACTIVE":
-            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể thay đổi nguyện vọng ghép cặp")
+            raise AppError(
+                403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể thay đổi nguyện vọng ghép cặp"
+            )
         e.peer_opt_in = opt_in
         if not opt_in:
             # BR-10: tắt tham gia ⇒ từ chối mọi gợi ý đang chờ của SV ở lớp này
