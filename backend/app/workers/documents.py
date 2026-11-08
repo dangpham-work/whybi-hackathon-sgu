@@ -659,6 +659,19 @@ class TreeDrafter:
         keep = {n for a, b in ranges or [] for n in range(a, b + 1)}
         return [p for p in pages if p["number"] not in skip and (not keep or p["number"] in keep)]
 
+    def _toc_chapters(self, doc: Any) -> list[tuple[str, int, int]] | None:
+        """Chương (tiêu đề, trang đầu, trang cuối) từ mục lục đã dò – nhãn chương ổn định cho nút. Không có ⇒ None."""
+        try:
+            toc = json.loads(self.storage.get(sibling_url(doc.file_url, doc.class_id, toc_key(doc.class_id, doc.id))))
+            out = [
+                (c["title"], c["startPage"], c["endPage"])
+                for c in toc.get("chapters", [])
+                if c.get("title") and c.get("startPage") and c.get("endPage")
+            ]
+            return out or None
+        except (StorageUnavailable, KeyError, ValueError):
+            return None
+
     def run(
         self,
         document_id: UUID,
@@ -697,7 +710,7 @@ class TreeDrafter:
 
             demo_tree = False
             try:
-                body = self.builder.build(pages, prog)
+                body = self.builder.build(pages, prog, toc_chapters=self._toc_chapters(doc))
             except AppError as exc:
                 if not demo.active(exc):
                     raise
@@ -718,7 +731,7 @@ class TreeDrafter:
                 log.warning("job %s: không nhúng được giáo trình, bỏ qua: %s", job_id, exc.message)
             if not lazy_rubric:
                 prog(95, "RUBRICS")
-                missing = self._rubrics(trees, doc.class_id, version, user, only_missing=demo_tree)
+                missing = self._rubrics(trees, doc.class_id, version, user, only_missing=demo_tree, document_id=doc.id)
                 if missing:
                     doc.error_message = f"{missing} nút chưa sinh được rubric – hãy bấm sinh lại ở từng nút"
                     self.db.commit()
@@ -755,8 +768,17 @@ class TreeDrafter:
             return 0
         return self._rubrics(trees, class_id, version, user, only_missing=True)
 
-    def _rubrics(self, trees: Any, class_id: UUID, version: Any, user: Any, only_missing: bool = False) -> int:
+    def _rubrics(
+        self,
+        trees: Any,
+        class_id: UUID,
+        version: Any,
+        user: Any,
+        only_missing: bool = False,
+        document_id: UUID | None = None,
+    ) -> int:
         """Sinh rubric (chưa duyệt) cho mọi nút: truy hồi tuần tự trên phiên CSDL, LLM chạy song song, ghi tuần tự.
+        `document_id`: chỉ truy hồi đoạn của giáo trình đang dựng (lớp có nhiều giáo trình thì không lẫn trang).
         Trả số nút bị lỗi (nút đó để trống, GV bấm sinh lại)."""
         from app.ai import demo
         from app.ai.agents.rubric_generator import TOP_PASSAGES, RubricGenerator, class_params, query_for
@@ -770,7 +792,7 @@ class TreeDrafter:
         jobs, failed = [], 0
         for n in todo:
             try:
-                jobs.append((n, retrieval.retrieve(class_id, query_for(n), TOP_PASSAGES)))
+                jobs.append((n, retrieval.retrieve(class_id, query_for(n), TOP_PASSAGES, document_id=document_id)))
             except AppError as exc:
                 # Cây đã lưu: lỗi truy hồi/nhúng của một nút (kể cả không ở DEMO_MODE) chỉ làm nút đó để trống, GV sinh
                 # lại sau; không làm hỏng cả job.

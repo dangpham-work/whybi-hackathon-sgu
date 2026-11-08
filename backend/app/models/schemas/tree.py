@@ -59,6 +59,11 @@ class Node(ApiModel):
     title: str = Field(max_length=200)
     description: str | None = None
     chapter_ref: str | None = None
+    source_page_start: int | None = None  # trang đầu / cuối trong giáo trình nơi khái niệm được trích (C1-20)
+    source_page_end: int | None = None
+    aliases: list[
+        str
+    ] = []  # key cũ của các nút đã gộp vào nút này: MasteryService ghép ô thành thạo theo key hoặc alias
     bloom_level: BloomLevel = BloomLevel.UNDERSTAND
     position_x: float | None = None
     position_y: float | None = None

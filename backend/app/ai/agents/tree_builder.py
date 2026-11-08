@@ -9,6 +9,7 @@ Nội dung giáo trình luôn là DỮ LIỆU (bọc `<syllabus_text>`).
 
 import math
 import re
+import unicodedata
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ FALLBACK_PAGES = 5  # giáo trình không có tiêu đề "Chương" ⇒ gom m�
 MAX_CONCEPTS = 12  # mỗi chương / phần
 TOP_SIMILAR = 3  # ứng viên theo embedding gần nhất cho mỗi nút
 MAX_CANDIDATES = 6
+MIN_CANDIDATE_COSINE = 0.35  # ứng viên chỉ-theo-embedding phải đủ gần; không đủ thì bỏ, đỡ cạnh rác và đỡ lượt gọi LLM
 LLM_WORKERS = 8  # MT1: 30 trang ≤ 3 phút ⇒ gọi LLM song song
 
 _CHAPTER = re.compile(r"^\s*(chương|bài|phần)\s+(\d+|[ivxlc]+)\b", re.I)
@@ -40,6 +42,13 @@ class Concept(BaseModel):
     description: str = Field(max_length=400)
     chapter_ref: str
     bloom_level: BloomLevel
+
+
+class Located(Concept):
+    """Khái niệm kèm vị trí trong giáo trình (hệ thống gắn, không phải LLM trả): khoảng trang của đoạn nguồn."""
+
+    page_from: int | None = None
+    page_to: int | None = None
 
 
 class ConceptList(BaseModel):
@@ -82,6 +91,22 @@ class MergeDecision(BaseModel):
 class Chapter:
     ref: str
     text: str
+    page_from: int | None = None
+    page_to: int | None = None
+
+
+def _norm(s: str) -> str:
+    """Hạ chữ thường (NFC), bỏ dấu câu, gộp khoảng trắng – so tên khái niệm theo từ nguyên vẹn."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", unicodedata.normalize("NFC", s).casefold())).strip()
+
+
+def _unit(v: list[float]) -> list[float]:
+    n = math.sqrt(sum(x * x for x in v))
+    return [x / n for x in v] if n else v
+
+
+def _dot(a: list[float], b: list[float]) -> float:
+    return sum(x * y for x, y in zip(a, b, strict=False))
 
 
 def _fixed_groups(pages: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
@@ -104,16 +129,26 @@ def split_chapters(pages: list[dict[str, Any]]) -> list[Chapter]:
         ref = ref or f"Trang {ps[0]['number']}–{ps[-1]['number']}"
         buf: list[str] = []
         size = 0
+        first = last = None
         for p in ps:
             text = f"[Trang {p['number']}]\n{p['text'].strip()}"[:MAX_CHAPTER_CHARS]
             if buf and size + len(text) > MAX_CHAPTER_CHARS:
-                out.append(Chapter(ref, "\n\n".join(buf)))
-                buf, size = [], 0
+                out.append(Chapter(ref, "\n\n".join(buf), first, last))
+                buf, size, first = [], 0, None
             buf.append(text)
             size += len(text)
+            first = p["number"] if first is None else first
+            last = p["number"]
         if buf:
-            out.append(Chapter(ref, "\n\n".join(buf)))
+            out.append(Chapter(ref, "\n\n".join(buf), first, last))
     return [c for c in out if re.sub(r"\[Trang \d+\]|\s", "", c.text)]
+
+
+def _toc_chapter(toc: list[tuple[str, int, int]] | None, page: int | None) -> str | None:
+    """Tiêu đề chương trong mục lục chứa `page` (cắt 100 ký tự cho vừa cột)."""
+    if not toc or page is None:
+        return None
+    return next((t[:100] for t, start, end in toc if start <= page <= end), None)
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -135,7 +170,12 @@ class TreeBuilder:
             {"role": "system", "content": system},
             {"role": "user", "content": wrap_student_text(ch.text, "syllabus_text")},
         ]
-        return self.gw.call_json(ConceptList, msgs).concepts[: self.max_concepts]
+        found = self.gw.call_json(ConceptList, msgs).concepts[: self.max_concepts]
+        # chương do hệ thống tách (không tin chữ LLM tự viết) + khoảng trang của đoạn nguồn
+        return [
+            Located(**{**c.model_dump(), "chapter_ref": ch.ref[:100]}, page_from=ch.page_from, page_to=ch.page_to)
+            for c in found
+        ]
 
     def extract_concepts(
         self, chapters: list[Chapter], step: Callable[[int, str], None] | None = None
@@ -153,22 +193,46 @@ class TreeBuilder:
         return out
 
     def dedupe(self, concepts: list[Concept]) -> list[Concept]:
-        """Gộp trùng: cosine(tiêu đề + mô tả) ≥ 0,9 với khái niệm đã giữ ⇒ LLM xác nhận; giữ tên theo giáo trình
-        (bản xuất hiện trước). Khóa trùng nhưng khác khái niệm ⇒ đổi khóa `_2`, `_3`…"""
-        vecs = self.gw.embed([f"{c.title}. {c.description}" for c in concepts])
+        """Gộp trùng, giữ tên theo giáo trình (bản xuất hiện trước):
+        1. cùng tên sau chuẩn hóa (hoa/thường, dấu câu, khoảng trắng) ⇒ gộp luôn, không tốn lượt LLM;
+        2. không thì lấy bản đã giữ GIỐNG NHẤT, cosine(tiêu đề + mô tả) ≥ 0,9 ⇒ LLM xác nhận.
+        Gộp thì giữ mô tả đầy đủ hơn. Khóa trùng nhưng khác khái niệm ⇒ đổi khóa `_2`, `_3`…
+        Vectơ giữ lại trong `_vecs` để bước chọn ứng viên tiên quyết dùng lại (chỉ embed một lần)."""
+        texts = [f"{c.title}. {c.description}" for c in concepts]
+        vecs = [_unit(v) for v in self.gw.embed(texts)]
         kept: list[Concept] = []
         kept_vecs: list[list[float]] = []
-        for c, v in zip(concepts, vecs, strict=True):
-            twin = next((i for i, kv in enumerate(kept_vecs) if cosine(v, kv) >= MERGE_COSINE), None)
-            if twin is not None and self._same(kept[twin], c):
+        kept_texts: list[str] = []
+        by_name: dict[str, int] = {}
+        for c, v, text in zip(concepts, vecs, texts, strict=True):
+            twin = by_name.get(_norm(c.title))
+            if twin is None and kept_vecs:
+                best = max(range(len(kept_vecs)), key=lambda i: _dot(v, kept_vecs[i]))
+                if _dot(v, kept_vecs[best]) >= MERGE_COSINE and self._same(kept[best], c):
+                    twin = best
+            if twin is not None:
+                if len(c.description) > len(kept[twin].description):
+                    kept[twin] = kept[twin].model_copy(update={"description": c.description})
+                    kept_texts[twin] = f"{kept[twin].title}. {c.description}"
                 continue
             used = {k.key for k in kept}
             key, n = c.key, 2
             while key in used:
                 key, n = f"{c.key[:55]}_{n}", n + 1
+            by_name.setdefault(_norm(c.title), len(kept))
             kept.append(c.model_copy(update={"key": key}))
             kept_vecs.append(v)
+            kept_texts.append(text)
+        self._vecs = {k.key: (t, v) for k, t, v in zip(kept, kept_texts, kept_vecs, strict=True)}
         return kept
+
+    def _vectors(self, concepts: list[Concept]) -> list[list[float]]:
+        """Vectơ đã chuẩn hóa độ dài; dùng lại kết quả của `dedupe` nếu cùng khóa và cùng nội dung."""
+        texts = [f"{c.title}. {c.description}" for c in concepts]
+        cache = getattr(self, "_vecs", {})
+        if all(c.key in cache and cache[c.key][0] == t for c, t in zip(concepts, texts, strict=True)):
+            return [cache[c.key][1] for c in concepts]
+        return [_unit(v) for v in self.gw.embed(texts)]
 
     def _same(self, a: Concept, b: Concept) -> bool:
         system = render_prompt(
@@ -183,15 +247,18 @@ class TreeBuilder:
     # --- 6.1.3 ---
 
     def candidate_pairs(self, concepts: list[Concept]) -> dict[str, list[Concept]]:
-        """Với mỗi B: A đứng trước B trong giáo trình và (mô tả B nhắc tên A, hoặc A nằm trong TOP_SIMILAR nút
-        gần B nhất theo embedding). Số cặp ~ O(n) thay vì O(n²)."""
-        vecs = self.gw.embed([f"{c.title}. {c.description}" for c in concepts])
+        """Với mỗi B: A đứng trước B trong giáo trình và (mô tả B nhắc tên A nguyên từ, hoặc A nằm trong TOP_SIMILAR
+        nút gần B nhất theo embedding VÀ cosine ≥ MIN_CANDIDATE_COSINE). Quá MAX_CANDIDATES thì giữ ứng viên được
+        nhắc tên rồi giống nhất, không cắt theo thứ tự xuất hiện. Không có ứng viên ⇒ không tốn lượt LLM."""
+        vecs = self._vectors(concepts)
+        names = [_norm(c.title) for c in concepts]
+        descs = [f" {_norm(c.description)} " for c in concepts]
         out: dict[str, list[Concept]] = {}
         for j, b in enumerate(concepts):
-            before = range(j)
-            named = {i for i in before if concepts[i].title.lower() in b.description.lower()}
-            near = sorted(before, key=lambda i: cosine(vecs[i], vecs[j]), reverse=True)[:TOP_SIMILAR]
-            picked = sorted(named | set(near))[-MAX_CANDIDATES:]
+            sim = {i: _dot(vecs[i], vecs[j]) for i in range(j)}
+            named = sorted((i for i in sim if names[i] and f" {names[i]} " in descs[j]), key=lambda i: -sim[i])
+            near = [i for i in sorted(sim, key=lambda i: -sim[i])[:TOP_SIMILAR] if sim[i] >= MIN_CANDIDATE_COSINE]
+            picked = sorted((named + [i for i in near if i not in named])[:MAX_CANDIDATES])
             if picked:
                 out[b.key] = [concepts[i] for i in picked]
         return out
@@ -226,7 +293,14 @@ class TreeBuilder:
 
     # --- toàn bộ ---
 
-    def build(self, pages: list[dict[str, Any]], on_step: Callable[[int, str], None] | None = None) -> TreeVersion:
+    def build(
+        self,
+        pages: list[dict[str, Any]],
+        on_step: Callable[[int, str], None] | None = None,
+        toc_chapters: list[tuple[str, int, int]] | None = None,
+    ) -> TreeVersion:
+        """`toc_chapters`: [(tiêu đề, trang đầu, trang cuối)] từ mục lục (TocStep) – có thì chương của nút lấy từ đây
+        (ổn định, đúng tên giáo trình), không thì dùng tiêu đề do `split_chapters` tách."""
         step = on_step or (lambda _p, _s: None)
         chapters = split_chapters(pages)
         if not chapters:
@@ -246,7 +320,9 @@ class TreeBuilder:
                 code=f"N{i}",
                 title=c.title,
                 description=c.description,
-                chapter_ref=c.chapter_ref,
+                chapter_ref=_toc_chapter(toc_chapters, getattr(c, "page_from", None)) or c.chapter_ref,
+                source_page_start=getattr(c, "page_from", None),
+                source_page_end=getattr(c, "page_to", None),
                 bloom_level=c.bloom_level,
             )
             for i, c in enumerate(concepts, 1)

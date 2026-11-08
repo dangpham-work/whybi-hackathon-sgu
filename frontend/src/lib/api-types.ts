@@ -2074,6 +2074,15 @@ export interface components {
             description?: string | null;
             /** Chapterref */
             chapterRef?: string | null;
+            /** Sourcepagestart */
+            sourcePageStart?: number | null;
+            /** Sourcepageend */
+            sourcePageEnd?: number | null;
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: string[];
             /** @default UNDERSTAND */
             bloomLevel: components["schemas"]["BloomLevel"];
             /** Positionx */

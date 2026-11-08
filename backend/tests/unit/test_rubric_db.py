@@ -234,3 +234,53 @@ def test_dung_lai_thanh_cong_xoa_thong_bao_loi_cu(world):
     assert drafter.run(doc.id, "job-7") is not None
     world.db.refresh(doc)
     assert doc.error_message is None
+
+
+def test_truy_hoi_co_the_gioi_han_theo_mot_tai_lieu(world):
+    """Lớp có hai giáo trình: rubric của tài liệu đang dựng không được trích trang của tài liệu kia."""
+    gw = RagGateway()
+    doc_a, _, _ = _setup(world, gw)
+    doc_b = SyllabusDocument(
+        id=uuid4(),
+        class_id=world.class_id,
+        uploaded_by=world.gv,
+        file_url="s3://whybi/syllabi/x/b.pdf",
+        file_type="pdf",
+        status="PARSED",
+    )
+    world.db.add(doc_b)
+    world.db.commit()
+    other = [{"number": 90, "text": "con trỏ trong tài liệu khác hẳn", "headings": ["Chương 9"], "ocr": False}]
+    svc = RetrievalService(world.db, gw)
+    svc.index_document(doc_a.id, PAGES)
+    svc.index_document(doc_b.id, other)
+    only_a = svc.retrieve(world.class_id, "con trỏ", 10, document_id=doc_a.id)
+    assert only_a and all(p.page_from < 90 for p in only_a)
+    both = svc.retrieve(world.class_id, "con trỏ", 10)
+    assert any(p.page_from == 90 for p in both)  # không giới hạn thì vẫn thấy cả hai
+
+
+def test_dung_cay_truy_hoi_rubric_theo_tai_lieu_dang_dung_va_chuong_tu_muc_luc(world, monkeypatch):
+    from app.services import retrieval as retrieval_mod
+    from app.services.syllabus import toc_key
+
+    seen = []
+    real = retrieval_mod.RetrievalService.retrieve
+
+    def spy(self, class_id, query, k, *a, **kw):
+        seen.append(kw.get("document_id"))
+        return real(self, class_id, query, k, *a, **kw)
+
+    monkeypatch.setattr(retrieval_mod.RetrievalService, "retrieve", spy)
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    toc = {"chapters": [{"index": 1, "title": "Chương 2. Con trỏ (mục lục)", "startPage": 3, "endPage": 3}]}
+    drafter.storage.put(toc_key(world.class_id, doc.id), json.dumps(toc).encode(), "application/json")
+    assert drafter.run(doc.id, "job-8") is not None
+    assert seen and set(seen) == {doc.id}
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    con_tro = next(n for n in nodes if n["key"] == "con_tro")
+    assert con_tro["chapterRef"] == "Chương 2. Con trỏ (mục lục)"
+    assert (con_tro["sourcePageStart"], con_tro["sourcePageEnd"]) == (3, 3)
+    mang = next(n for n in nodes if n["key"] == "mang")
+    assert mang["chapterRef"] == "Chương 3 Mảng"  # không có trong mục lục ⇒ tiêu đề do hệ thống tách
