@@ -7,25 +7,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-HO = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ", "Ngô", "Dương", "Lý"]
-TEN_DEM_NAM = ["Văn", "Minh", "Đức", "Hữu", "Quang", "Thành", "Công", "Gia", "Bảo", "Anh"]
-TEN_DEM_NU = ["Thị", "Thu", "Ngọc", "Thanh", "Diễm", "Kim", "Hồng", "Phương", "Mỹ", "Ánh"]
+HO = [
+    "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng",
+    "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý", "Đinh", "Đoàn", "Lâm", "Trịnh",
+    "Mai", "Đào", "Cao", "Hà", "Lưu",
+]
+TEN_DEM_NAM = [
+    "Văn", "Minh", "Đức", "Hữu", "Quang", "Thành", "Công", "Gia", "Bảo", "Anh",
+    "Quốc", "Tuấn", "Hoàng", "Trọng", "Đình",
+]
+TEN_DEM_NU = [
+    "Thị", "Thu", "Ngọc", "Thanh", "Diễm", "Kim", "Hồng", "Phương", "Mỹ", "Ánh",
+    "Thảo", "Khánh", "Tuyết", "Mai", "Như",
+]
 TEN_NAM = [
     "An", "Bình", "Cường", "Dũng", "Đạt", "Hải", "Hùng", "Khang", "Long", "Minh",
-    "Nam", "Phúc", "Quân", "Sơn", "Tài", "Tuấn", "Việt", "Vinh",
+    "Nam", "Phúc", "Quân", "Sơn", "Tài", "Tuấn", "Việt", "Vinh", "Khoa", "Hiếu",
+    "Huy", "Thịnh", "Trí", "Kiên", "Lâm", "Tú", "Bách", "Nghĩa", "Phát", "Lộc",
 ]  # fmt: skip
 TEN_NU = [
     "Anh", "Chi", "Châu", "Giang", "Hà", "Hoa", "Huyền", "Lan", "Linh", "Mai",
-    "My", "Nga", "Ngân", "Nhi", "Thảo", "Trang", "Vy", "Yến",
+    "My", "Nga", "Ngân", "Nhi", "Thảo", "Trang", "Vy", "Yến", "Trâm", "Quỳnh",
+    "Hương", "Tú", "Tiên", "Vân", "Ngọc", "Duyên", "Đan", "Thy", "Oanh", "Ly",
 ]  # fmt: skip
 
 
 def _ten(i: int) -> str:
-    """Tên đầy đủ tất định theo chỉ số – xen nam/nữ, không lặp trong 90 SV đầu (bộ tên đủ lớn)."""
-    ho = HO[i % len(HO)]
+    """Tên đầy đủ tất định theo chỉ số – xen nam/nữ, 150 tên hoàn toàn khác nhau cho 5 lớp."""
     nu = i % 2 == 0
-    dem = (TEN_DEM_NU if nu else TEN_DEM_NAM)[i % 10]
-    ten = (TEN_NU if nu else TEN_NAM)[(i * 7) % 18]
+    ho = HO[i % len(HO)]
+    dem = (TEN_DEM_NU if nu else TEN_DEM_NAM)[(i // len(HO)) % 15]
+    ten = (TEN_NU if nu else TEN_NAM)[(i * 7 + (i // 5)) % 30]
     return f"{ho} {dem} {ten}"
 
 
