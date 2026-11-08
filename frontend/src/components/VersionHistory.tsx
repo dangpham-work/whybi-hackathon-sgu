@@ -12,10 +12,20 @@ type Diff = Schema<"TreeDiff">;
 const vn = (iso?: string | null) => (iso ? new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "");
 
 /**
- * Lịch sử phiên bản cây (FR-SK-10, GD-14): danh sách, so sánh hai bản theo key nút, khôi phục một bản cũ thành bản nháp mới.
+ * Lịch sử phiên bản cây (FR-SK-10, GD-14): danh sách, so sánh hai bản theo key nút, tạo bản nháp mới từ một bản cũ (#197).
  * `onRestored` nhận bản nháp vừa tạo để GV-04 chuyển sang sửa tiếp.
  */
-export function VersionHistory({ classId, nodeTitle, onRestored }: { classId: string; nodeTitle: (key: string) => string; onRestored: (draft: Version) => void }) {
+export function VersionHistory({
+  classId,
+  currentDraftVersionNo,
+  nodeTitle,
+  onRestored,
+}: {
+  classId: string;
+  currentDraftVersionNo?: number | null;
+  nodeTitle: (key: string) => string;
+  onRestored: (draft: Version, fromVersionNo: number) => void;
+}) {
   const versions = useApi((signal) => apiCall("get", "/classes/{class_id}/tree-versions", { path: { class_id: classId }, signal }), [classId]);
   const [picked, setPicked] = useState<string[]>([]);
   const [diff, setDiff] = useState<Diff>();
@@ -66,12 +76,17 @@ export function VersionHistory({ classId, nodeTitle, onRestored }: { classId: st
                     </label>
                     <button
                       type="button"
-                      disabled={busy}
-                      aria-label={`Khôi phục v${v.versionNo}`}
-                      onClick={() => run(() => apiCall("post", "/tree-versions/{version_id}/restore", { path: { version_id: v.id! } }), onRestored)}
+                      disabled={busy || (currentDraftVersionNo != null && v.versionNo === currentDraftVersionNo)}
+                      aria-label={`Tạo bản nháp từ v${v.versionNo}`}
+                      onClick={() =>
+                        run(
+                          () => apiCall("post", "/tree-versions/{version_id}/restore", { path: { version_id: v.id! } }),
+                          (draft) => onRestored(draft, v.versionNo),
+                        )
+                      }
                       className="inline-flex items-center gap-1 rounded-md border border-line-strong px-2 py-1 text-body-s font-semibold disabled:opacity-50"
                     >
-                      <RotateCcw aria-hidden size={14} /> Khôi phục
+                      <RotateCcw aria-hidden size={14} /> Tạo bản nháp từ v{v.versionNo}
                     </button>
                   </li>
                 );

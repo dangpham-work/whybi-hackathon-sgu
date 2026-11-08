@@ -7,7 +7,17 @@ import { RubricEditor } from "../../components/RubricEditor";
 import { VersionHistory } from "../../components/VersionHistory";
 import { SkillTree, BLOOM_LABEL } from "../../components/SkillTree";
 import { apiCall, errorText, type Schema } from "../../lib/api";
-import { cycleMessage, emptyRubric, isEditable, newNodeKey, publishErrors, unapproved, type Rubric, type TreeVersion } from "../../lib/tree-edit";
+import {
+  cycleMessage,
+  emptyRubric,
+  isEditable,
+  newNodeKey,
+  publishErrorItems,
+  unapproved,
+  type PublishErrorItem,
+  type Rubric,
+  type TreeVersion,
+} from "../../lib/tree-edit";
 import { useApi } from "../../lib/useApi";
 
 const field = "w-full rounded-md border border-line-strong px-3 py-2 text-body-m focus-visible:outline-2 focus-visible:outline-teal";
@@ -30,22 +40,23 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
   const [tree, setTree] = useState(initial);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ kind: "error" | "ok"; lines: string[] }>();
+  const [message, setMessage] = useState<{ kind: "error" | "ok"; items: PublishErrorItem[] }>();
   const [adding, setAdding] = useState(false);
   const [history, setHistory] = useState(false);
   const [title, setTitle] = useState("");
   const editable = isEditable(tree);
   const selected = tree.nodes.find((n) => n.key === selectedKey);
   const missing = unapproved(tree);
+  const nodeTitle = (key: string) => tree.nodes.find((n) => n.key === key)?.title ?? key;
 
   /** Chạy một thao tác ghi: báo lỗi dễ hiểu, không làm mất bản vẽ hiện tại. */
-  async function run(action: () => Promise<void>, onError?: (e: unknown) => string[] | null) {
+  async function run(action: () => Promise<void>, onError?: (e: unknown) => PublishErrorItem[] | null) {
     setBusy(true);
     setMessage(undefined);
     try {
       await action();
     } catch (e) {
-      setMessage({ kind: "error", lines: onError?.(e) ?? [errorText(e)] });
+      setMessage({ kind: "error", items: onError?.(e) ?? [{ text: errorText(e) }] });
     } finally {
       setBusy(false);
     }
@@ -81,17 +92,16 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         edges: t.edges.filter((e) => e.fromKey !== selected.key && e.toKey !== selected.key),
       }));
       setSelectedKey(null);
-      setMessage({ kind: "ok", lines: ["Đã xóa nút. Muốn gộp: sửa nội dung nút còn lại cho đủ ý của cả hai."] });
+      setMessage({ kind: "ok", items: [{ text: "Đã xóa nút. Muốn gộp: sửa nội dung nút còn lại cho đủ ý của cả hai." }] });
     });
   };
-
   const connect = (from: string, to: string) =>
     run(
       async () => {
         const edge = await apiCall("post", "/tree-versions/{version_id}/edges", { path: { version_id: tree.id! }, body: { fromKey: from, toKey: to, source: "LECTURER" } });
         setTree((t) => ({ ...t, edges: [...t.edges, edge] }));
       },
-      (e) => [cycleMessage(e, tree.nodes) ?? errorText(e)],
+      (e) => [{ text: cycleMessage(e, tree.nodes) ?? errorText(e) }],
     );
 
   const removeEdge = (id: string) =>
@@ -114,21 +124,21 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         body: { title: n.title, chapterRef: n.chapterRef, bloomLevel: n.bloomLevel },
       });
       patchNode(n.key, (x) => ({ ...x, ...saved, rubric: x.rubric }));
-      setMessage({ kind: "ok", lines: ["Đã lưu thông tin nút."] });
+      setMessage({ kind: "ok", items: [{ text: "Đã lưu thông tin nút." }] });
     });
 
   const saveRubric = (n: Schema<"Node">, r: Rubric) =>
     run(async () => {
       const saved = await apiCall("put", "/nodes/{node_id}/rubric", { path: { node_id: n.id! }, body: r });
       patchNode(n.key, (x) => ({ ...x, rubric: saved }));
-      setMessage({ kind: "ok", lines: [saved.approved ? "Đã duyệt rubric." : "Đã lưu rubric (chưa duyệt)."] });
+      setMessage({ kind: "ok", items: [{ text: saved.approved ? "Đã duyệt rubric." : "Đã lưu rubric (chưa duyệt)." }] });
     });
 
   const regenerate = (n: Schema<"Node">) =>
     run(async () => {
       const fresh = await apiCall("post", "/nodes/{node_id}/rubric/regenerate", { path: { node_id: n.id! } });
       patchNode(n.key, (x) => ({ ...x, rubric: fresh }));
-      setMessage({ kind: "ok", lines: ["AI đã sinh lại rubric – hãy xem và duyệt."] });
+      setMessage({ kind: "ok", items: [{ text: "AI đã sinh lại rubric – hãy xem và duyệt." }] });
     });
 
   const publish = () =>
@@ -136,9 +146,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       async () => {
         const done = await apiCall("post", "/tree-versions/{version_id}/publish", { path: { version_id: tree.id! } });
         setTree(done);
-        setMessage({ kind: "ok", lines: [`Đã phát hành phiên bản v${done.versionNo} cho lớp.`] });
+        setMessage({ kind: "ok", items: [{ text: `Đã phát hành phiên bản v${done.versionNo} cho lớp.` }] });
       },
-      (e) => publishErrors(e) ?? [errorText(e)],
+      (e) => publishErrorItems(e) ?? [{ text: errorText(e) }],
     );
 
   return (
@@ -190,24 +200,51 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
           </Button>
         </form>
       )}
-      {message && (message.kind === "error" ? <ErrorBox text={message.lines.join(" ")} /> : <p role="status" className="flex items-center gap-2 text-body-m text-teal"><CircleCheck aria-hidden size={16} />{message.lines.join(" ")}</p>)}
-      {message?.kind === "error" && message.lines.length > 1 && (
-        <ul className="list-disc pl-6 text-body-s">
-          {message.lines.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      )}
+      {message &&
+        (message.kind === "error" ? (
+          message.items.length === 1 && !message.items[0]?.nodeKey ? (
+            <ErrorBox text={message.items[0]!.text} />
+          ) : (
+            <div role="alert" className="space-y-1 rounded-lg border border-red-700/40 bg-st-fail/40 p-4 text-body-m text-red-900">
+              <ul className="list-disc space-y-1 pl-5 text-body-s">
+                {message.items.map((item, idx) => (
+                  <li key={`${item.nodeKey ?? idx}-${item.text}`}>
+                    {item.nodeKey ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedKey(item.nodeKey!)}
+                        className="text-left font-medium underline hover:text-ink-900"
+                      >
+                        {item.text}
+                      </button>
+                    ) : (
+                      item.text
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        ) : (
+          <p role="status" className="flex items-center gap-2 text-body-m text-teal">
+            <CircleCheck aria-hidden size={16} />
+            {message.items.map((i) => i.text).join(" ")}
+          </p>
+        ))}
 
       {history && (
         <VersionHistory
           classId={classId}
-          nodeTitle={(key) => tree.nodes.find((n) => n.key === key)?.title ?? key}
-          onRestored={(draft) => {
+          currentDraftVersionNo={editable ? tree.versionNo : null}
+          nodeTitle={nodeTitle}
+          onRestored={(draft, fromVersionNo) => {
             setTree(draft);
             setSelectedKey(null);
             setHistory(false);
-            setMessage({ kind: "ok", lines: [`Đã khôi phục thành bản nháp v${draft.versionNo} – duyệt lại rubric rồi phát hành.`] });
+            setMessage({
+              kind: "ok",
+              items: [{ text: `Đã tạo bản nháp v${draft.versionNo} (Tạo bản nháp từ v${fromVersionNo}) – duyệt lại rubric rồi phát hành.` }],
+            });
           }}
         />
       )}

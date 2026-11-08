@@ -55,6 +55,7 @@ export const FRIENDLY: Record<string, string> = {
   AUDIO_TOO_LARGE: "Tệp ghi âm quá lớn. Hãy ghi ngắn hơn, hoặc gõ chữ.",
   AUDIO_STORE_UNAVAILABLE: "Chưa lưu được bản ghi. Hãy ghi lại sau ít phút, hoặc gõ chữ để giảng tiếp.",
   LLM_UNAVAILABLE: "Whybi đang tạm nghỉ một chút. Lời giảng của bạn vẫn còn – hãy gửi lại sau ít phút.",
+  NO_SOURCE_MATERIAL: "Lớp chưa có giáo trình đã xử lý – hãy tải giáo trình lên trước rồi thử lại.",
 };
 
 const BY_STATUS: [test: (s: number) => boolean, text: string][] = [
