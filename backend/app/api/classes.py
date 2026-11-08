@@ -91,6 +91,12 @@ def list_my_classes(classes: Classes, user: CurrentUser = LecturerOrStudent) -> 
     return [ClassOut.of(v) for v in classes.list_for(user)]
 
 
+@router.get("/classes/{class_id}", response_model=ClassOut)
+def get_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrStudent) -> ClassOut:
+    """Chi tiết một lớp học phần."""
+    return ClassOut.of(classes.get_view(class_id))
+
+
 @router.post("/classes", response_model=ClassOut, status_code=201)
 def create_class(body: ClassCreate, classes: Classes, user: CurrentUser = Lecturer) -> ClassOut:
     """Tạo lớp, sinh mã tham gia 8 ký tự (FR-SK-01). Môn không có ⇒ 404 COURSE_NOT_FOUND."""

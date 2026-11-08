@@ -4,9 +4,11 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
+from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.schemas.matching import (
     MatchAdjust,
@@ -18,6 +20,7 @@ from app.models.schemas.matching import (
     RoundOut,
     RoundRequest,
 )
+from app.models.users import Enrollment
 from app.services.live_matching import LiveMatching
 from app.services.matching import MatchingService
 
@@ -70,6 +73,24 @@ def list_matches(class_id: UUID, svc: Matching, user: CurrentUser = LecturerOrSt
 def peer_opt_in(enrollment_id: UUID, body: OptIn, svc: Matching, user: CurrentUser = Student) -> OptIn:
     """FR-PM-01 / BR-10: tắt tham gia ⇒ các gợi ý đang chờ của SV bị từ chối."""
     return OptIn(peer_opt_in=svc.set_opt_in(enrollment_id, user, body.peer_opt_in))
+
+
+@router.get("/classes/{class_id}/peer-opt-in", response_model=OptIn)
+def get_class_peer_opt_in(class_id: UUID, db: Session = Depends(get_db), user: CurrentUser = Student) -> OptIn:
+    """FR-PM-01: Lấy trạng thái tham gia ghép cặp của SV ở lớp này."""
+    enr = db.scalar(select(Enrollment).where(Enrollment.class_id == class_id, Enrollment.student_id == user.id))
+    if enr is None:
+        raise AppError(403, "NOT_ENROLLED", "Bạn chưa tham gia lớp này")
+    return OptIn(peer_opt_in=bool(enr.peer_opt_in))
+
+
+@router.put("/classes/{class_id}/peer-opt-in", response_model=OptIn)
+def set_class_peer_opt_in(class_id: UUID, body: OptIn, svc: Matching, user: CurrentUser = Student) -> OptIn:
+    """FR-PM-01 / BR-10: Bật / tắt tham gia ghép cặp theo lớp."""
+    enr = svc.db.scalar(select(Enrollment).where(Enrollment.class_id == class_id, Enrollment.student_id == user.id))
+    if enr is None:
+        raise AppError(403, "NOT_ENROLLED", "Bạn chưa tham gia lớp này")
+    return OptIn(peer_opt_in=svc.set_opt_in(enr.id, user, body.peer_opt_in))
 
 
 @router.post("/matches/{match_id}/{action}", response_model=MatchOut)

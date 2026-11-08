@@ -55,6 +55,7 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/notifications/{notification_id}/read"): BAT_KY,
     # Lớp
     ("GET", "/classes"): frozenset({GV, SV}),
+    ("GET", "/classes/{class_id}"): frozenset({GV, SV}),
     ("POST", "/classes"): frozenset({GV}),
     ("POST", "/classes/join"): frozenset({SV}),
     ("POST", "/classes/{class_id}/syllabi"): frozenset({GV}),
@@ -103,6 +104,8 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/classes/{class_id}/review-windows"): frozenset({GV}),
     ("GET", "/classes/{class_id}/matches"): frozenset({GV, SV}),  # SV-07 cặp của mình; GV-09 mọi cặp lớp mình
     ("PUT", "/enrollments/{enrollment_id}/peer-opt-in"): frozenset({SV}),
+    ("GET", "/classes/{class_id}/peer-opt-in"): frozenset({SV}),
+    ("PUT", "/classes/{class_id}/peer-opt-in"): frozenset({SV}),
     ("POST", "/matches/{match_id}/{action}"): frozenset({SV}),
     # Quản trị: tài khoản, môn học, cấu hình AI, hạn mức – QTV; cờ vi phạm – GV (lớp mình) + QTV
     ("GET", "/admin/users"): frozenset({QTV}),

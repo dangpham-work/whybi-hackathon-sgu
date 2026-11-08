@@ -68,6 +68,9 @@ class ClassService:
             raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
         return cls
 
+    def get_view(self, class_id: UUID) -> ClassView:
+        return self._view(self._get(class_id))
+
     def info(self, class_id: UUID) -> ClassSection:
         """Bản ghi lớp – lời gọi nội bộ (báo cáo C2-20), không kiểm quyền."""
         return self._get(class_id)
