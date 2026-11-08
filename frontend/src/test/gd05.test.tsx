@@ -33,6 +33,8 @@ afterEach(() => {
   setToken(null);
 });
 
+const COURSE = "8a0c2f7e-1d2b-4c3a-9e8f-7a6b5c4d3e2f";
+
 describe("GV-01 Danh sách lớp (GD-05)", () => {
   it("liệt kê lớp, tổng hợp số liệu và gợi ý việc tiếp theo theo trạng thái cây", async () => {
     mockApi({ ...me, "GET /classes": ok([CTDL, OS]) });
@@ -43,6 +45,59 @@ describe("GV-01 Danh sách lớp (GD-05)", () => {
     expect(within(list).getByRole("link", { name: /Bản đồ nhiệt/ }).getAttribute("href")).toBe("/gv/classes/c1/heatmap");
     expect(within(list).getByRole("link", { name: /Tải giáo trình/ }).getAttribute("href")).toBe("/gv/classes/c2/syllabus");
     expect(within(list).getByRole("button", { name: "Chép mã tham gia K7M2PQ4A" })).toBeTruthy();
+  });
+
+  it("chưa có lớp nào thì nhắc tạo lớp", async () => {
+    mockApi({ ...me, "GET /classes": ok([]) });
+    open("/gv/classes");
+    expect(await screen.findByText(/Bạn chưa có lớp học phần nào/)).toBeTruthy();
+  });
+
+  it("tạo lớp học phần: gửi courseId, tên, học kỳ; lớp mới hiện đầu danh sách kèm mã tham gia", async () => {
+    const created = { id: "c-new", name: "Mạng máy tính – Nhóm 03", semester: "HK1 2026–2027", joinCode: "MMT3XY7Q", studentCount: 0, treeStatus: null };
+    const api = mockApi({ ...me, "GET /classes": ok([CTDL]), "POST /classes": ok(created, 201) });
+    open("/gv/classes");
+    fireEvent.click(await screen.findByRole("button", { name: /Tạo lớp học phần/ }));
+    const form = screen.getByRole("form", { name: "Tạo lớp học phần" });
+    fireEvent.change(within(form).getByLabelText("Mã môn học"), { target: { value: ` ${COURSE} ` } });
+    fireEvent.change(within(form).getByLabelText("Tên lớp"), { target: { value: "Mạng máy tính – Nhóm 03" } });
+    fireEvent.change(within(form).getByLabelText("Học kỳ"), { target: { value: "HK1 2026–2027" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Tạo lớp" }));
+
+    await waitFor(() => expect(api.called("POST /classes")).toHaveLength(1));
+    expect(api.called("POST /classes")[0].body).toEqual({ courseId: COURSE, name: "Mạng máy tính – Nhóm 03", semester: "HK1 2026–2027" });
+    expect((await screen.findByRole("status", { name: "Kết quả tạo lớp" })).textContent).toContain("MMT3XY7Q");
+    const cards = within(screen.getByRole("list", { name: "Lớp học phần" })).getAllByRole("listitem");
+    expect(within(cards[0]).getByRole("heading", { name: "Mạng máy tính – Nhóm 03" })).toBeTruthy();
+    expect(cards).toHaveLength(2);
+  });
+
+  it("mã môn học không phải UUID thì chặn ngay, không gọi API", async () => {
+    const api = mockApi({ ...me, "GET /classes": ok([]) });
+    open("/gv/classes");
+    fireEvent.click(await screen.findByRole("button", { name: /Tạo lớp học phần/ }));
+    const form = screen.getByRole("form", { name: "Tạo lớp học phần" });
+    fireEvent.change(within(form).getByLabelText("Mã môn học"), { target: { value: "CTDL" } });
+    fireEvent.change(within(form).getByLabelText("Tên lớp"), { target: { value: "Lớp A" } });
+    fireEvent.change(within(form).getByLabelText("Học kỳ"), { target: { value: "HK1" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Tạo lớp" }));
+    expect((await within(form).findByRole("alert")).textContent).toContain("Mã môn học");
+    expect(api.called("POST /classes")).toHaveLength(0);
+  });
+
+  it.each([
+    [404, "COURSE_NOT_FOUND", "Không tìm thấy môn học"],
+    [403, "LECTURER_PROFILE_MISSING", "chưa có hồ sơ giảng viên"],
+  ])("tạo lớp lỗi %i %s hiện câu dễ hiểu", async (status, code, text) => {
+    mockApi({ ...me, "GET /classes": ok([]), "POST /classes": err(status, code) });
+    open("/gv/classes");
+    fireEvent.click(await screen.findByRole("button", { name: /Tạo lớp học phần/ }));
+    const form = screen.getByRole("form", { name: "Tạo lớp học phần" });
+    fireEvent.change(within(form).getByLabelText("Mã môn học"), { target: { value: COURSE } });
+    fireEvent.change(within(form).getByLabelText("Tên lớp"), { target: { value: "Lớp A" } });
+    fireEvent.change(within(form).getByLabelText("Học kỳ"), { target: { value: "HK1" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Tạo lớp" }));
+    expect((await within(form).findByRole("alert")).textContent).toContain(text);
   });
 });
 
