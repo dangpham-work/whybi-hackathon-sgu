@@ -6,8 +6,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
-from app.ai.gateway import configure_llm
+from app.ai.gateway import configure_llm, get_current_ai_config
 from app.api.deps import Admin, AnyUser, CurrentUser, LecturerOrAdmin, get_revocations
+from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.enums import ProviderKind, Role
@@ -71,6 +72,31 @@ def list_audit_logs(
 ) -> list[AuditLogOut]:
     """Nhật ký thao tác quản trị, mới nhất trước (FR-AD-07)."""
     return AdminService(db).list_audit(min(max(limit, 1), 500), max(offset, 0))
+
+
+@router.get("/admin/ai-config", response_model=AIConfig)
+def get_ai_config(user: CurrentUser = Admin, settings: Settings = Depends(get_settings)) -> AIConfig:
+    """Đọc cấu hình nhà cung cấp LLM/STT/TTS hiện hành (FR-AD-05)."""
+    cfg = get_current_ai_config()
+    return AIConfig(
+        llm=ProviderConfig(
+            kind=ProviderKind.LLM,
+            provider=cfg["provider"] or settings.llm_provider,
+            model=cfg["model"] or settings.llm_model,
+            fallback_provider=cfg.get("fallback_provider") or settings.llm_fallback_provider,
+            fallback_model=cfg.get("fallback_model") or settings.llm_fallback_model,
+        ),
+        stt=ProviderConfig(
+            kind=ProviderKind.STT,
+            provider=settings.stt_provider,
+            model="default",
+        ),
+        tts=ProviderConfig(
+            kind=ProviderKind.TTS,
+            provider=settings.tts_provider,
+            model="default",
+        ),
+    )
 
 
 @router.put("/admin/ai-config", response_model=AIConfig)

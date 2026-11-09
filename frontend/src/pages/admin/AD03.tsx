@@ -1,5 +1,5 @@
 import { Save } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AdminPage, fieldCls, Panel } from "../../components/admin-ui";
 import { ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
@@ -26,7 +26,7 @@ const ERR: Record<string, string> = {
 
 /**
  * AD-03 Cấu hình nhà cung cấp AI (FR-AD-05, GD-15): đổi model chính / dự phòng không sửa code.
- * Backend chỉ có PUT /admin/ai-config (chưa có GET để đọc cấu hình hiện hành) nên biểu mẫu bắt đầu từ giá trị mặc định.
+ * Nạp cấu hình hiện hành từ GET /admin/ai-config, lưu bằng PUT /admin/ai-config.
  */
 export default function AdminAiConfig() {
   const [cfg, setCfg] = useState<Config>(START);
@@ -34,6 +34,18 @@ export default function AdminAiConfig() {
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<string>();
   const set = (k: "llm" | "stt" | "tts", patch: Partial<Provider>) => setCfg((c) => ({ ...c, [k]: { ...c[k], ...patch } }));
+
+  useEffect(() => {
+    let active = true;
+    apiCall("get", "/admin/ai-config" as any)
+      .then((c) => {
+        if (active && c) setCfg(c as Config);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

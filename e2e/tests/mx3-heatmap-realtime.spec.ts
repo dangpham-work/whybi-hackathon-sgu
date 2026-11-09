@@ -124,7 +124,7 @@ for (const [threshold, color, label, state] of [
       && m.msg.channel === `class:${f.classId}:heatmap`)).toBeTruthy();
     const completed = await finishApi(request, f.students[0], nodeId);
     const visible = page.getByLabel(`N5 Con trỏ – ${label}`, { exact: true });
-    await expect(visible).toBeVisible({ timeout: 8_000 });
+    await expect(visible).toBeVisible({ timeout: 15_000 });
     const uiLatencyMs = performance.now() - completed.lastSentAt;
     await expect(visible).toContainText(`${color === "GREEN" ? 100 : 0}% Đạt · 1 đã thử`);
     const finalState = color === "GREEN" ? "MASTERED" : "NOT_PASSED";

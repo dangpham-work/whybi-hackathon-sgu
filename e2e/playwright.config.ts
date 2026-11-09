@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost",

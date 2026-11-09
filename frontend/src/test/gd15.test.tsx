@@ -101,8 +101,18 @@ describe("AD-02 Môn học, AD-04 Hạn mức, AD-05 Cờ (GD-15)", () => {
 });
 
 describe("AD-03 Cấu hình AI (GD-15)", () => {
-  it("QTV đổi được model dự phòng từ giao diện", async () => {
-    const m = mockApi({ ...admin, "PUT /admin/ai-config": ({ body }) => ok(body) });
+  it("QTV nạp và đổi được model dự phòng từ giao diện", async () => {
+    const currentCfg = {
+      llm: { kind: "LLM", provider: "gemini", model: "gemini-2.5-flash", fallbackProvider: null, fallbackModel: null, params: {}, quota: {} },
+      stt: { kind: "STT", provider: "fake", model: "default", params: {}, quota: {} },
+      tts: { kind: "TTS", provider: "fake", model: "default", params: {}, quota: {} },
+      audioRetentionDays: 30,
+    };
+    const m = mockApi({
+      ...admin,
+      "GET /admin/ai-config": ok(currentCfg),
+      "PUT /admin/ai-config": ({ body }) => ok(body),
+    });
     open("/admin/ai-config");
     const llm = (await screen.findByRole("region", { name: /Mô hình ngôn ngữ/ })) as HTMLElement;
     fireEvent.change(within(llm).getByLabelText("Model", { selector: "input" }), { target: { value: "gemini-main" } });
