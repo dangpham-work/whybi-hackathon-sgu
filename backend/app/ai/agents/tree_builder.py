@@ -7,6 +7,7 @@ confidence ≥ 0,6 → `TreeVersion` nháp. Phá chu trình / rút gọn bắc c
 Nội dung giáo trình luôn là DỮ LIỆU (bọc `<syllabus_text>`).
 """
 
+import logging
 import math
 import re
 import unicodedata
@@ -22,6 +23,8 @@ from app.ai.prompts import render_prompt, wrap_student_text
 from app.core.errors import AppError
 from app.models.enums import BloomLevel, EdgeSource
 from app.models.schemas.tree import Edge, Node, TreeVersion
+
+log = logging.getLogger(__name__)
 
 MIN_CONFIDENCE = 0.6  # mục 6.1.3
 MERGE_COSINE = 0.9  # mục 6.1.2
@@ -49,6 +52,100 @@ class Located(Concept):
 
     page_from: int | None = None
     page_to: int | None = None
+
+
+_REJECT_FILE_EXT = re.compile(
+    r"\.(py|ipynb|txt|md|docx?|pdf|sh|ya?ml|json|env|csv|zip|tar|gz|toml|ini|cfg|rst|log|lock)$",
+    re.I,
+)
+_REJECT_FILENAMES = {
+    "dockerfile",
+    "requirements.txt",
+    "makefile",
+    ".gitignore",
+    "gitignore",
+    "setup.py",
+    "package.json",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+}
+_REJECT_BOILERPLATE_TITLES = {
+    "project root",
+    "project structure",
+    "source code folder",
+    "environment files",
+    "requirements file",
+    "metadata file",
+    "using jupyter notebooks vs. python scripts",
+    "using jupyter notebooks vs python scripts",
+}
+_REJECT_FOLDER_PREFIXES = {
+    "project",
+    "data",
+    "notebooks",
+    "notebook",
+    "scripts",
+    "script",
+    "source",
+    "src",
+    "results",
+    "result",
+    "config",
+    "configuration",
+    "tests",
+    "test",
+    "logs",
+    "log",
+    "saved objects",
+    "saved object",
+    "models",
+    "documentation",
+    "doc",
+    "docs",
+    "dataset",
+    "datasets",
+    "asset",
+    "assets",
+}
+
+
+def is_boilerplate_concept(c: Concept) -> bool:
+    """Loại bỏ các nút rác do LLM trích xuất nhầm từ cấu trúc thư mục repo / tệp tin dự án."""
+    title = c.title.strip().casefold()
+    key = c.key.strip().casefold()
+
+    if _REJECT_FILE_EXT.search(title):
+        return True
+    if any(title.endswith(ext) for ext in (".py", ".txt", ".md", ".sh", ".json", ".yaml", ".yml", ".env")):
+        return True
+    if title in _REJECT_FILENAMES:
+        return True
+    if title in _REJECT_BOILERPLATE_TITLES:
+        return True
+    if title.endswith((" folder", " directory", " dir")):
+        prefix = title.rsplit(" ", 1)[0].strip()
+        if prefix in _REJECT_FOLDER_PREFIXES:
+            return True
+    if key in {
+        "template_py",
+        "requirements_txt",
+        "dockerfile",
+        "project_root",
+        "project_structure",
+        "data_folder",
+        "notebooks_folder",
+        "scripts_folder",
+        "results_folder",
+        "config_folder",
+        "environment_files",
+        "tests_folder",
+        "logs_folder",
+        "saved_objects_folder",
+        "requirements_file",
+        "metadata_file",
+    }:
+        return True
+    return False
 
 
 class ConceptList(BaseModel):
@@ -171,10 +268,13 @@ class TreeBuilder:
             {"role": "user", "content": wrap_student_text(ch.text, "syllabus_text")},
         ]
         found = self.gw.call_json(ConceptList, msgs).concepts[: self.max_concepts]
+        valid = [c for c in found if not is_boilerplate_concept(c)]
+        if len(valid) < len(found):
+            log.info("Đã lọc bỏ %d khái niệm dạng tệp/thư mục dự án từ %s", len(found) - len(valid), ch.ref)
         # chương do hệ thống tách (không tin chữ LLM tự viết) + khoảng trang của đoạn nguồn
         return [
             Located(**{**c.model_dump(), "chapter_ref": ch.ref[:100]}, page_from=ch.page_from, page_to=ch.page_to)
-            for c in found
+            for c in valid
         ]
 
     def extract_concepts(

@@ -288,3 +288,71 @@ def test_prompt_khong_ep_lap_day_tran():
 
     text = render_prompt("tree_concepts", chapter_ref="Chương 1", max_concepts="8")
     assert "ít hơn" in text and "8" in text
+
+
+def test_loc_bo_khai_niem_boilerplate_tep_tin_va_thu_muc():
+    """Kiểm tra TreeBuilder tự động lọc bỏ các nút tệp tin/thư mục rác từ đề cương dự án."""
+    from app.ai.agents.tree_builder import Concept, is_boilerplate_concept
+
+    boilerplate_samples = [
+        ("template_py", "template.py"),
+        ("dockerfile", "Dockerfile"),
+        ("requirements_txt", "requirements.txt"),
+        ("project_root", "Project Root"),
+        ("data_folder", "Data Folder"),
+        ("notebooks_folder", "Notebooks Folder"),
+        ("scripts_folder", "Scripts Folder"),
+        ("documentation", "Documentation Folder"),
+        ("results_folder", "Results Folder"),
+        ("config_folder", "Config Folder"),
+        ("environment_files", "Environment Files"),
+        ("tests_folder", "Tests Folder"),
+        ("logs_folder", "Logs Folder"),
+        ("saved_objects_folder", "Saved Objects Folder"),
+        ("requirements_file", "Requirements File"),
+        ("metadata_file", "Metadata File"),
+        ("using_jupyter", "Using Jupyter Notebooks vs. Python Scripts"),
+        ("project_structure", "Project Structure"),
+    ]
+    for key, title in boilerplate_samples:
+        c = Concept(
+            key=key,
+            title=title,
+            description="Mô tả cấu trúc tệp tin dự án",
+            chapter_ref="Chương 1",
+            bloom_level="REMEMBER",
+        )
+        assert is_boilerplate_concept(c), f"Nút {title} phải bị coi là boilerplate rác và lọc bỏ"
+
+    valid_samples = [
+        ("hoi_quy_tuyen_tinh", "Hồi quy tuyến tính"),
+        ("ham_mat_mat", "Hàm mất mát"),
+        ("overfitting", "Quá khớp (Overfitting)"),
+        ("decision_tree", "Cây quyết định"),
+    ]
+    for key, title in valid_samples:
+        c = Concept(
+            key=key,
+            title=title,
+            description="Khái niệm học thuật cốt lõi",
+            chapter_ref="Chương 1",
+            bloom_level="UNDERSTAND",
+        )
+        assert not is_boilerplate_concept(c), f"Khái niệm học thuật {title} không được bị lọc nhầm"
+
+
+def test_tree_builder_extract_concepts_tu_dong_loc_boilerplate():
+    """Khi LLM trích xuất lẫn lộn khái niệm học thuật và tệp tin rác, TreeBuilder chỉ giữ lại khái niệm học thuật."""
+    gw = ScriptedGateway(
+        {
+            "Chương 1": [
+                concept("template_py", "template.py"),
+                concept("hoi_quy", "Hồi quy tuyến tính"),
+                concept("dockerfile", "Dockerfile"),
+                concept("data_folder", "Data Folder"),
+                concept("ham_mat_mat", "Hàm mất mát"),
+            ]
+        }
+    )
+    got = TreeBuilder(gw).extract_concepts([Chapter("Chương 1", "nội dung")])
+    assert [c.title for c in got] == ["Hồi quy tuyến tính", "Hàm mất mát"]
