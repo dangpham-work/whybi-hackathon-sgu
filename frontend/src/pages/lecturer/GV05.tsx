@@ -11,7 +11,7 @@ import { applyHeatmapEvent, detailsByKey, heatByKey, rootCauseKey, type Snapshot
 import { useApi } from "../../lib/useApi";
 import { useChannel, type WsStatus } from "../../lib/ws";
 
-type Tab = "tree" | "grid" | "stats";
+type Tab = "tree" | "grid" | "heatmap" | "stats";
 
 /** GV-05 Dashboard bản đồ nhiệt (Figma 17:1447, FR-HM-01…06, GD-10). Ảnh chụp + kênh `class:{id}:heatmap`, không cần tải lại trang. */
 export default function LecturerHeatmap() {
@@ -107,11 +107,21 @@ function Toolbar(p: { classId: string; search: string; onSearch: (v: string) => 
 function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: string; wsStatus: WsStatus; hideNames: boolean }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [tab, setTabState] = useState<Tab>(params.get("tab") === "thong-ke" ? "stats" : "tree"); // link chia sẻ mở thẳng tab Thống kê
+  const [tab, setTabState] = useState<Tab>(
+    params.get("tab") === "thong-ke"
+      ? "stats"
+      : params.get("tab") === "ban-do-nhiet"
+      ? "heatmap"
+      : params.get("tab") === "ma-tran"
+      ? "grid"
+      : "tree",
+  );
   const setTab = (t: Tab) => {
     setTabState(t);
     const p = new URLSearchParams(params);
     if (t === "stats") p.set("tab", "thong-ke");
+    else if (t === "heatmap") p.set("tab", "ban-do-nhiet");
+    else if (t === "grid") p.set("tab", "ma-tran");
     else p.delete("tab");
     setParams(p, { replace: true });
   };
@@ -139,22 +149,37 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
       <div role="tablist" aria-label="Chế độ xem" className="inline-flex gap-1 rounded-lg bg-app p-1">
         {(
           [
-            ["tree", "Chế độ cây"],
-            ["grid", "Lưới SV × Nút"],
-            ["stats", "Thống kê"],
+            ["tree", "Tiến độ học theo cây", "Chế độ cây"],
+            ["grid", "Theo ma trận", "Lưới SV × Nút"],
+            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt"],
+            ["stats", "Theo thống kê", "Thống kê"],
           ] as const
-        ).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-md px-4 py-1.5 text-body-m font-semibold ${tab === id ? "bg-surface shadow-card" : "text-ink-500"}`}>
+        ).map(([id, label, ariaLabel]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            aria-label={ariaLabel}
+            onClick={() => setTab(id)}
+            className={`rounded-md px-4 py-1.5 text-body-m font-semibold ${tab === id ? "bg-surface shadow-card" : "text-ink-500"}`}
+          >
             {label}
           </button>
         ))}
       </div>
 
-      <div className={`grid gap-4 ${tab === "stats" ? "" : "xl:grid-cols-[1fr_380px]"}`}>
+      <div className={`grid gap-4 ${tab === "stats" || tab === "heatmap" ? "" : "xl:grid-cols-[1fr_380px]"}`}>
         {tab === "stats" ? (
           <div className="min-w-0">
             <StatsTab s={s} classId={classId} hideNames={hideNames} />
           </div>
+        ) : tab === "heatmap" ? (
+          <section aria-label="Bản đồ nhiệt realtime" className="col-span-full space-y-3 rounded-lg border border-dashed border-line-strong bg-surface p-8 text-center">
+            <p className="text-h3 font-semibold text-ink-700">Theo bản đồ nhiệt</p>
+            <p className="text-body-m text-ink-500">
+              Bản đồ nhiệt đang được nâng cấp với các luồng cập nhật realtime. Bạn có thể theo dõi tiến độ qua tab &ldquo;Tiến độ học theo cây&rdquo; hoặc &ldquo;Theo ma trận&rdquo;.
+            </p>
+          </section>
         ) : (
         <section aria-label={tab === "tree" ? "Cây kỹ năng theo tỉ lệ Đạt" : "Lưới sinh viên"} className="space-y-3 rounded-lg border border-line-soft bg-surface p-4">
           {tab === "tree" ? (
