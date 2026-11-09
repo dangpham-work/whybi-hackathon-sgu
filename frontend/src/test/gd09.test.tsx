@@ -103,6 +103,21 @@ describe("GV-04 Trình sửa cây và rubric (GD-09)", () => {
     expect(await screen.findByText("Mọi rubric đã duyệt")).toBeTruthy();
   });
 
+  it("duyệt nhanh tất cả rubric gọi POST /classes/{class_id}/tree/rubrics/approve", async () => {
+    const m = mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "POST /classes/c1/tree/rubrics/approve": ok({ approved: ["id2"], rejected: [] }),
+    });
+    open();
+    const btn = (await screen.findAllByRole("button", { name: /Duyệt tất cả rubric/ }))[0];
+    fireEvent.click(btn);
+    await waitFor(() => expect(m.called("POST /classes/c1/tree/rubrics/approve")).toHaveLength(1));
+    expect(m.called("POST /classes/c1/tree/rubrics/approve")[0].body).toEqual({ nodeIds: ["id2"] });
+    expect(await screen.findByText(/Đã duyệt 1 rubric. Cây đã sẵn sàng để phát hành!/)).toBeTruthy();
+    expect(await screen.findByText("Mọi rubric đã duyệt")).toBeTruthy();
+  });
+
   it("sửa ý chính rồi lưu nháp thì rubric vẫn chưa duyệt", async () => {
     const m = mockApi({ ...me, "GET /classes/c1/tree": ok(TREE()), "PUT /nodes/id1/rubric": ({ body }) => ok(body) });
     open();
