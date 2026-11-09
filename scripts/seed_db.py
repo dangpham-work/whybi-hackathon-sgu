@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Annotated
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field
@@ -497,6 +497,55 @@ def _read_back(db, join_code: str) -> tuple[object, dict[str, object], list[obje
     return section_id, node_code_to_id, student_ids
 
 
+def seed_matching(db, class_id: UUID) -> None:
+    """Nạp sẵn vòng ghép cặp và dữ liệu mẫu đa dạng trạng thái (MX4) cho từng lớp."""
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+
+    from app.models.enums import MatchStatus as M
+    from app.models.peer import PeerMatchItem
+    from app.services.matching import MatchingService
+
+    svc = MatchingService(db)
+    existing = list(db.scalars(svc._class_matches(class_id)))
+    if not existing:
+        try:
+            svc.run_round(class_id, "SCHEDULED")
+            existing = list(db.scalars(svc._class_matches(class_id)))
+        except Exception as e:
+            print(f"  [MX4] Chưa thể ghép tự động cho lớp {class_id}: {e}")
+            return
+
+    now = datetime.now(timezone.utc)
+    if len(existing) >= 2:
+        m1 = existing[1]
+        m1.status = M.ACCEPTED
+        m1.accepted_by_a = True
+        m1.accepted_by_b = True
+        m1.expires_at = now + timedelta(days=7)
+    if len(existing) >= 3:
+        m2 = existing[2]
+        m2.status = M.STUDIED
+        m2.accepted_by_a = True
+        m2.accepted_by_b = True
+        m2.studied_by_a = True
+        m2.studied_by_b = True
+        m2.expires_at = now + timedelta(days=2)
+    if len(existing) >= 4:
+        m3 = existing[3]
+        m3.status = M.STUDIED
+        m3.accepted_by_a = True
+        m3.accepted_by_b = True
+        m3.studied_by_a = True
+        m3.studied_by_b = True
+        m3.expires_at = now + timedelta(days=2)
+        items = list(db.scalars(select(PeerMatchItem).where(PeerMatchItem.match_id == m3.id)))
+        for it in items:
+            it.verified = True
+            it.verified_at = now
+    db.commit()
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # console Windows
     parser = argparse.ArgumentParser(description="Nạp dữ liệu demo đa lớp")
@@ -540,6 +589,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Đã nạp {spec.join_code}: {created}; dựng lại tiến độ xong")
             else:
                 print(f"Đã nạp {spec.join_code}: {created} (lớp đã có từ trước – không dựng lại tiến độ)")
+
+            # Đảm bảo mỗi lớp đều có vòng ghép cặp và dữ liệu mẫu MX4
+            class_id, _, _ = _read_back(db, spec.join_code)
+            seed_matching(db, class_id)
+            print(f"Đã chuẩn bị ghép cặp (MX4) cho {spec.join_code}")
     return 0
 
 

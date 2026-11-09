@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import StringConstraints
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentUser, Lecturer, LecturerOrStudent, Student
+from app.api.deps import CurrentUser, Lecturer, LecturerOrAdmin, LecturerOrStudent, Student
 from app.db.session import get_db
 from app.models.schemas.common import ApiModel
 from app.models.schemas.toc import BuildTreeRequest, FillRubricsAccepted, JobCancelledOut, TocReport
@@ -36,6 +36,7 @@ class ClassOut(ApiModel):
     join_code: str
     student_count: int = 0
     tree_status: str | None = None
+    status: str = "ACTIVE"
 
     @classmethod
     def of(cls, v: ClassView) -> "ClassOut":
@@ -47,6 +48,7 @@ class ClassOut(ApiModel):
             join_code=c.join_code,
             student_count=v.student_count,
             tree_status=v.tree_status,
+            status=c.status,
         )
 
 
@@ -88,6 +90,12 @@ Syllabi = Annotated[SyllabusService, Depends(get_syllabus_service)]
 def list_my_classes(classes: Classes, user: CurrentUser = LecturerOrStudent) -> list[ClassOut]:
     """GV-01: lớp mình phụ trách. SV-01: lớp đã tham gia."""
     return [ClassOut.of(v) for v in classes.list_for(user)]
+
+
+@router.get("/classes/{class_id}", response_model=ClassOut)
+def get_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrStudent) -> ClassOut:
+    """Chi tiết một lớp học phần."""
+    return ClassOut.of(classes.get_view(class_id))
 
 
 @router.post("/classes", response_model=ClassOut, status_code=201)
@@ -151,3 +159,15 @@ def cancel_syllabus_job(
     """Hủy tiến trình bóc chữ hoặc dựng cây đang chạy của giáo trình (khi GV tải nhầm tệp hoặc đổi ý)."""
     r = syllabi.cancel(class_id, document_id, user)
     return JobCancelledOut(document_id=r["documentId"], status=r["status"])
+
+
+@router.post("/classes/{class_id}/archive", response_model=ClassOut)
+def archive_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrAdmin) -> ClassOut:
+    """Lưu trữ lớp học phần: chuyển sang trạng thái chỉ đọc (FR-SK-01)."""
+    return ClassOut.of(classes.archive(class_id, user))
+
+
+@router.post("/classes/{class_id}/restore", response_model=ClassOut)
+def restore_class(class_id: UUID, classes: Classes, user: CurrentUser = LecturerOrAdmin) -> ClassOut:
+    """Khôi phục lớp học phần từ kho lưu trữ về trạng thái hoạt động."""
+    return ClassOut.of(classes.restore(class_id, user))

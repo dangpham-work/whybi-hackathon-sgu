@@ -5,8 +5,10 @@ Ba adapter cùng `STTProvider` – nghiệp vụ (`services/speech.py`) không b
 - `whisper` – faster-whisper tự host (dịch vụ `stt`, profile `stt` trong Compose) tại STT_WHISPER_URL.
 - `cloud`   – dịch vụ đám mây có API tương thích OpenAI (OPENAI_COMPAT_BASE_URL + OPENAI_COMPAT_API_KEY).
 
-Cả `whisper` và `cloud` cùng gọi POST {base}/audio/transcriptions (multipart, response_format=verbose_json,
-timestamp_granularities[]=word) bằng httpx – không thêm SDK, không cài faster-whisper vào backend.
+Cả `whisper` và `cloud` cùng gọi POST {base}/audio/transcriptions bằng httpx – không thêm SDK, không cài
+faster-whisper vào backend. Model Whisper: response_format=verbose_json, timestamp_granularities[]=word.
+Model `*-transcribe` (C1-20, mặc định cloud: gpt-4o-mini-transcribe – nhanh hơn, đúng thuật ngữ hơn, rẻ hơn
+whisper-1): không hỗ trợ verbose_json ⇒ gửi response_format=json, include[]=logprobs và tính độ tin cậy từ logprobs.
 Chọn adapter: STT_PROVIDER hoặc PUT /admin/ai-config (`configure_stt`), không sửa code nghiệp vụ.
 """
 
@@ -26,8 +28,8 @@ from app.ai.providers.base import (
 from app.core.config import Settings, get_settings
 
 STT_PROVIDERS = ("fake", "whisper", "cloud")
-DEFAULT_MODELS = {"whisper": "Systran/faster-whisper-small", "cloud": "whisper-1", "fake": "fake"}
-STT_TIMEOUT_S = 20.0  # ghi âm ≤ 3 phút; quá hạn ⇒ lỗi tạm thời
+DEFAULT_MODELS = {"whisper": "Systran/faster-whisper-small", "cloud": "gpt-4o-mini-transcribe", "fake": "fake"}
+STT_TIMEOUT_S = 35.0  # ghi âm ≤ 5 phút; quá hạn ⇒ lỗi tạm thời
 
 
 class FakeSTTProvider:
@@ -75,12 +77,12 @@ class WhisperHTTPProvider:
         self.http = http_client or httpx.Client(timeout=timeout_s)
 
     def transcribe(self, audio: bytes, lang: str = "vi", hints: list[str] | None = None) -> TranscriptResult:
-        data: dict[str, Any] = {
-            "model": self.model,
-            "language": lang,
-            "response_format": "verbose_json",
-            "timestamp_granularities[]": "word",
-        }
+        logprobs = uses_logprobs(self.model)
+        data: dict[str, Any] = {"model": self.model, "language": lang}
+        if logprobs:
+            data |= {"response_format": "json", "include[]": "logprobs"}
+        else:
+            data |= {"response_format": "verbose_json", "timestamp_granularities[]": "word"}
         if hints:
             # Whisper dùng `prompt` làm ngữ cảnh: liệt kê thuật ngữ của nút để nhận đúng chính tả.
             data["prompt"] = ", ".join(hints)[:800]
@@ -89,7 +91,7 @@ class WhisperHTTPProvider:
             r = self.http.post(
                 f"{self.base_url}/audio/transcriptions",
                 data=data,
-                files={"file": ("audio", audio, "application/octet-stream")},
+                files={"file": (f"audio.{audio_extension(audio)}", audio, "application/octet-stream")},
                 headers=headers,
             )
         except httpx.TimeoutException as e:
@@ -102,7 +104,26 @@ class WhisperHTTPProvider:
             body = r.json()
         except ValueError as e:
             raise TransientProviderError(f"stt {self.name}: phản hồi không phải JSON") from e
-        return parse_verbose_json(body)
+        return parse_logprobs_json(body) if logprobs else parse_verbose_json(body)
+
+
+def audio_extension(audio: bytes) -> str:
+    """Đuôi tệp theo chữ ký byte (cùng bảng với services/speech.sniff_audio). API OpenAI đoán định dạng theo tên
+    tệp: gửi "audio" không đuôi ⇒ 400 Unsupported file format. Không nhận ra ⇒ "webm" (MediaRecorder mặc định)."""
+    if audio.startswith(b"OggS"):
+        return "ogg"
+    if audio[:4] == b"RIFF" and audio[8:12] == b"WAVE":
+        return "wav"
+    if audio.startswith(b"ID3") or (len(audio) > 1 and audio[0] == 0xFF and audio[1] & 0xE0 == 0xE0):
+        return "mp3"
+    if audio[4:8] == b"ftyp":
+        return "m4a"
+    return "webm"
+
+
+def uses_logprobs(model: str) -> bool:
+    """gpt-4o-transcribe / gpt-4o-mini-transcribe… chỉ trả json (+ logprobs), không có verbose_json."""
+    return "transcribe" in model.lower()
 
 
 def _clamp(x: float) -> float:
@@ -150,6 +171,29 @@ def _parse_verbose_json(body: dict[str, Any]) -> TranscriptResult:
     else:
         seg_values = [c for c in (seg_conf(s.get("start")) for s in segments) if c is not None]
         conf = sum(seg_values) / len(seg_values) if seg_values else 0.0
+    return TranscriptResult(text=body["text"].strip(), confidence=round(_clamp(conf), 4), words=words)
+
+
+def parse_logprobs_json(body: dict[str, Any]) -> TranscriptResult:
+    """json + logprobs → TranscriptResult. Gom token thành từ (token mở đầu bằng khoảng trắng là từ mới); độ tin
+    cậy của từ = xác suất token yếu nhất trong từ. Không có logprobs ⇒ 0.0 (bảo thủ, buộc SV xác nhận ở SV-05)."""
+    if not isinstance(body, dict) or not isinstance(body.get("text"), str):
+        raise PermanentProviderError("stt: phản hồi thiếu trường text")
+    try:
+        groups: list[list[Any]] = []  # [chữ, xác suất nhỏ nhất]
+        for t in body.get("logprobs") or []:
+            if not isinstance(t, dict):
+                continue
+            token, prob = str(t.get("token", "")), _clamp(math.exp(float(t["logprob"])))
+            if not groups or token[:1].isspace():
+                groups.append([token, prob])
+            else:
+                groups[-1][0] += token
+                groups[-1][1] = min(groups[-1][1], prob)
+    except (KeyError, TypeError, ValueError, OverflowError) as e:
+        raise PermanentProviderError(f"stt: logprobs sai kiểu: {e}") from e
+    words = [{"word": w.strip(), "confidence": round(c, 4)} for w, c in groups if w.strip()]
+    conf = sum(w["confidence"] for w in words) / len(words) if words else 0.0
     return TranscriptResult(text=body["text"].strip(), confidence=round(_clamp(conf), 4), words=words)
 
 

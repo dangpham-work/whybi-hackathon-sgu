@@ -126,6 +126,41 @@ describe("GV-04 Trình sửa cây và rubric (GD-09)", () => {
     expect(await screen.findAllByText(/Rubric N2 chưa duyệt/)).toBeTruthy();
   });
 
+  it("lỗi phát hành dạng object chỉ hiện 1 lần tiếng Việt (không in JSON thô) và bấm vào thì mở panel đúng nút (#194)", async () => {
+    mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "POST /tree-versions/v1/publish": err(422, "PUBLISH_CHECK_FAILED", "Chưa đủ điều kiện phát hành", {
+        errors: [
+          { code: "RUBRIC_NOT_APPROVED", nodeKey: "n2", message: "Rubric Con trỏ chưa duyệt" },
+          { code: "RUBRIC_NOT_APPROVED", nodeKey: "n1", message: "Rubric Biến chưa duyệt" },
+        ],
+      }),
+    });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Phát hành/ }));
+    const errButtons = await screen.findAllByText("Rubric Con trỏ chưa duyệt");
+    expect(errButtons).toHaveLength(1);
+    expect(screen.queryByText(/\{"code"/)).toBeNull();
+    fireEvent.click(errButtons[0]!);
+    expect((await screen.findByLabelText("Tên nút") as HTMLInputElement).value).toBe("Con trỏ");
+  });
+
+  it("xóa nút đang chọn sau khi xác nhận và gọi DELETE /nodes/{id} (#198)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const m = mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "DELETE /nodes/id2": ok(undefined, 204),
+    });
+    open();
+    fireEvent.click(await screen.findByText("nút Con trỏ"));
+    fireEvent.click(screen.getByRole("button", { name: /Xóa nút/ }));
+    await waitFor(() => expect(m.called("DELETE /nodes/id2")).toHaveLength(1));
+    expect(await screen.findByText(/Đã xóa nút/)).toBeTruthy();
+    confirmSpy.mockRestore();
+  });
+
   it("bản đã phát hành khóa sửa và cho tạo bản nháp", async () => {
     const m = mockApi({
       ...me,
@@ -162,13 +197,15 @@ describe("GV-04 lịch sử, so sánh, khôi phục (GD-14)", () => {
     expect(m.called("GET /tree-versions/v1/compare/v2")).toHaveLength(1);
   });
 
-  it("khôi phục bản cũ thành bản nháp mới và chuyển sang sửa", async () => {
+  it("khôi phục bản cũ thành bản nháp mới (Tạo bản nháp từ vX) và khóa nút ở bản nháp đang mở (#197)", async () => {
     const m = mockApi({ ...hist, "POST /tree-versions/v1/restore": ok({ ...V("v3", 3, "DRAFT") }, 201) });
     open();
     fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Khôi phục v1" }));
+    const currentDraftBtn = (await screen.findByRole("button", { name: "Tạo bản nháp từ v2" })) as HTMLButtonElement;
+    expect(currentDraftBtn.disabled).toBe(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Tạo bản nháp từ v1" }));
     await waitFor(() => expect(m.called("POST /tree-versions/v1/restore")).toHaveLength(1));
-    expect(await screen.findByText(/Đã khôi phục thành bản nháp v3/)).toBeTruthy();
+    expect(await screen.findByText(/Đã tạo bản nháp v3 \(Tạo bản nháp từ v1\)/)).toBeTruthy();
     expect(screen.getByText(/v3 · Bản nháp/)).toBeTruthy();
   });
 

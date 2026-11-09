@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.ai.agents.judge import JudgeAgent, JudgeOutcome, apply_pass_rule
+from app.ai.agents.judge import JudgeAgent, JudgeOutcome, apply_pass_rule, leaks_key_point
 from app.ai.prompts import render_prompt, wrap_student_text
 from app.models.enums import CriterionCode, Verdict
 from app.models.schemas.session import JudgeResult
@@ -233,6 +233,29 @@ def test_review_hints_fallback_uses_probe_question_not_answer():
     assert RUBRIC.misconceptions[1].probe_question in hints
     assert all("NULL" not in h for h in hints)
     assert all(h.rstrip().endswith("?") for h in hints)
+
+
+def test_leaks_key_point_covers_misconceptions_and_scenarios():
+    rubric = Rubric(
+        key_points=[KeyPointSchema(id="KP1", content="con trỏ là biến lưu địa chỉ ô nhớ")],
+        misconceptions=[MisconceptionSchema(id="MC1", content="free làm con trỏ thành NULL")],
+        scenarios=[
+            ChallengeScenarioSchema(
+                id="SC1",
+                scenario="hai con trỏ cùng trỏ một ô",
+                bloom_level="APPLY",
+                expected_points="thao tác qua con trỏ này làm thay đổi giá trị của con trỏ kia",
+            )
+        ],
+    )
+    # Lộ key point
+    assert leaks_key_point("con trỏ là biến lưu địa chỉ ô nhớ", rubric)
+    # Lộ misconception content
+    assert leaks_key_point("free làm con trỏ thành NULL", rubric)
+    # Lộ expected points của scenario
+    assert leaks_key_point("thao tác qua con trỏ này làm thay đổi giá trị", rubric)
+    # Câu hỏi gợi mở an toàn không lộ
+    assert not leaks_key_point("Theo bạn điều gì xảy ra với vùng nhớ sau lệnh giải phóng?", rubric)
 
 
 # --- bộ lời giảng có nhãn (KT-04) – chạy khi có dữ liệu -------------------------------------

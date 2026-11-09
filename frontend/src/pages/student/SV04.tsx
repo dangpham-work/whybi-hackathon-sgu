@@ -1,6 +1,6 @@
 import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, Timer, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { Link, useBeforeUnload, useBlocker, useLocation, useParams } from "react-router";
 import { DevelopingBox, ErrorBox, LoadingBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { Logo } from "../../components/Logo";
@@ -111,6 +111,19 @@ export default function TeachingSession() {
 
   const turnType: Turn["turnType"] = status === "CHALLENGING" ? "ANSWER" : "EXPLANATION";
   const live = LIVE.includes(status);
+
+  // Thoát khi đang làm bài (đóng/tải lại tab, điều hướng trong app qua thanh tab dưới…) ⇒ cảnh báo mất ghi âm/nội dung chưa gửi.
+  useBeforeUnload(
+    useCallback(
+      (e: BeforeUnloadEvent) => {
+        if (!live) return;
+        e.preventDefault();
+        e.returnValue = "";
+      },
+      [live],
+    ),
+  );
+  const blocker = useBlocker(live);
   const noQuestion = live && !messages.some((m) => m.from === "tutee");
   // Đang tải phiên mà chưa có gì để hiện ⇒ khóa ô trả lời; tải xong vẫn chưa có câu hỏi (câu mở đầu còn đang sinh)
   // hoặc tải lỗi ⇒ chờ kênh session:{id} một lúc rồi mở khóa ô trả lời.
@@ -322,7 +335,7 @@ export default function TeachingSession() {
               {mode === "VOICE" ? (
                 <Recorder
                   key={turnType}
-                  maxSeconds={turnType === "EXPLANATION" ? 180 : 90}
+                  maxSeconds={turnType === "EXPLANATION" ? 300 : 90}
                   consented={consented}
                   onConsent={onConsent}
                   onSubmit={sendVoice}
@@ -342,6 +355,32 @@ export default function TeachingSession() {
           <Finished sessionId={sessionId} status={status} />
         )}
       </section>
+
+      {blocker.state === "blocked" && <LeaveSessionDialog onStay={() => blocker.reset()} onLeave={() => blocker.proceed()} />}
+    </div>
+  );
+}
+
+/** Thoát phiên đang làm: xác nhận trước khi điều hướng đi, vì ghi âm/nội dung chưa gửi và kết quả phiên sẽ không được lưu. */
+function LeaveSessionDialog({ onStay, onLeave }: { onStay: () => void; onLeave: () => void }) {
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-desc" className="fixed inset-0 z-30 flex items-end justify-center bg-ink-900/40 p-4 sm:items-center">
+      <div className="w-full max-w-sm space-y-3 rounded-xl bg-surface p-5 shadow-dialog">
+        <h2 id="leave-title" className="flex items-center gap-2 text-h3 font-semibold">
+          <TriangleAlert aria-hidden size={20} className="text-honey-deep" /> Thoát phiên giảng?
+        </h2>
+        <p id="leave-desc" className="text-body-m text-ink-700">
+          Bạn đang giảng bài. Nếu thoát ra bây giờ, ghi âm hoặc nội dung chưa gửi và kết quả của phiên này sẽ không được lưu.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row-reverse">
+          <Button variant="secondary" className="flex-1" onClick={onLeave}>
+            Thoát, không lưu
+          </Button>
+          <Button variant="teal" className="flex-1" onClick={onStay}>
+            Tiếp tục làm bài
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

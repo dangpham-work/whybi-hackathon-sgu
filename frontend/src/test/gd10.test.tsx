@@ -148,4 +148,41 @@ describe("GV-06 Chi tiết nút (GD-10)", () => {
     expect(screen.getByText(/0,82/)).toBeTruthy();
     expect(screen.getByText("Điểm nghẽn gốc")).toBeTruthy();
   });
+
+  it("loại bỏ SV trùng tên, thu gọn danh sách > 10 tên với nút Xem tất cả và cho tìm theo tên (#199)", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      studentId: `s${i + 1}`,
+      studentName: `Sinh viên ${String(i + 1).padStart(2, "0")}`,
+      studentCode: `SV${String(i + 1).padStart(2, "0")}`,
+      states: {},
+      progress: 0,
+    }));
+    const withDuplicates = [
+      ...many,
+      { studentId: "s1", studentName: "Sinh viên 01", studentCode: "SV01", states: {}, progress: 0 },
+      { studentId: "s99", studentName: "Sinh viên 01", studentCode: "SV01", states: {}, progress: 0 },
+    ];
+    mockApi({
+      ...me,
+      "GET /classes/c1/nodes/i5/detail": ok({
+        nodeId: "i5",
+        stat: { ...SNAP.nodes[0], color: "RED", label: "✗ Điểm nghẽn", attemptedRate: 0.6, enrolledCount: 12, isRootCause: false },
+        studentsByState: { NOT_PASSED: withDuplicates, MASTERED: [] },
+        topMisconceptions: [],
+        alert: null,
+      }),
+    });
+    open("/gv/classes/c1/nodes/i5");
+    expect(await screen.findByText("Chưa đạt (12)")).toBeTruthy();
+    expect(screen.getAllByText("Sinh viên 01")).toHaveLength(1);
+    expect(screen.queryByText("Sinh viên 12")).toBeNull();
+    const expandBtn = screen.getByRole("button", { name: "Xem tất cả (12)" });
+    fireEvent.click(expandBtn);
+    expect(screen.getByText("Sinh viên 12")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Thu gọn" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Tìm sinh viên"), { target: { value: "Sinh viên 11" } });
+    expect(screen.getByText("Sinh viên 11")).toBeTruthy();
+    expect(screen.queryByText("Sinh viên 01")).toBeNull();
+  });
 });

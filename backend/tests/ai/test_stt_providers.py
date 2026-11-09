@@ -159,3 +159,107 @@ def test_whisper_timeout_is_transient():
 
     with pytest.raises(TransientProviderError):
         _provider(handler).transcribe(b"x")
+
+
+# --- C1-20: gpt-4o-mini-transcribe (json + logprobs, không có verbose_json) ---------------------
+
+import math  # noqa: E402
+
+from app.ai.providers.stt import DEFAULT_MODELS, parse_logprobs_json  # noqa: E402
+
+
+def test_c1_20_cloud_default_is_mini_transcribe():
+    assert DEFAULT_MODELS["cloud"] == "gpt-4o-mini-transcribe"
+    c = build_stt_provider(_settings(llm_mode="real", stt_provider="cloud", openai_compat_base_url="https://api.x/v1"))
+    assert c.model == "gpt-4o-mini-transcribe"
+
+
+def test_c1_20_transcribe_model_requests_json_with_logprobs():
+    seen = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = req.content
+        return httpx.Response(
+            200,
+            json={
+                "text": "con trỏ",
+                "logprobs": [{"token": "con", "logprob": -0.01}, {"token": " trỏ", "logprob": -0.05}],
+            },
+        )
+
+    p = WhisperHTTPProvider(
+        "cloud", "https://api.x/v1", "gpt-4o-mini-transcribe",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )  # fmt: skip
+    r = p.transcribe(b"OggS", "vi", ["con trỏ"])
+    assert b"verbose_json" not in seen["body"] and b"timestamp_granularities" not in seen["body"]
+    assert b'name="include[]"' in seen["body"] and b"logprobs" in seen["body"]
+    assert b'name="response_format"' in seen["body"]
+    assert "con trỏ".encode() in seen["body"]  # gợi ý thuật ngữ vẫn gửi
+    assert r.text == "con trỏ" and [w["word"] for w in r.words] == ["con", "trỏ"]
+
+
+def test_c1_20_word_confidence_is_weakest_token():
+    """Một từ ghép nhiều token: lấy token yếu nhất (một token sai là cả từ sai) ⇒ SV-05 vẫn hỏi lại đúng chỗ."""
+    body = {
+        "text": "giai thừa n",
+        "logprobs": [
+            {"token": "gi", "logprob": math.log(0.99)},
+            {"token": "ai", "logprob": math.log(0.98)},
+            {"token": " thừa", "logprob": math.log(0.95)},
+            {"token": " n", "logprob": math.log(0.5)},
+        ],
+    }
+    r = parse_logprobs_json(body)
+    assert [w["word"] for w in r.words] == ["giai", "thừa", "n"]
+    assert [round(w["confidence"], 2) for w in r.words] == [0.98, 0.95, 0.5]
+    assert r.confidence == pytest.approx((0.98 + 0.95 + 0.5) / 3, abs=1e-3)
+
+
+def test_c1_20_missing_logprobs_is_conservative():
+    r = parse_logprobs_json({"text": "xin chào"})
+    assert r.text == "xin chào" and r.confidence == 0.0
+
+
+@pytest.mark.parametrize("body", [{}, {"text": 1}, {"text": "a", "logprobs": [{"token": "a", "logprob": "x"}]}])
+def test_c1_20_malformed_body_raises(body):
+    with pytest.raises(PermanentProviderError):
+        parse_logprobs_json(body)
+
+
+def test_c1_20_whisper_models_keep_verbose_json():
+    seen = {}
+
+    def handler(req):
+        seen["body"] = req.content
+        return httpx.Response(200, json={"text": "a", "words": [{"word": "a", "probability": 0.9}]})
+
+    WhisperHTTPProvider(
+        "cloud", "https://api.x/v1", "whisper-1", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+    ).transcribe(b"x")
+    assert b"verbose_json" in seen["body"] and b"logprobs" not in seen["body"]
+
+
+@pytest.mark.parametrize(
+    ("audio", "filename"),
+    [
+        (b"\x1a\x45\xdf\xa3....", b'filename="audio.webm"'),
+        (b"OggS....", b'filename="audio.ogg"'),
+        (b"RIFF\x00\x00\x00\x00WAVEfmt ", b'filename="audio.wav"'),
+        (b"ID3....", b'filename="audio.mp3"'),
+        (b"\x00\x00\x00\x18ftypM4A ", b'filename="audio.m4a"'),
+    ],
+)
+def test_c1_20_filename_has_extension_for_format_detection(audio, filename):
+    """OpenAI đoán định dạng theo đuôi tên tệp: gửi "audio" trần ⇒ 400 Unsupported file format."""
+    seen = {}
+
+    def handler(req):
+        seen["body"] = req.content
+        return httpx.Response(200, json={"text": "a"})
+
+    WhisperHTTPProvider(
+        "cloud", "https://api.x/v1", "gpt-4o-mini-transcribe",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    ).transcribe(audio)  # fmt: skip
+    assert filename in seen["body"]

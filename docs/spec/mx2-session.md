@@ -10,7 +10,7 @@
 | FR-TB-02 | Chỉ cho phép bắt đầu phiên ở nút Sẵn sàng / Chưa đạt / Cần xác nhận lại; chỉ ra tiên quyết còn thiếu | Hệ thống | M |
 | FR-TB-03 | AI mở đầu phiên với vai “học trò tò mò”, nhờ SV giảng khái niệm | Hệ thống | M |
 | FR-TB-04 | Nhập lời giảng và câu trả lời bằng văn bản; ghi nhận sự kiện dán và tốc độ gõ | SV | M |
-| FR-TB-05 | Nhập bằng giọng nói: ghi âm ≤ 3 phút, hiển thị dạng sóng, ghi lại, dừng | SV | M |
+| FR-TB-05 | Nhập bằng giọng nói: ghi âm lời giảng ≤ 5 phút (không giới hạn thời gian của cả phiên giảng), hiển thị dạng sóng, ghi lại, dừng | SV | M |
 | FR-TB-06 | Chuyển giọng nói thành văn bản tiếng Việt, chuẩn hóa thuật ngữ của nút | Hệ thống | M |
 | FR-TB-07 | Khi độ tin cậy STT thấp: hiển thị bản chép lời, gạch chân từ không chắc, cho SV chỉnh nhỏ; ghi nhận chỉnh sửa | SV, Hệ thống | M |
 | FR-TB-08 | Sinh 3–5 câu hỏi phản biện theo chiến lược (ý thiếu, quan niệm sai, tình huống biên, chuyển giao) | Hệ thống | M |

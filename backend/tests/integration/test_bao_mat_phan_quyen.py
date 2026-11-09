@@ -55,6 +55,7 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/notifications/{notification_id}/read"): BAT_KY,
     # Lớp
     ("GET", "/classes"): frozenset({GV, SV}),
+    ("GET", "/classes/{class_id}"): frozenset({GV, SV}),
     ("POST", "/classes"): frozenset({GV}),
     ("POST", "/classes/join"): frozenset({SV}),
     ("POST", "/classes/{class_id}/syllabi"): frozenset({GV}),
@@ -66,6 +67,8 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/classes/{class_id}/syllabi/{document_id}/toc"): frozenset({GV}),
     ("POST", "/classes/{class_id}/syllabi/{document_id}/build-tree"): frozenset({GV}),
     ("POST", "/classes/{class_id}/syllabi/{document_id}/cancel"): frozenset({GV}),
+    ("POST", "/classes/{class_id}/archive"): frozenset({GV, QTV}),
+    ("POST", "/classes/{class_id}/restore"): frozenset({GV, QTV}),
     # Cây: tạo / sửa / phát hành – GV; xem cây đã phát hành – GV, SV; QTV ✗
     ("GET", "/classes/{class_id}/tree"): frozenset({GV, SV}),
     ("POST", "/classes/{class_id}/tree-versions"): frozenset({GV}),
@@ -76,6 +79,7 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/tree-versions/{version_id}/restore"): frozenset({GV}),
     ("GET", "/tree-versions/{from_id}/compare/{to_id}"): frozenset({GV}),
     ("PATCH", "/nodes/{node_id}"): frozenset({GV}),
+    ("DELETE", "/nodes/{node_id}"): frozenset({GV}),
     ("DELETE", "/edges/{edge_id}"): frozenset({GV}),
     ("PUT", "/nodes/{node_id}/rubric"): frozenset({GV}),
     ("POST", "/nodes/{node_id}/rubric/regenerate"): frozenset({GV}),
@@ -108,6 +112,8 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/classes/{class_id}/review-windows"): frozenset({GV}),
     ("GET", "/classes/{class_id}/matches"): frozenset({GV, SV}),  # SV-07 cặp của mình; GV-09 mọi cặp lớp mình
     ("PUT", "/enrollments/{enrollment_id}/peer-opt-in"): frozenset({SV}),
+    ("GET", "/classes/{class_id}/peer-opt-in"): frozenset({SV}),
+    ("PUT", "/classes/{class_id}/peer-opt-in"): frozenset({SV}),
     ("POST", "/matches/{match_id}/{action}"): frozenset({SV}),
     # Quản trị: tài khoản, môn học, cấu hình AI, hạn mức – QTV; cờ vi phạm – GV (lớp mình) + QTV
     ("GET", "/admin/users"): frozenset({QTV}),

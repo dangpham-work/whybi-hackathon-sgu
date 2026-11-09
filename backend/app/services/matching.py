@@ -70,9 +70,11 @@ class MatchingService:
         return cls
 
     @staticmethod
-    def _require_owner(cls: ClassSection, user: "CurrentUser") -> None:
+    def _require_owner(cls: ClassSection, user: "CurrentUser", *, check_active: bool = True) -> None:
         if user.role != Role.LECTURER or cls.lecturer_id != user.id:
             raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp được thao tác")
+        if check_active and cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể thay đổi ghép cặp")
 
     def _match(self, match_id: UUID, user: "CurrentUser") -> PeerMatch:
         m = self.db.scalar(select(PeerMatch).where(PeerMatch.id == match_id).with_for_update())
@@ -93,6 +95,11 @@ class MatchingService:
             raise AppError(404, "ENROLLMENT_NOT_FOUND", "Không tìm thấy ghi danh", {"enrollmentId": str(enrollment_id)})
         if e.student_id != user.id:
             raise AppError(403, "FORBIDDEN", "Đây không phải ghi danh của bạn")
+        cls = self.db.get(ClassSection, e.class_id)
+        if cls and cls.status != "ACTIVE":
+            raise AppError(
+                403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể thay đổi nguyện vọng ghép cặp"
+            )
         e.peer_opt_in = opt_in
         if not opt_in:
             # BR-10: tắt tham gia ⇒ từ chối mọi gợi ý đang chờ của SV ở lớp này
@@ -382,7 +389,7 @@ class MatchingService:
 
     def stats(self, class_id: UUID, user: "CurrentUser") -> MatchingStats:
         """Mục 6.6.6: tỉ lệ chấp nhận gợi ý, tỉ lệ cặp học cùng, tỉ lệ mục được xác nhận Đạt (chỉ GV phụ trách lớp)."""
-        self._require_owner(self._class(class_id), user)
+        self._require_owner(self._class(class_id), user, check_active=False)
         matches = list(self.db.scalars(self._class_matches(class_id)))
         accepted = [m for m in matches if m.accepted_by_a and m.accepted_by_b]
         studied = [m for m in matches if m.studied_by_a and m.studied_by_b]
@@ -408,6 +415,9 @@ class MatchingService:
     def respond(self, match_id: UUID, user: "CurrentUser", action: str) -> MatchOut:
         """action ∈ accept | decline | studied. Bấm lặp an toàn (trả trạng thái hiện tại)."""
         m = self._match(match_id, user)
+        cls = self.db.get(ClassSection, self._class_of(m))
+        if cls and cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể phản hồi ghép cặp")
         now = self.now()
         is_a = user.id == m.student_a_id
         if m.status in (*PENDING, M.ACCEPTED, M.STUDIED) and m.expires_at <= now:

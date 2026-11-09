@@ -109,6 +109,9 @@ class HeatmapService:
     def update_settings(self, class_id: UUID, user: "CurrentUser", body: out.ClassSettings) -> out.ClassSettings:
         """PUT /classes/{id}/settings (FR-HM-08): lưu cấu hình rồi tính lại màu cả lớp và đẩy lên kênh heatmap."""
         self.require_owner(class_id, user)
+        cls = ClassService(self.db).info(class_id)
+        if cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể sửa cấu hình lớp")
         saved = ClassService(self.db).save_settings(class_id, body)
         nodes = self.recompute_class(class_id)
         alerts = self.trace_root_causes(class_id) if nodes else []
@@ -287,8 +290,15 @@ class HeatmapService:
                 404, "NODE_NOT_FOUND", "Nút không thuộc cây đang phát hành của lớp", {"nodeId": str(node_id)}
             )
         by_state: dict[str, list[out.GridRow]] = {}
+        seen_in_state: set[tuple[str, str, str]] = set()
         for sid, c in v.matrix.cells[key].items():
-            by_state.setdefault(MasteryState(c.state).value, []).append(rows[sid])
+            st_val = MasteryState(c.state).value
+            row = rows[sid]
+            sig = (st_val, row.student_name.strip(), (row.student_code or "").strip())
+            if sig in seen_in_state:
+                continue
+            seen_in_state.add(sig)
+            by_state.setdefault(st_val, []).append(row)
         for group in by_state.values():
             group.sort(key=lambda r: (r.student_name, r.student_code))
         stat = v.node_stats[key]

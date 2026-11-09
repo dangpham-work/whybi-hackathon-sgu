@@ -68,6 +68,9 @@ class ClassService:
             raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp", {"classId": str(class_id)})
         return cls
 
+    def get_view(self, class_id: UUID) -> ClassView:
+        return self._view(self._get(class_id))
+
     def info(self, class_id: UUID) -> ClassSection:
         """Bản ghi lớp – lời gọi nội bộ (báo cáo C2-20), không kiểm quyền."""
         return self._get(class_id)
@@ -155,5 +158,21 @@ class ClassService:
             raise already from None
         # ensure_student commit cả ghi danh lẫn ô ma trận (lớp đã phát hành); lớp chưa phát hành ⇒ tự commit.
         MasteryService(self.db).ensure_student(cls.id, user.id)
+        self.db.commit()
+        return self._view(cls)
+
+    def archive(self, class_id: UUID, user: "CurrentUser") -> ClassView:
+        cls = self._get(class_id)
+        if user.role != Role.ADMIN and cls.lecturer_id != user.id:
+            raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp hoặc quản trị viên mới có thể lưu trữ lớp")
+        cls.status = "ARCHIVED"
+        self.db.commit()
+        return self._view(cls)
+
+    def restore(self, class_id: UUID, user: "CurrentUser") -> ClassView:
+        cls = self._get(class_id)
+        if user.role != Role.ADMIN and cls.lecturer_id != user.id:
+            raise AppError(403, "NOT_CLASS_OWNER", "Chỉ GV phụ trách lớp hoặc quản trị viên mới có thể khôi phục lớp")
+        cls.status = "ACTIVE"
         self.db.commit()
         return self._view(cls)

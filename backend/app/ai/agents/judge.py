@@ -7,12 +7,12 @@
 - Phản hồi (6.3.4): điểm mạnh trước, gợi ý ôn dạng câu hỏi gợi mở và KHÔNG lộ ý chính, kèm trang giáo trình.
 """
 
-import re
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.ai import demo
+from app.ai.agents.guard import leaked_point
 from app.ai.gateway import LLMGateway
 from app.ai.prompts import render_prompt, wrap_student_text
 from app.core.errors import AppError
@@ -59,7 +59,6 @@ ANCHORS: dict[CriterionCode, tuple[str, str, str, str]] = {
 }
 
 ROLE_LABEL = {"student": "SV", "tutee": "AI học trò"}
-_WORD = re.compile(r"\w+", re.U)
 LEAK_OVERLAP = 0.6  # gợi ý chứa ≥ 60% từ của một ý chính ⇒ coi là lộ đáp án
 
 
@@ -94,18 +93,15 @@ def format_transcript(transcript: str | list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def _words(text: str) -> set[str]:
-    return {w.lower() for w in _WORD.findall(text)}
-
-
 def leaks_key_point(text: str, rubric: Rubric, threshold: float = LEAK_OVERLAP) -> bool:
-    """Heuristic rẻ: câu chứa phần lớn từ của một ý chính ⇒ nói ra đáp án. Guard (C1-06) kiểm kỹ hơn."""
-    words = _words(text)
-    for kp in rubric.key_points:
-        kw = _words(kp.content)
-        if kw and len(words & kw) / len(kw) >= threshold:
-            return True
-    return False
+    """Heuristic rẻ: câu chứa phần lớn từ ý chính / quan niệm sai / ý mong đợi tình huống ⇒ nói ra đáp án
+    (dùng chung luật của Guard, C1-06; trước chỉ xét key_points, bỏ sót misconceptions/scenarios)."""
+    points = [
+        *(k.content for k in rubric.key_points),
+        *(m.content for m in rubric.misconceptions),
+        *(s.expected_points for s in rubric.scenarios if s.expected_points),
+    ]
+    return leaked_point(text, points, threshold=threshold) is not None
 
 
 class JudgeAgent:

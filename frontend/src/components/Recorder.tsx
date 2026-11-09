@@ -16,7 +16,7 @@ function pickMime(): string | undefined {
 }
 
 export interface RecorderProps {
-  /** Giới hạn ghi: 180 s cho lời giảng, 90 s cho câu trả lời (FR-TB-05). Hết giờ tự dừng. */
+  /** Giới hạn ghi: 300 s cho lời giảng, 90 s cho câu trả lời (FR-TB-05). Hết giờ tự dừng. */
   maxSeconds?: number;
   /** SV đã đồng ý ghi âm chưa (BR-13) – bên dùng giữ để chỉ hỏi một lần. */
   consented: boolean;
@@ -29,11 +29,11 @@ export interface RecorderProps {
 }
 
 /**
- * Recorder – ghi âm MediaRecorder (webm/opus), ≤ 3 phút lời giảng / 90 giây câu trả lời,
+ * Recorder – ghi âm MediaRecorder (webm/opus), ≤ 5 phút lời giảng / 90 giây câu trả lời,
  * hỏi đồng ý trước lần đầu (BR-13) và chỉ xin micro sau khi SV đồng ý. Thẻ: GD-07 (Thắng).
  * Giao diện theo Figma SV-04: nút tròn đỏ "Đang ghi", Waveform, mm:ss / 03:00, "Ghi lại", "Gửi".
  */
-export function Recorder({ maxSeconds = 180, consented, onConsent, onSubmit, onUseText, disabled }: RecorderProps) {
+export function Recorder({ maxSeconds = 300, consented, onConsent, onSubmit, onUseText, disabled }: RecorderProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [stream, setStream] = useState<MediaStream>();
@@ -314,7 +314,7 @@ function ConsentDialog({ onAnswer }: { onAnswer: (ok: boolean) => void }) {
           <ShieldCheck aria-hidden size={20} className="text-teal" /> Cho phép ghi âm lời giảng?
         </h2>
         <div id="consent-desc" className="space-y-2 text-body-m text-ink-700">
-          <p>Whybi sẽ ghi âm giọng bạn (tối đa 3 phút mỗi lượt) để chuyển thành chữ và chấm lời giảng.</p>
+          <p>Whybi sẽ ghi âm giọng bạn (tối đa 5 phút mỗi lượt) để chuyển thành chữ và chấm lời giảng.</p>
           <p>Bản ghi chỉ dùng cho phiên học này và tự xóa sau thời hạn lưu trữ. Bạn luôn có thể gõ chữ thay vì nói.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row-reverse">

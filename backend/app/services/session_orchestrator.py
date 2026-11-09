@@ -253,6 +253,9 @@ class SessionOrchestrator:
 
     def start_session(self, student_id: UUID, body: SessionStart) -> SessionCreated:
         class_id, node = self._node(body.node_id)
+        cls = ClassService(self.db).info(class_id)
+        if cls.status != "ACTIVE":
+            raise AppError(403, "CLASS_ARCHIVED", "Lớp học phần đã được lưu trữ, không thể bắt đầu phiên học mới")
         QuotaService(self.db).check(student_id, class_id)
         if body.peer_match_item_id is not None:
             # Import trong hàm: matching.py dùng SessionResult/SkillTreeService, tránh vòng import khi nạp app

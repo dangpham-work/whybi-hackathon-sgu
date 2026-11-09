@@ -10,6 +10,7 @@ import { useApi } from "../../lib/useApi";
 /** SV-07 Bạn cùng tiến (Figma 25:1602, FR-PM-01, 05, 06, 07, GD-11). */
 export default function StudentPeers() {
   const { classId = "" } = useParams();
+  const cls = useApi((signal) => apiCall("get", "/classes/{class_id}", { path: { class_id: classId }, signal }), [classId]);
   const matches = useApi((signal) => apiCall("get", "/classes/{class_id}/matches", { path: { class_id: classId }, signal }), [classId]);
   const map = useApi((signal) => apiCall("get", "/classes/{class_id}/my-map", { path: { class_id: classId }, signal }), [classId]);
   const title = (key: string) => map.data?.tree.nodes.find((n) => n.key === key)?.title ?? key;
@@ -17,8 +18,15 @@ export default function StudentPeers() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-h1 font-bold">Bạn cùng tiến</h1>
-      <OptInCard />
+      <div>
+        <h1 className="text-h1 font-bold">Bạn cùng tiến</h1>
+        {cls.data?.name && (
+          <p className="text-body-m font-semibold text-teal">
+            Lớp: {cls.data.name} ({cls.data.semester})
+          </p>
+        )}
+      </div>
+      <OptInCard classId={classId} onOptInChange={matches.reload} />
       <AsyncView state={matches} isEmpty={(l) => l.length === 0} empty="Chưa có gợi ý nào. Khi giảng viên chạy vòng ghép cặp, gợi ý sẽ hiện ở đây.">
         {(list) => (
           <ul aria-label="Cặp bạn cùng tiến" className="space-y-3">
@@ -34,25 +42,55 @@ export default function StudentPeers() {
   );
 }
 
-/** Công tắc tham gia ghép cặp (FR-PM-01, BR-10). API cần `enrollmentId` nhưng backend chưa trả nó cho SV nên chưa bật được. */
-function OptInCard() {
+/** Công tắc tham gia ghép cặp (FR-PM-01, BR-10). */
+function OptInCard({ classId, onOptInChange }: { classId: string; onOptInChange?: () => void }) {
+  const optIn = useApi((signal) => apiCall("get", "/classes/{class_id}/peer-opt-in", { path: { class_id: classId }, signal }), [classId]);
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    if (busy || optIn.data === undefined) return;
+    setBusy(true);
+    try {
+      const next = !optIn.data.peerOptIn;
+      await apiCall("put", "/classes/{class_id}/peer-opt-in", { path: { class_id: classId }, body: { peerOptIn: next } });
+      optIn.reload();
+      onOptInChange?.();
+    } catch {
+      // lỗi API
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const enabled = optIn.data?.peerOptIn ?? true;
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-line-soft bg-surface p-4">
       <div>
         <p className="flex items-center gap-2 font-semibold">
           <Users aria-hidden size={16} className="text-teal" /> Tham gia ghép cặp
         </p>
-        <p className="text-body-s text-ink-500">Bạn có thể tắt bất cứ lúc nào (BR-10).</p>
+        <p className="text-body-s text-ink-500">
+          {enabled ? "Đang bật nhận gợi ý bạn học cùng tiến (BR-10)." : "Đã tắt tham gia ghép cặp ở lớp này."}
+        </p>
       </div>
       <button
         type="button"
         role="switch"
-        aria-checked="true"
+        aria-checked={enabled}
         aria-label="Tham gia ghép cặp"
-        disabled
-        title="Chờ API trả enrollmentId cho sinh viên (C2-14)"
-        className="h-6 w-11 shrink-0 rounded-full bg-teal opacity-50"
-      />
+        disabled={busy || optIn.data === undefined}
+        onClick={toggle}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          enabled ? "bg-teal" : "bg-line-strong"
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block size-5 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out ${
+            enabled ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
     </div>
   );
 }

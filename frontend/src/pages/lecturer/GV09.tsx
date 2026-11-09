@@ -10,6 +10,7 @@ import { useApi } from "../../lib/useApi";
 /** GV-09 Quản lý ghép cặp (Figma 19:2649, FR-PM-01, 02, GD-11): chạy vòng, danh sách cặp, thống kê. Điều chỉnh thủ công: GD-12. */
 export default function LecturerMatching() {
   const { classId = "" } = useParams();
+  const cls = useApi((signal) => apiCall("get", "/classes/{class_id}", { path: { class_id: classId }, signal }), [classId]);
   const matches = useApi((signal) => apiCall("get", "/classes/{class_id}/matches", { path: { class_id: classId }, signal }), [classId]);
   const stats = useApi((signal) => apiCall("get", "/classes/{class_id}/matching-stats", { path: { class_id: classId }, signal }), [classId]);
   const tree = useApi((signal) => apiCall("get", "/classes/{class_id}/tree", { path: { class_id: classId }, signal }), [classId]);
@@ -37,17 +38,27 @@ export default function LecturerMatching() {
     }
   }
 
+  const isArchived = cls.data?.status === "ARCHIVED";
+
   return (
     <div className="space-y-5 p-4 lg:p-7">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-h1 font-bold">Ghép cặp bạn cùng tiến</h1>
-          <p className="text-body-m text-ink-500">Ghép cặp bù trừ hai chiều: hai bạn mỗi người dạy lại nút bạn kia chưa Đạt.</p>
+          <p className="text-body-m font-semibold text-teal">
+            Lớp: {cls.data?.name ? `${cls.data.name} (${cls.data.semester})` : "Đang tải…"}
+            {isArchived && (
+              <span className="ml-2 inline-flex items-center rounded bg-ink-200 px-2 py-0.5 text-body-s font-normal text-ink-700">
+                Đã lưu trữ (Chỉ đọc)
+              </span>
+            )}
+          </p>
+          <p className="text-body-s text-ink-500">Ghép cặp bù trừ hai chiều cho sinh viên trong lớp học phần này.</p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-body-s font-semibold">
             <span className="sr-only">Ưu tiên nút</span>
-            <select value={priority} onChange={(e) => setPriority(e.target.value)} className="rounded-md border border-line-strong px-3 py-2 text-body-m">
+            <select value={priority} onChange={(e) => setPriority(e.target.value)} disabled={isArchived} className="rounded-md border border-line-strong px-3 py-2 text-body-m disabled:opacity-50">
               <option value="">Không ưu tiên nút nào</option>
               {tree.data?.nodes.map((n) => (
                 <option key={n.id ?? n.key} value={n.id ?? ""}>
@@ -56,7 +67,7 @@ export default function LecturerMatching() {
               ))}
             </select>
           </label>
-          <Button disabled={busy} onClick={run}>
+          <Button disabled={busy || isArchived} onClick={run}>
             <Play aria-hidden size={16} /> Chạy vòng ghép cặp
           </Button>
         </div>

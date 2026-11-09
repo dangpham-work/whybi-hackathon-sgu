@@ -1,9 +1,9 @@
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
 import { NotificationBell } from "../components/NotificationBell";
 import { NAV } from "../lib/nav";
-import { SideNav, useCurrentScreen, useShellUser } from "./shell";
+import { Avatar, SideNav, useCurrentScreen, useShellUser } from "./shell";
 
 /** Khung Quản trị (bổ sung – chưa có trong Figma, thẻ GD-15). Dựng theo mẫu khung GV. */
 export function AdminLayout() {
@@ -32,6 +32,9 @@ export function AdminLayout() {
           </button>
           <p className="min-w-0 flex-1 truncate text-body-m font-semibold">{screen?.title ?? "Quản trị"}</p>
           <NotificationBell />
+          <Link to="/me" aria-label="Hồ sơ cá nhân">
+            <Avatar name={USER.name} />
+          </Link>
         </header>
         <main className="flex-1 p-4 lg:p-7">
           <Outlet />

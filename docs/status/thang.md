@@ -76,7 +76,7 @@
   sửa tên / chương / Bloom, sửa rubric (ý chính, quan niệm sai, ngưỡng), lưu nháp, duyệt, sinh lại bằng AI, phát hành (liệt kê `details.errors` khi 422), tạo bản nháp từ bản đã phát hành.
   Cảnh báo "N nút chưa duyệt rubric" theo BR-05. Test: `src/test/gd09.test.tsx`.
 - Cần từ Long (C2-09):
-  - `DELETE /nodes/{id}` và API gộp nút: nút "Xóa nút", "Gộp nút" đang khóa, chưa làm giả.
+  - `DELETE /nodes/{id}` đã có; bỏ chức năng gộp nút (gộp = xóa một nút rồi sửa nút còn lại).
   - OpenAPI `POST /classes/{id}/tree-versions` nên khai báo body tùy chọn; `details.errors` của `PUBLISH_CHECK_FAILED` nên là mảng chuỗi tiếng Việt.
 - Chưa làm (thuộc GD-14): lịch sử, so sánh, khôi phục phiên bản. "Kiểm tra DAG" riêng chưa có vì backend chặn chu trình ngay khi nối và kiểm lại khi phát hành.
 

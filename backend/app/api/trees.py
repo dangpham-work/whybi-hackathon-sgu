@@ -70,6 +70,12 @@ def update_node(node_id: UUID, body: NodePatch, trees: Trees, user: CurrentUser 
     return trees.update_node(node_id, body, user)
 
 
+@router.delete("/nodes/{node_id}", status_code=204)
+def delete_node(node_id: UUID, trees: Trees, user: CurrentUser = Lecturer) -> None:
+    """Xóa nút khỏi bản nháp, kèm cạnh và rubric của nút. Muốn "gộp" hai nút: xóa một, rồi sửa nút còn lại."""
+    trees.delete_node(node_id, user)
+
+
 @router.post("/tree-versions/{version_id}/edges", response_model=Edge, status_code=201)
 def add_edge(version_id: UUID, body: Edge, trees: Trees, user: CurrentUser = Lecturer) -> Edge:
     """Kiểm tra chu trình trước khi ghi; tạo chu trình ⇒ 409 CYCLE_DETECTED kèm `details.path` (TC03).
