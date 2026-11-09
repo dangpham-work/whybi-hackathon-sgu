@@ -4,10 +4,11 @@
  *   GET  /me → Me {id, fullName, email, role, avatarUrl?}   · POST /auth/logout (204)
  *   POST /auth/forgot-password {email} (202)
  * GIẢ ĐỊNH về C2-07 (ghi trong PR GD-04): accessToken dùng làm Bearer; vai trò lấy từ GET /me (không giải mã JWT ở client);
- * sai email / mật khẩu trả 401; chưa tự gọi /auth/refresh khi token hết hạn (30 phút – NFR-07) → làm khi C2-07 chốt.
+ * sai email / mật khẩu trả 401. Access token hết hạn (30 phút – NFR-07): `api.ts` tự gọi /auth/refresh và thử lại,
+ * hết cách thì gọi `onSessionExpired` (đăng ký ở main.tsx) để đăng xuất và điều hướng về /login.
  */
 import { useEffect, useSyncExternalStore } from "react";
-import { apiCall, getToken, setToken, type Schema } from "./api";
+import { apiCall, getRefreshToken, getToken, setRefreshToken, setToken, type Schema } from "./api";
 
 export type Me = Schema<"Me">;
 export type Role = Schema<"Role">;
@@ -33,15 +34,9 @@ const setUser = (u: Me | null) => {
   notify();
 };
 
-/**
- * Refresh token CHỈ giữ trong bộ nhớ (không localStorage – tránh XSS chiếm phiên lâu dài).
- * Chờ C2-07 chốt: tốt nhất backend đặt cookie httpOnly cho refresh, client chỉ gọi POST /auth/refresh.
- */
-let refreshToken: string | null = null;
-const storeRefresh = (t: string | null) => {
-  refreshToken = t;
-};
-export const hasRefreshToken = () => refreshToken !== null;
+/** Refresh token được lưu ở `api.ts` (chỉ bộ nhớ, dùng chung với bước tự làm mới access token hết hạn). */
+const storeRefresh = setRefreshToken;
+export const hasRefreshToken = () => getRefreshToken() !== null;
 
 /** `?next=` sau đăng nhập: chỉ nhận đường dẫn cùng gốc ("/…"), chặn "//x", "/\x", "https://…", "javascript:…". */
 export function safeNext(next: string | null): string | null {
@@ -107,7 +102,7 @@ export const auth = {
   async logout(): Promise<void> {
     ++generation;
     loading = null;
-    const request = getToken() ? apiCall("post", "/auth/logout", { body: { refreshToken } }) : Promise.resolve();
+    const request = getToken() ? apiCall("post", "/auth/logout", { body: { refreshToken: getRefreshToken() } }) : Promise.resolve();
     setToken(null);
     storeRefresh(null);
     setUser(null);

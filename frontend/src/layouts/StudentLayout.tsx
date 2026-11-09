@@ -4,7 +4,7 @@ import { Link, Outlet, useNavigate, useParams } from "react-router";
 import { Logo } from "../components/Logo";
 import { auth } from "../lib/auth";
 import { isCurrent, NAV, NEED_CLASS_HINT } from "../lib/nav";
-import { Avatar, useCurrentScreen, useShellUser } from "./shell";
+import { Avatar, BackButton, useCurrentScreen, useShellUser } from "./shell";
 
 /** Khung mobile SV 390px (Figma SV-01…SV-08): header trắng + thanh tab dưới. Responsive từ 360px (NFR-11). */
 export function StudentLayout() {
@@ -21,7 +21,7 @@ export function StudentLayout() {
     <div className="mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-app">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line-soft bg-surface px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Logo size={32} />
+          {screen && !["SV-01", "SV-02"].includes(screen.code) ? <BackButton fallback="/sv/classes" /> : <Logo size={32} />}
           <div className="min-w-0">
             {/* TODO(GD-06): tên lớp từ API ở SV-02/SV-03 */}
             <p className="truncate text-h3 font-bold">{screen?.title ?? "Whybi AI"}</p>

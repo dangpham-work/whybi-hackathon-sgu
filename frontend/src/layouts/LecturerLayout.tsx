@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useParams } from "react-router";
 import { NotificationBell } from "../components/NotificationBell";
 import { NAV } from "../lib/nav";
-import { Avatar, SideNav, useCurrentScreen, useShellUser } from "./shell";
+import { Avatar, BackButton, SideNav, useCurrentScreen, useShellUser } from "./shell";
 
 /**
  * Khung web GV 1440px (Figma GV-01…GV-10): sidebar mực đậm 248px + thanh trên có breadcrumb.
@@ -36,10 +36,11 @@ export function LecturerLayout() {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center gap-3 border-b border-line-soft bg-surface px-4 lg:px-7">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-line-soft bg-surface px-4 lg:px-7">
           <button className="rounded-md border border-line-soft p-2 lg:hidden" aria-label="Mở menu" onClick={() => setDrawer(true)}>
             <Menu aria-hidden size={18} />
           </button>
+          {screen && !["GV-01", "GV-02"].includes(screen.code) && <BackButton fallback="/gv/classes" />}
           <nav aria-label="Đường dẫn" className="min-w-0 flex-1">
             <ol className="flex min-w-0 items-center gap-2 text-body-m text-ink-500">
               {crumbs.map((c, i) => {
