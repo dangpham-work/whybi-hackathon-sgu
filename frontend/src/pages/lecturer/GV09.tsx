@@ -1,4 +1,4 @@
-import { CircleCheck, Info, Pencil, Play, Users } from "lucide-react";
+import { Archive, CircleCheck, Info, Pencil, Play, Users } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -48,8 +48,8 @@ export default function LecturerMatching() {
           <p className="text-body-m font-semibold text-teal">
             Lớp: {cls.data?.name ? `${cls.data.name} (${cls.data.semester})` : "Đang tải…"}
             {isArchived && (
-              <span className="ml-2 inline-flex items-center rounded bg-ink-200 px-2 py-0.5 text-body-s font-normal text-ink-700">
-                Đã lưu trữ (Chỉ đọc)
+              <span className="ml-2 inline-flex items-center gap-1 rounded-md border border-ink-300 bg-surface px-2 py-1 text-body-s font-semibold text-ink-700">
+                <Archive size={14} /> Đã lưu trữ (Chỉ đọc)
               </span>
             )}
           </p>
