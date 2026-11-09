@@ -149,10 +149,16 @@ export function UnifiedChatComposer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    const maxHeight = 220; // Tối đa ~8-9 dòng
-    const nextHeight = Math.min(el.scrollHeight, maxHeight);
-    el.style.height = `${Math.max(nextHeight, 64)}px`;
-    el.scrollTop = el.scrollHeight; // Luôn cuộn tới dòng mới nhất
+    const minHeight = 28; // 1 dòng nhỏ gọn ban đầu
+    const maxHeight = 120; // Tối đa ~4-5 dòng, vượt quá thì cuộn bên trong
+    const nextHeight = Math.min(Math.max(el.scrollHeight, minHeight), maxHeight);
+    el.style.height = `${nextHeight}px`;
+    if (el.scrollHeight > maxHeight) {
+      el.style.overflowY = "auto";
+      el.scrollTop = el.scrollHeight; // Luôn cuộn tới dòng mới nhất khi vượt ngưỡng
+    } else {
+      el.style.overflowY = "hidden";
+    }
   }, []);
 
   // Cuộn và chỉnh kích thước khi text đổi
@@ -192,26 +198,48 @@ export function UnifiedChatComposer({
     const effectiveContent = content || (hasSpokenRef.current ? "..." : "");
     if (!effectiveContent && !blob) return;
 
+    // Lưu bản sao lưu phòng trường hợp gửi thất bại sẽ phục hồi lại
+    const backupText = text;
+    const backupHasSpoken = hasSpokenRef.current;
+    const audioToSend = blob ?? recordedAudioRef.current?.blob;
+    const durationToSend = durationMs ?? recordedAudioRef.current?.ms;
+    const metricsSnapshot = meter.current.snapshot();
+
+    // XÓA VÀ THU GỌN NGAY LẬP TỨC: Người dùng thấy phản hồi gửi liền tức thì
+    setText("");
+    baseTextRef.current = "";
+    currentSpeechRef.current = "";
+    hasSpokenRef.current = false;
+    recordedAudioRef.current = null;
+    setIsRecorded(false);
+    setAutoStopped(false);
+    setElapsed(0);
+    meter.current.reset();
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "28px";
+      textareaRef.current.style.overflowY = "hidden";
+    }
+
     try {
       await onSend({
         text: content,
-        inputMode: hasSpokenRef.current ? "VOICE" : "TEXT",
-        audioBlob: blob ?? recordedAudioRef.current?.blob,
-        durationMs: durationMs ?? recordedAudioRef.current?.ms,
-        ...meter.current.snapshot(),
+        inputMode: backupHasSpoken ? "VOICE" : "TEXT",
+        audioBlob: audioToSend,
+        durationMs: durationToSend,
+        ...metricsSnapshot,
       });
-      if (!mountedRef.current) return;
-      setText("");
-      baseTextRef.current = "";
-      currentSpeechRef.current = "";
-      hasSpokenRef.current = false;
-      recordedAudioRef.current = null;
-      setIsRecorded(false);
-      setAutoStopped(false);
-      setElapsed(0);
-      meter.current.reset();
     } catch {
-      /* Giữ nguyên text để người dùng gửi lại */
+      // Nếu gửi gặp lỗi mạng / server, phục hồi lại văn bản để người dùng không bị mất nội dung
+      if (mountedRef.current) {
+        setText(backupText);
+        baseTextRef.current = backupText;
+        hasSpokenRef.current = backupHasSpoken;
+        if (audioToSend) {
+          recordedAudioRef.current = { blob: audioToSend, ms: durationToSend ?? 0 };
+          setIsRecorded(true);
+        }
+        adjustTextareaHeight();
+      }
     }
   };
 
@@ -432,6 +460,7 @@ export function UnifiedChatComposer({
   };
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -445,7 +474,7 @@ export function UnifiedChatComposer({
   const sendButtonLabel = hasSpokenRef.current ? "Gửi bản ghi" : (turnType === "EXPLANATION" ? "Gửi lời giảng" : "Gửi câu trả lời");
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {/* Tablist ẩn nhằm hỗ trợ accessibility và tương thích ngược */}
       <div role="tablist" aria-label="Cách giảng" className="sr-only">
         <button
@@ -475,10 +504,10 @@ export function UnifiedChatComposer({
       {micError && (
         <div
           role="alert"
-          className="space-y-2 rounded-lg border border-red-700/40 bg-st-fail/30 p-3 text-body-m text-red-900"
+          className="space-y-2 rounded-lg border border-red-700/40 bg-st-fail/30 p-2.5 text-body-s text-red-900"
         >
           <p className="flex items-start gap-2">
-            <TriangleAlert aria-hidden size={18} className="mt-0.5 shrink-0 text-red-700" />
+            <TriangleAlert aria-hidden size={16} className="mt-0.5 shrink-0 text-red-700" />
             <span className="flex-1">{micError}</span>
           </p>
           <div className="flex flex-wrap gap-2">
@@ -511,17 +540,17 @@ export function UnifiedChatComposer({
         </p>
       )}
 
-      {/* Khung chat hợp nhất theo mẫu UI-mau/thanh-chat.png */}
+      {/* Khung chat hợp nhất siêu gọn theo mẫu UI-mau/thanh-chat.png */}
       <form
         onSubmit={handleSend}
-        className="flex flex-col rounded-2xl border border-line-strong bg-ink-900 px-4 py-3 text-white shadow-card transition-all focus-within:border-teal/70 focus-within:ring-2 focus-within:ring-teal/30"
+        className="flex flex-col rounded-2xl border border-line-strong bg-ink-900 px-3 py-2 text-white shadow-card transition-all focus-within:border-teal/70 focus-within:ring-2 focus-within:ring-teal/30"
       >
         {/* Hàng trên: Thời gian - Mic - Thanh âm lượng ở chính giữa - Số ký tự */}
-        <div className="flex items-center justify-between gap-3 border-b border-ink-700/50 pb-2.5">
+        <div className="flex items-center justify-between gap-2 border-b border-ink-800/60 pb-1.5">
           {/* Cụm bên trái: Thời gian ghi âm / giới hạn + Nút Mic */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <span
-              className="text-body-s font-medium tabular-nums text-ink-300"
+              className="text-xs font-medium tabular-nums text-ink-300"
               aria-label={`Thời gian ghi âm: ${clockText(elapsed)} trên ${clockText(maxSeconds)}`}
             >
               {clockText(elapsed)} / {clockText(maxSeconds)}
@@ -533,18 +562,18 @@ export function UnifiedChatComposer({
               disabled={disabled || busy}
               aria-label={isRecording ? "Dừng ghi âm" : "Bắt đầu ghi âm"}
               title={isRecording ? "Dừng ghi âm" : "Bắt đầu ghi âm"}
-              className={`flex size-8 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-teal ${
+              className={`flex size-7 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-teal ${
                 isRecording
                   ? "bg-red-600 text-white animate-pulse hover:bg-red-700"
-                  : "bg-ink-700 text-ink-300 hover:bg-ink-600 hover:text-white"
+                  : "bg-ink-800 text-ink-300 hover:bg-ink-700 hover:text-white"
               } disabled:opacity-50`}
             >
-              {isRecording ? <Square aria-hidden size={14} fill="currentColor" /> : <Mic aria-hidden size={16} />}
+              {isRecording ? <Square aria-hidden size={12} fill="currentColor" /> : <Mic aria-hidden size={14} />}
             </button>
 
             {isRecording && (
-              <span className="text-body-s font-semibold text-red-400 animate-pulse">
-                Đang ghi
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-red-400 animate-pulse">
+                <span className="size-1.5 rounded-full bg-red-400 animate-ping" /> Đang ghi
               </span>
             )}
             {isRecorded && !isRecording && (
@@ -552,35 +581,35 @@ export function UnifiedChatComposer({
                 type="button"
                 onClick={handleRetake}
                 aria-label="Ghi lại"
-                className="flex items-center gap-1 rounded-md bg-ink-800 px-2 py-1 text-body-s font-medium text-ink-300 hover:bg-ink-700 hover:text-white"
+                className="flex items-center gap-1 rounded bg-ink-800 px-1.5 py-0.5 text-xs font-medium text-ink-300 hover:bg-ink-700 hover:text-white"
               >
-                <RotateCcw aria-hidden size={13} /> Ghi lại
+                <RotateCcw aria-hidden size={11} /> Ghi lại
               </button>
             )}
           </div>
 
           {/* CHÍNH GIỮA: Thanh âm lượng giọng nói */}
-          <div className="flex flex-1 items-center justify-center px-2">
+          <div className="flex flex-1 items-center justify-center px-1">
             <Waveform
               stream={stream}
               active={isRecording}
-              barsCount={20}
-              className="flex h-5 items-center gap-[2px]"
+              barsCount={16}
+              className="flex h-3.5 items-center gap-[2px]"
               activeColor="bg-red-500"
-              idleColor="bg-ink-700"
+              idleColor="bg-ink-800"
             />
           </div>
 
           {/* Cụm bên phải: Đếm số ký tự */}
           <div className="text-right">
-            <span className="text-body-s font-medium tabular-nums text-ink-400">
+            <span className="text-[11px] font-medium tabular-nums text-ink-400">
               {text.length.toLocaleString("vi-VN")} / {MAX_TEXT.toLocaleString("vi-VN")}
             </span>
           </div>
         </div>
 
-        {/* Khung nhập văn bản ở giữa: Tự co giãn và tự cuộn */}
-        <div className="py-2.5">
+        {/* Khung nhập văn bản ở giữa: Khởi đầu 1 dòng (28px), tự nở khi nhiều chữ, max ~120px */}
+        <div className="py-1">
           <label htmlFor="unified-turn-text" className="sr-only">
             {turnType === "EXPLANATION" ? "Lời giảng của bạn" : "Câu trả lời của bạn"}
           </label>
@@ -588,7 +617,7 @@ export function UnifiedChatComposer({
             ref={textareaRef}
             id="unified-turn-text"
             value={text}
-            rows={2}
+            rows={1}
             maxLength={MAX_TEXT}
             aria-label={turnType === "EXPLANATION" ? "Lời giảng của bạn" : "Câu trả lời của bạn"}
             placeholder={placeholder}
@@ -602,23 +631,28 @@ export function UnifiedChatComposer({
               baseTextRef.current = e.target.value;
             }}
             onKeyDown={handleKeyDown}
-            className="w-full resize-none border-none bg-transparent p-0 text-body-m text-white placeholder:text-ink-400 focus:outline-none focus:ring-0"
+            className="w-full resize-none border-none bg-transparent p-0 text-[14px] leading-snug text-white placeholder:text-ink-500 focus:outline-none focus:ring-0"
+            style={{ minHeight: "28px", maxHeight: "120px" }}
           />
         </div>
 
-        {/* Hàng dưới: Nút gửi */}
-        <div className="flex items-center justify-end pt-1">
+        {/* Hàng dưới: Hướng dẫn phím tắt bên trái, Nút gửi góc phải theo UI-mẫu */}
+        <div className="flex items-center justify-between pt-0.5 border-t border-ink-800/40">
+          <span className="text-[11px] text-ink-500 hidden sm:inline">
+            <kbd className="rounded bg-ink-800/80 px-1 py-0.5 text-[10px] text-ink-300">Enter ↵</kbd> gửi · <kbd className="rounded bg-ink-800/80 px-1 py-0.5 text-[10px] text-ink-300">Shift+Enter</kbd> xuống dòng
+          </span>
+          <span className="sm:hidden" />
           <button
             type="submit"
             disabled={(!text.trim() && !hasSpokenRef.current) || busy || disabled}
             aria-label={sendButtonLabel}
             title={sendButtonLabel}
-            className="flex size-9 items-center justify-center rounded-lg bg-teal text-white shadow-float transition-all hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:hover:brightness-100"
+            className="flex size-7 items-center justify-center rounded-md bg-teal text-white shadow-sm transition-all hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:hover:brightness-100"
           >
             {busy ? (
-              <LoaderCircle aria-hidden size={18} className="animate-spin" />
+              <LoaderCircle aria-hidden size={14} className="animate-spin" />
             ) : (
-              <CornerDownLeft aria-hidden size={18} />
+              <CornerDownLeft aria-hidden size={14} />
             )}
           </button>
         </div>

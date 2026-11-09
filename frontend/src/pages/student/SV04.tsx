@@ -203,6 +203,12 @@ export default function TeachingSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seconds, deadline, busy, live, sessionId]);
 
+  /** Tự động cuộn tới tin nhắn mới nhất trong hội thoại */
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
+  }, [messages, waiting, failure]);
+
   /** Gửi một lượt; ném lỗi lại để ô gõ / Recorder giữ nội dung cho lần gửi lại. */
   async function postTurn(turn: Omit<Turn, "turnType" | "responseTimeMs">) {
     touched.current = true;
@@ -354,9 +360,10 @@ export default function TeachingSession() {
         {messages.map((m) => (
           <Bubble key={m.id} m={m} />
         ))}
+        <div ref={messagesEndRef} />
       </section>
 
-      <section aria-label="Khung trả lời" className="sticky bottom-16 space-y-3 border-t border-line-soft bg-surface px-4 py-3">
+      <section aria-label="Khung trả lời" className="sticky bottom-16 space-y-2 border-t border-line-soft bg-surface/95 px-3 py-2 backdrop-blur-sm">
         {failure !== undefined && <FailureBox failure={failure} />}
 
         {pending && (
@@ -374,9 +381,8 @@ export default function TeachingSession() {
               onSend={handleUnifiedSend}
               onTranscribeAudio={handleTranscribeAudio}
             />
-            <p className="flex items-start gap-2 rounded-md border border-honey/50 bg-honey-soft px-3 py-2 text-body-s text-honey-deep">
-              <Info aria-hidden size={14} className="mt-0.5 shrink-0" />
-              Hãy giải thích bản chất “vì sao”, không chỉ nêu định nghĩa. Whybi sẽ không đưa đáp án.
+            <p className="text-center text-[11px] text-ink-500">
+              <span className="font-semibold text-honey-deep">Mẹo:</span> Hãy giải thích bản chất “vì sao”, không chỉ nêu định nghĩa. Whybi sẽ không đưa đáp án.
             </p>
           </>
         ) : (
