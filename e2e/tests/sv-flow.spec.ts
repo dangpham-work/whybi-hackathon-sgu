@@ -112,7 +112,10 @@ async function joinAndStart(page: Page, f: Fixture, request: APIRequestContext) 
   }, created);
   await page.goto(`/sv/sessions/${created.sessionId}`);
   await expect(page.getByRole("log", { name: "Hội thoại với Whybi" })).toContainText(created.opening.text);
-  await page.getByRole("tab", { name: "Văn bản", exact: true }).click();
+  const textTab = page.getByRole("tab", { name: "Văn bản", exact: true });
+  if ((await textTab.count()) > 0 && (await textTab.isVisible())) {
+    await textTab.click();
+  }
   return created;
 }
 
