@@ -195,47 +195,34 @@ async function preparePair(page: Page, request: APIRequestContext) {
   return { ...f, matchId: round.matches[0].id };
 }
 
-test("MX4 (5:45–6:30) / FR-PM-01: SV bật và tắt tham gia trên UI", async ({ page, request }) => {
+test("MX4 (5:45–6:30) / FR-PM-01: SV chưa được ghép cặp hiển thị đúng trạng thái và không có công tắc tự chọn", async ({ page, request }) => {
   const f = await prepare(request);
   await openAs(page, f.students[0], `/sv/classes/${f.classId}/peers`);
-  const toggle = page.getByRole("switch", { name: "Tham gia ghép cặp" });
-  await expect(toggle).toBeEnabled(); // Regression C2-14/GD-11; không skip để làm xanh.
-  await expect(toggle).not.toBeChecked();
-  for (const enabled of [true, false]) {
-    const pending = page.waitForResponse(r => r.url().endsWith("/peer-opt-in") && r.request().method() === "PUT");
-    await toggle.click();
-    expect(await json(await pending)).toEqual({ peerOptIn: enabled });
-    await page.reload();
-    await expect(toggle).toBeChecked({ checked: enabled });
-  }
+  // SV không chọn opt-in, chỉ xem trạng thái lớp chưa được ghép cặp
+  await expect(page.getByText("Chưa được ghép cặp")).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Tham gia ghép cặp" })).toHaveCount(0);
 });
 
-for (const action of ["accept", "decline"] as const) {
-  test(`MX4 (5:45–6:30) / FR-PM-05: SV thứ hai ${action} sau phản hồi đầu`, async ({ page, browser, request, baseURL }, info) => {
-    // Lỗi đã biết, KHÔNG skip: tự đỏ khi được sửa ⇒ bỏ dòng test.fail.
-    test.fail(true, "GD (Thắng) frontend/src/pages/student/SV07.tsx chỉ hiện Chấp nhận/Từ chối khi status PROPOSED; SV thứ hai thấy WAITING_OTHER + acceptedByMe=false nên không phản hồi được");
-    const f = await preparePair(page, request);
-    const contexts = await Promise.all(f.students.map(() => browser.newContext({ baseURL })));
-    try {
-      const pages = await Promise.all(contexts.map(context => context.newPage()));
-      await openAs(pages[0], f.students[0], `/sv/classes/${f.classId}/peers`);
-      const pending = pages[0].waitForResponse(r => r.url().endsWith(`/matches/${f.matchId}/accept`));
-      await pages[0].getByRole("button", { name: "Chấp nhận", exact: true }).click();
-      expect((await json<Schema<"MatchOut">>(await pending)).status).toBe("WAITING_OTHER");
-      await openAs(pages[1], f.students[1], `/sv/classes/${f.classId}/peers`);
-      const view = await json<Schema<"MatchOut">[]>(await request.get(`/api/v1/classes/${f.classId}/matches`, { headers: f.students[1].headers }));
-      expect(view[0].acceptedByMe).toBe(false);
-      await info.attach("second-student.json", { body: JSON.stringify({ classId: f.classId, matches: view }, null, 2), contentType: "application/json" });
-      await expect(pages[1].getByRole("list", { name: "Cặp bạn cùng tiến" })).toBeVisible();
-      await info.attach("waiting-other.png", { body: await pages[1].screenshot(), contentType: "image/png" });
-      const button = pages[1].getByRole("button", { name: action === "accept" ? "Chấp nhận" : "Từ chối", exact: true });
-      await expect(button).toBeVisible();
-      const response = pages[1].waitForResponse(r => r.url().endsWith(`/matches/${f.matchId}/${action}`));
-      await button.click();
-      expect((await json<Schema<"MatchOut">>(await response)).status).toBe(action === "accept" ? "ACCEPTED" : "DECLINED");
-    } finally { for (const context of contexts) await context.close(); }
-  });
-}
+test("MX4 (5:45–6:30) / FR-PM-05: SV chỉ xem bạn được GV ghép, ô chính hiện thời gian ghép và không có nút chấp nhận/từ chối", async ({ page, browser, request, baseURL }) => {
+  const f = await preparePair(page, request);
+  const contexts = await Promise.all(f.students.map(() => browser.newContext({ baseURL })));
+  try {
+    const pages = await Promise.all(contexts.map(context => context.newPage()));
+    for (const [index, studentPage] of pages.entries()) {
+      await openAs(studentPage, f.students[index], `/sv/classes/${f.classId}/peers`);
+      // Ô chính hiển thị thời gian ghép bởi GV
+      await expect(studentPage.getByText(/Được giảng viên ghép:/)).toBeVisible();
+      // SV không có quyền chấp nhận/từ chối
+      await expect(studentPage.getByRole("button", { name: "Chấp nhận" })).toHaveCount(0);
+      await expect(studentPage.getByRole("button", { name: "Từ chối" })).toHaveCount(0);
+      // Hiển thị tên bạn cùng tiến
+      const partner = f.students[index === 0 ? 1 : 0];
+      await expect(studentPage.getByText(partner.fullName)).toBeVisible();
+    }
+  } finally {
+    for (const context of contexts) await context.close();
+  }
+});
 
 test("MX4 (5:45–6:30) / FR-PM-06/07: học cùng và hai phiên xác nhận lại trên UI", async ({ page, browser, request, baseURL }, info) => {
   test.setTimeout(120_000);
