@@ -1,4 +1,4 @@
-import { api, apiCall, ApiError, errorText, FRIENDLY, friendlyMessage, setToken, type Schema } from "../lib/api";
+import { api, apiCall, ApiError, errorText, FRIENDLY, friendlyMessage, getToken, onSessionExpired, setRefreshToken, setToken, type Schema } from "../lib/api";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -123,6 +123,45 @@ describe("lỗi ghi âm / STT có thông báo riêng, gợi ý gõ chữ (#154)"
 
   it("errorText() của ApiError STT trả câu gợi ý gõ chữ", () => {
     expect(errorText(new ApiError(503, "STT_UNAVAILABLE", "Dịch vụ nhận dạng giọng nói lỗi"))).toMatch(/gõ chữ/);
+  });
+});
+
+// Access token hết hạn sau 30 phút (NFR-07): trước đây không tự làm mới / đăng xuất nên trang "treo" ở lỗi 401.
+describe("api() tự làm mới access token hết hạn rồi thử lại (C2-24)", () => {
+  afterEach(() => setRefreshToken(null));
+
+  it("401 ở yêu cầu thường ⇒ làm mới rồi thử lại, thành công thì không ném lỗi", async () => {
+    setToken("acc-cu");
+    setRefreshToken("ref-1");
+    fetchMock
+      .mockResolvedValueOnce(fail(401, "TOKEN_EXPIRED"))
+      .mockResolvedValueOnce(json(200, { accessToken: "acc-moi", refreshToken: "ref-2", tokenType: "bearer", expiresIn: 1800 }))
+      .mockResolvedValueOnce(json(200, { fullName: "A" }));
+    const me = await apiCall("get", "/me");
+    expect(me).toEqual({ fullName: "A" });
+    expect(getToken()).toBe("acc-moi");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetchMock.mock.calls[2]![1].headers).get("Authorization")).toBe("Bearer acc-moi");
+  });
+
+  it("làm mới cũng thất bại (hoặc không có refresh token) ⇒ gọi onSessionExpired đúng một lần, vẫn ném lỗi 401 gốc", async () => {
+    setToken("acc-cu");
+    setRefreshToken("ref-het-han");
+    fetchMock.mockResolvedValueOnce(fail(401, "TOKEN_EXPIRED")).mockResolvedValueOnce(fail(401, "TOKEN_REVOKED"));
+    const onExpired = vi.fn();
+    onSessionExpired(onExpired);
+    await expect(apiCall("get", "/me")).rejects.toMatchObject({ status: 401, code: "TOKEN_EXPIRED" });
+    expect(onExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it("401 ở chính /auth/login không tự làm mới / không gọi onSessionExpired (đó là sai mật khẩu, không phải hết hạn)", async () => {
+    setRefreshToken("ref-1");
+    fetchMock.mockResolvedValue(fail(401, "INVALID_CREDENTIALS"));
+    const onExpired = vi.fn();
+    onSessionExpired(onExpired);
+    await expect(apiCall("post", "/auth/login", { body: { email: "a@x.vn", password: "x" } })).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onExpired).not.toHaveBeenCalled();
   });
 });
 

@@ -2,7 +2,7 @@
  * Mảnh dùng chung cho 3 layout (GD-01): sidebar mực đậm (GV, QTV), avatar chữ cái,
  * hook lấy màn đang mở từ `handle` của route.
  */
-import { LogOut } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { Link, useMatches, useNavigate } from "react-router";
 import { Logo } from "../components/Logo";
 import { auth, ROLE_LABEL, useCurrentUser } from "../lib/auth";
@@ -33,6 +33,21 @@ export const initials = (name: string) => {
     .map((w) => w[0]!.toUpperCase())
     .join("");
 };
+
+/** Quay lại màn trước (GD-01): dùng lịch sử trình duyệt, không đụng tới nếu đang ở màn gốc của vai. */
+export function BackButton({ fallback }: { fallback: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      aria-label="Quay lại"
+      onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(fallback))}
+      className="rounded-md border border-line-soft p-2 text-ink-700 hover:bg-app"
+    >
+      <ArrowLeft aria-hidden size={18} />
+    </button>
+  );
+}
 
 export function Avatar({ name, tone = "teal" }: { name: string; tone?: "teal" | "honey" }) {
   const cls = tone === "honey" ? "bg-honey text-ink-900" : "bg-teal-soft text-teal";

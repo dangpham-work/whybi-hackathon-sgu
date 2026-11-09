@@ -63,6 +63,30 @@ describe("layout hiển thị điều hướng đúng vai (GD-01)", () => {
     for (const item of [...NAV.LECTURER("x"), ...NAV.STUDENT("x"), ...NAV.ADMIN()]) expect(item.icon).toBeTruthy();
   });
 
+  it.each(["/gv/classes/demo", "/admin/users"])(
+    "khung %s: header dính khi cuộn, không bị kéo theo cùng nội dung",
+    async (url) => {
+      // header đầu tiên trong DOM luôn là header của KHUNG (trước <main>) – trang bên trong (AdminPage) cũng
+      // có <header> riêng cho tiêu đề, không lấy nhầm cái đó.
+      const { container } = render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [url] })} />);
+      const header = container.querySelector("header");
+      expect(header?.className).toMatch(/sticky/);
+      expect(header?.className).toMatch(/top-0/);
+    },
+  );
+
+  it("QTV: có nút Quay lại ở màn không phải trang chủ (AD-02), không có ở trang chủ (AD-01)", async () => {
+    const r1 = render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/admin/users"] })} />);
+    const header1 = r1.container.querySelector("header")!;
+    expect(within(header1).queryByRole("button", { name: "Quay lại" })).toBeNull();
+    r1.unmount();
+
+    const r2 = render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/admin/courses"] })} />);
+    const header2 = r2.container.querySelector("header")!;
+    expect(await within(header2).findByRole("button", { name: "Quay lại" })).toBeTruthy();
+    r2.unmount();
+  });
+
   it.each(["/gv/classes", "/sv/classes/abc", "/admin/users"])(
     "khung %s có nút Đăng xuất; bấm vào thì xóa phiên và về trang đăng nhập (#195)",
     async (url) => {

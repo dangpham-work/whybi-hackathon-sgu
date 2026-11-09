@@ -132,9 +132,42 @@ export const setToken = (t: string | null) => {
   storage.set(t);
 };
 
+/**
+ * Refresh token: chỉ giữ trong bộ nhớ (không localStorage – tránh XSS chiếm phiên lâu dài), một nguồn duy nhất
+ * cho cả `auth.ts` và lớp gọi API này. Trước đây access token hết hạn sau 30 phút (NFR-07) không có bước làm
+ * mới hay đăng xuất tự động nên trang "treo" với lỗi 401 tới khi người dùng tự tải lại – sửa ở `api()` dưới.
+ */
+let refreshToken: string | null = null;
+export const getRefreshToken = () => refreshToken;
+export const setRefreshToken = (t: string | null) => {
+  refreshToken = t;
+};
+
+let expiredHandler: (() => void) | null = null;
+let handledOnce = false;
+/** App đăng ký một lần lúc khởi động (main.tsx): dọn phiên và điều hướng về /login khi refresh cũng thất bại. */
+export function onSessionExpired(fn: () => void) {
+  expiredHandler = fn;
+}
+
+/** Endpoint tự xác thực – không tự làm mới / điều hướng cho các lỗi 401 của chính chúng (vd. sai mật khẩu). */
+const NO_AUTO_REFRESH = new Set(["/auth/login", "/auth/refresh", "/auth/logout", "/auth/forgot-password", "/auth/reset-password"]);
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshToken) return false;
+  try {
+    const r = await apiCall("post", "/auth/refresh", { body: { refreshToken } });
+    setToken(r.accessToken);
+    setRefreshToken(r.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- gọi cấp thấp
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -157,8 +190,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const e = (body as { error?: { code?: string; message?: string; details?: Record<string, unknown> } } | undefined)?.error ?? {};
+    if (res.status === 401 && !retried && !NO_AUTO_REFRESH.has(path)) {
+      if (await refreshAccessToken()) return api<T>(path, init, true);
+      if (!handledOnce) {
+        handledOnce = true;
+        expiredHandler?.();
+      }
+    }
     throw new ApiError(res.status, e.code ?? "HTTP_ERROR", e.message ?? res.statusText, e.details ?? {});
   }
+  handledOnce = false; // yêu cầu thành công ⇒ phiên còn sống, cho lần hết hạn kế tiếp xử lý lại được
   return body as T;
 }
 
