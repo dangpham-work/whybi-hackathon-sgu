@@ -125,8 +125,8 @@ def test_stt_outage_keeps_session_usable_and_allows_retry(voice):
 
 @pytest.mark.parametrize(
     "data,code",
-    [(b"MZ fake audio", "UNSUPPORTED_AUDIO_FORMAT"), (audio(181), "AUDIO_TOO_LONG")],
-    ids=["exe-gia-am-thanh", "wav-181-giay"],  # id ngắn: bytes dài làm PYTEST_CURRENT_TEST vượt giới hạn Windows
+    [(b"MZ fake audio", "UNSUPPORTED_AUDIO_FORMAT"), (audio(301), "AUDIO_TOO_LONG")],
+    ids=["exe-gia-am-thanh", "wav-301-giay"],  # id ngắn: bytes dài làm PYTEST_CURRENT_TEST vượt giới hạn Windows
 )
 def test_invalid_audio_does_not_create_student_turn_or_recording(voice, data, code):
     w, sid, _, store = voice

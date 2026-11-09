@@ -62,7 +62,7 @@ async function record(page: Page, consent = true) {
   if (consent) await page.getByRole("button", { name: "Đồng ý ghi âm", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dừng ghi âm", exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Dạng sóng âm thanh" })).toBeVisible();
-  await expect(page.getByText(/00:0[1-9] \/ 03:00/)).toBeVisible();
+  await expect(page.getByText(/00:0[1-9] \/ 0[35]:00/)).toBeVisible();
   await page.getByRole("button", { name: "Dừng ghi âm", exact: true }).click();
   await expect(page.getByRole("button", { name: "Gửi bản ghi", exact: true })).toBeEnabled();
 }
