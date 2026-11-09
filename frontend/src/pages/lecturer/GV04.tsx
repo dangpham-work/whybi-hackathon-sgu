@@ -1,4 +1,4 @@
-import { Flag, History, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
+import { CheckCheck, CircleCheck, Flag, History, Lock, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -200,6 +200,40 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       (e) => publishErrorItems(e) ?? [{ text: errorText(e) }],
     );
 
+  const approveAll = () =>
+    run(async () => {
+      const nodeIds = tree.nodes.filter((n) => n.id && (!n.rubric || !n.rubric.approved)).map((n) => n.id!);
+      if (nodeIds.length === 0) return;
+      const res = await apiCall("post", "/classes/{class_id}/tree/rubrics/approve", {
+        path: { class_id: classId },
+        body: { nodeIds },
+      });
+      const approvedSet = new Set(res.approved);
+      setTree((t) => ({
+        ...t,
+        nodes: t.nodes.map((n) =>
+          n.id && approvedSet.has(n.id) ? { ...n, rubric: n.rubric ? { ...n.rubric, approved: true } : n.rubric } : n,
+        ),
+      }));
+      if (res.rejected.length > 0) {
+        setMessage({
+          kind: "error",
+          items: res.rejected.map((r) => {
+            const n = tree.nodes.find((x) => x.id === r.nodeId);
+            return {
+              nodeKey: n?.key,
+              text: `Rubric "${n?.title ?? r.nodeId}": ${r.reason}`,
+            };
+          }),
+        });
+      } else {
+        setMessage({
+          kind: "ok",
+          items: [{ text: `Đã duyệt ${res.approved.length} rubric. Cây đã sẵn sàng để phát hành!` }],
+        });
+      }
+    });
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Công cụ sửa cây">
@@ -218,6 +252,11 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         <Button variant="secondary" aria-pressed={history} onClick={() => setHistory((h) => !h)}>
           <History aria-hidden size={16} /> Lịch sử
         </Button>
+        {editable && missing.length > 0 && (
+          <Button variant="secondary" disabled={busy} onClick={approveAll}>
+            <CheckCheck aria-hidden size={16} /> Duyệt tất cả rubric ({missing.length})
+          </Button>
+        )}
         <span className="ml-auto text-body-s text-ink-500">{`v${tree.versionNo} · ${editable ? "Bản nháp" : tree.status === "PUBLISHED" ? "Đã phát hành" : tree.status}`}</span>
         <Button disabled={!editable || busy} onClick={publish}>
           <Flag aria-hidden size={16} /> Phát hành
@@ -272,6 +311,13 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
                   </li>
                 ))}
               </ul>
+              {editable && missing.length > 0 && message.items.some((i) => i.text.includes("chưa duyệt")) && (
+                <div className="pt-2">
+                  <Button variant="secondary" disabled={busy} onClick={approveAll}>
+                    <CheckCheck aria-hidden size={14} /> Duyệt tất cả rubric ({missing.length})
+                  </Button>
+                </div>
+              )}
             </div>
           )
         ) : (
@@ -325,15 +371,22 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
           />
           <div className="flex flex-wrap items-center justify-between gap-2 text-body-s">
             {missing.length > 0 ? (
-              <p className="flex items-center gap-2 rounded-md bg-honey-soft px-3 py-2 font-semibold text-honey-deep">
-                <TriangleAlert aria-hidden size={14} /> {missing.length} nút chưa duyệt rubric: {missing.map((n) => n.code ?? n.title).join(", ")} – chưa thể phát hành (BR-05)
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-honey-soft px-3 py-2 text-honey-deep w-full">
+                <p className="flex items-center gap-2 font-semibold">
+                  <TriangleAlert aria-hidden size={14} /> {missing.length} nút chưa duyệt rubric: {missing.map((n) => n.code ?? n.title).join(", ")} – chưa thể phát hành (BR-05)
+                </p>
+                {editable && (
+                  <Button variant="secondary" disabled={busy} onClick={approveAll}>
+                    <CheckCheck aria-hidden size={14} /> Duyệt tất cả rubric ({missing.length})
+                  </Button>
+                )}
+              </div>
             ) : (
               <p className="flex items-center gap-2 font-semibold text-teal">
                 <CircleCheck aria-hidden size={14} /> Mọi rubric đã duyệt
               </p>
             )}
-            <span className="text-teal">{`${tree.nodes.length} nút · ${tree.edges.length} cạnh`}</span>
+            <span className="text-teal ml-auto">{`${tree.nodes.length} nút · ${tree.edges.length} cạnh`}</span>
           </div>
         </section>
 
