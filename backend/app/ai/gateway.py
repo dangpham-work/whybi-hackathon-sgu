@@ -469,3 +469,14 @@ def reset_gateway() -> None:
     """Bỏ ghi đè và dựng lại gateway từ biến môi trường (dùng trong test)."""
     _override.clear()
     _swap(None)
+
+
+def get_current_ai_config() -> dict[str, str | None]:
+    """Lấy cấu hình LLM hiện hành (bao gồm cả ghi đè nếu có)."""
+    s = get_settings()
+    return {
+        "provider": _override.get("provider") or s.llm_provider,
+        "model": _override.get("model") or s.llm_model,
+        "fallback_provider": _override.get("fallback_provider") or s.llm_fallback_provider,
+        "fallback_model": _override.get("fallback_model") or s.llm_fallback_model,
+    }

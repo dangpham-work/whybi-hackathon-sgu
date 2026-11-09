@@ -42,6 +42,13 @@ def test_admin_can_update_llm_config(client, as_role):
         and gw_mod._override["fallback_model"] == "gemini-2.5-flash-lite"
     )
 
+    # Đọc lại bằng GET /admin/ai-config
+    r_get = client.get("/api/v1/admin/ai-config")
+    assert r_get.status_code == 200, r_get.text
+    assert r_get.json()["llm"]["provider"] == "openai_compat"
+    assert r_get.json()["llm"]["model"] == "qwen"
+    assert r_get.json()["llm"]["fallbackModel"] == "gemini-2.5-flash-lite"
+
 
 def test_unknown_provider_rejected(client, as_role):
     as_role(Role.ADMIN)
@@ -54,3 +61,4 @@ def test_unknown_provider_rejected(client, as_role):
 def test_non_admin_forbidden(client, as_role):
     as_role(Role.STUDENT)
     assert client.put("/api/v1/admin/ai-config", json=BODY).status_code == 403
+    assert client.get("/api/v1/admin/ai-config").status_code == 403
