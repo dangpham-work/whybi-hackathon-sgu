@@ -259,10 +259,6 @@ test("MX4 (5:45–6:30) / FR-PM-06/07: học cùng và hai phiên xác nhận l�
       const created = await json<Schema<"SessionCreated">>(response);
       const peerItemId = response.request().postDataJSON().peerMatchItemId as string;
       expect(peerItemId).toBeTruthy();
-      const textTab = studentPage.getByRole("tab", { name: "Văn bản", exact: true });
-      if ((await textTab.count()) > 0 && (await textTab.isVisible())) {
-        await textTab.click();
-      }
       let reply: Schema<"TurnReply"> | undefined;
       for (let turn = 0; turn < 6 && reply?.status !== "COMPLETED"; turn++) {
         const first = turn === 0;
