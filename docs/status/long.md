@@ -3,6 +3,17 @@
 > Cập nhật sau mỗi thẻ (kế hoạch §4.2). Mọi người – và mọi phiên AI – đọc hết `docs/status/` trước khi sửa code.
 
 - Xong:
+  - C2-24 (nhánh `feat/c2-24-admin-gon-gang`, worktree riêng): gọn lại trang quản trị theo yêu cầu demo.
+    - Gộp AD-03 (cấu hình AI) + AD-04 (hạn mức) thành một trang (`AD03.tsx`; `AD04.tsx` chỉ `export { default } from "./AD03"`,
+      route `/admin/quotas` vẫn còn, `nav.ts` chỉ còn một mục "Cấu hình nhà cung cấp AI" cho cả hai).
+    - Thêm thống kê token đã dùng theo **provider + model** (yêu cầu quan trọng của host) – `usage_records` có thêm cột
+      `provider`, `model` (migration `e7a1f3c9b2d4`), `QuotaService.record_tokens` ghi kèm `get_current_ai_config()` lúc ghi
+      (đọc, không sửa `app/ai/gateway.py` của Đăng), `QuotaService.usage_by_model()` → `GET /admin/usage-stats` (`UsageStatsOut`).
+    - AD-04: bỏ ô gõ tay UUID lớp/SV, thay bằng `<select>` – lớp lấy từ `GET /admin/classes-lite` (mới, `AdminService.list_classes_lite`),
+      SV lấy từ `GET /admin/users?role=STUDENT` (có sẵn).
+    - AD-05: thu nhật ký thao tác vào `<details>` đóng mặc định, cờ vi phạm vẫn hiện đầy đủ như cũ.
+    - Test: `test_danh_sach_lop_gon_va_thong_ke_token_theo_model` (backend, cần `TEST_DATABASE_URL`); sửa lại test "đặt hạn mức"
+      trong `gd15.test.tsx` theo dropdown mới. Toàn bộ 774 test backend (bỏ qua integration) + 318 test frontend xanh.
   - C2-08: lớp học phần, mã tham gia 8 ký tự, SV tham gia lớp (gọi `MasteryService.ensure_student`), tải giáo trình
     PDF/DOCX ≤ 20 MB lên kho S3 (tự tạo bucket `S3_BUCKET`), tạo `syllabus_documents` + job Celery, trả `jobId`. Không có migration.
   - C2-16: phiên bản cây (FR-SK-10). `GET /classes/{id}/tree-versions` (mới nhất trước), `POST /tree-versions/{v}/restore`

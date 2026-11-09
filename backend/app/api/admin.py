@@ -14,6 +14,7 @@ from app.db.session import get_db
 from app.models.enums import ProviderKind, Role
 from app.models.schemas.admin import (
     AuditLogOut,
+    ClassLiteOut,
     CourseIn,
     CourseOut,
     CreatedUser,
@@ -21,6 +22,7 @@ from app.models.schemas.admin import (
     ImportResult,
     QuotaIn,
     QuotaOut,
+    UsageStatsOut,
     UserCreate,
     UserOut,
     UserPatch,
@@ -176,6 +178,18 @@ def update_course(
     course_id: UUID, body: CourseIn, user: CurrentUser = Admin, db: Session = Depends(get_db)
 ) -> CourseOut:
     return AdminService(db).save_course(user, body, course_id)
+
+
+@router.get("/admin/classes-lite", response_model=list[ClassLiteOut])
+def list_classes_lite(user: CurrentUser = Admin, db: Session = Depends(get_db)) -> list[ClassLiteOut]:
+    """Danh sách lớp gọn (id, tên) để QTV chọn khi đặt hạn mức – thay gõ tay UUID (C2-24)."""
+    return AdminService(db).list_classes_lite()
+
+
+@router.get("/admin/usage-stats", response_model=list[UsageStatsOut])
+def usage_stats(user: CurrentUser = Admin, db: Session = Depends(get_db)) -> list[UsageStatsOut]:
+    """Token / phút ghi âm đã dùng, cộng theo provider + model LLM (bổ sung FR-AD-06, C2-24)."""
+    return QuotaService(db).usage_by_model()
 
 
 @router.get("/admin/quotas", response_model=list[QuotaOut])

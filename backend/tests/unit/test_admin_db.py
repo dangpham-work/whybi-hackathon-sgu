@@ -189,6 +189,28 @@ def test_dat_xem_va_bo_han_muc(admin):
     assert admin.api.get(f"{API}/admin/quotas").json() == []
 
 
+def test_danh_sach_lop_gon_va_thong_ke_token_theo_model(published):  # noqa: F811
+    """C2-24: GET /admin/classes-lite cho dropdown; GET /admin/usage-stats cộng theo provider + model."""
+    w, tree = published
+    start(w, tree)
+    sess = w.db.scalar(select(TeachingSession).where(TeachingSession.student_id == w.sv))
+    QuotaService(w.db).record_tokens(sess.id, w.sv, w.class_id, 321)
+    w.db.commit()
+
+    u = User(id=uuid4(), full_name="QTV", email=f"{uuid4().hex[:8]}@whybi.test", password_hash="x", role=Role.ADMIN)
+    w.db.add(u)
+    w.db.commit()
+    w.roles[u.id] = Role.ADMIN
+    w.current = u.id
+
+    classes = w.api.get(f"{API}/admin/classes-lite").json()
+    assert any(c["id"] == str(w.class_id) for c in classes)
+
+    stats = w.api.get(f"{API}/admin/usage-stats").json()
+    row = next(s for s in stats if s["tokensUsed"] == 321)
+    assert row["provider"] and row["model"] and row["sessionCount"] == 1
+
+
 def test_vuot_han_muc_token_chan_bat_dau_phien_co_thong_bao(published):  # noqa: F811
     w, tree = published
     qs = QuotaService(w.db)

@@ -121,10 +121,19 @@ describe("AD-02 Môn học, AD-04 Hạn mức, AD-05 Cờ (GD-15)", () => {
     expect(writeText).toHaveBeenCalledWith("uuid-comp2031");
   });
 
-  it("đặt hạn mức: để trống nghĩa là không giới hạn (null)", async () => {
-    const m = mockApi({ ...admin, "GET /admin/quotas": ok([]), "PUT /admin/quotas": ({ body }) => ok(body) });
+  it("đặt hạn mức bằng danh sách chọn lớp, không gõ tay UUID: để trống token nghĩa là không giới hạn (null)", async () => {
+    const m = mockApi({
+      ...admin,
+      "GET /admin/ai-config": err(501, "NOT_IMPLEMENTED"),
+      "GET /admin/usage-stats": ok([]),
+      "GET /admin/classes-lite": ok([{ id: "cls-1", name: "CTDL&GT – N01" }]),
+      "GET /admin/users": ok([]),
+      "GET /admin/quotas": ok([]),
+      "PUT /admin/quotas": ({ body }) => ok(body),
+    });
     open("/admin/quotas");
-    fireEvent.change(await screen.findByLabelText(/Mã định danh/), { target: { value: "cls-1" } });
+    await screen.findByText("CTDL&GT – N01"); // chờ danh sách lớp tải xong mới có option để chọn
+    fireEvent.change(screen.getByLabelText("Lớp"), { target: { value: "cls-1" } });
     fireEvent.change(screen.getByLabelText(/Giới hạn token/), { target: { value: "500000" } });
     fireEvent.click(screen.getByRole("button", { name: /Lưu hạn mức/ }));
     await waitFor(() => expect(m.called("PUT /admin/quotas")).toHaveLength(1));

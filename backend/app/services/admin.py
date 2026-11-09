@@ -20,6 +20,7 @@ from app.models.enums import Role
 from app.models.peer import AuditLog
 from app.models.schemas.admin import (
     AuditLogOut,
+    ClassLiteOut,
     CourseIn,
     CourseOut,
     CreatedUser,
@@ -232,6 +233,11 @@ class AdminService:
         return ImportResult(created=created, skipped=skipped, errors=errors)
 
     # ------------------------------------------------------------------ danh mục môn học
+
+    def list_classes_lite(self) -> list[ClassLiteOut]:
+        """Danh sách lớp gọn để QTV chọn khi đặt hạn mức, thay gõ tay UUID (C2-24)."""
+        rows = self.db.execute(select(ClassSection.id, ClassSection.name).order_by(ClassSection.name)).all()
+        return [ClassLiteOut(id=r.id, name=r.name) for r in rows]
 
     def list_courses(self) -> list[CourseOut]:
         rows = self.db.scalars(select(Course).order_by(Course.code))

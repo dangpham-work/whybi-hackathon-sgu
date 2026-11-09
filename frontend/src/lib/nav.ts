@@ -7,7 +7,6 @@ import {
   Bot,
   Flag,
   Flame,
-  Gauge,
   History,
   LayoutGrid,
   Network,
@@ -54,8 +53,7 @@ export const NAV = {
   ADMIN: (): NavItem[] => [
     { label: "Tài khoản & nhập CSV", icon: UserCog, to: "/admin/users", screens: ["AD-01"] },
     { label: "Danh mục môn học", icon: BookOpen, to: "/admin/courses", screens: ["AD-02"] },
-    { label: "Cấu hình nhà cung cấp AI", icon: Bot, to: "/admin/ai-config", screens: ["AD-03"] },
-    { label: "Hạn mức", icon: Gauge, to: "/admin/quotas", screens: ["AD-04"] },
+    { label: "Cấu hình nhà cung cấp AI", icon: Bot, to: "/admin/ai-config", screens: ["AD-03", "AD-04"] },
     { label: "Nhật ký & cờ vi phạm", icon: Flag, to: "/admin/flags", screens: ["AD-05"] },
   ],
 } as const;
