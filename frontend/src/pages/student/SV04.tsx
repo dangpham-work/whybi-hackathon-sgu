@@ -1,15 +1,14 @@
-import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Send, Timer, TriangleAlert, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
+import { CircleCheck, Info, Keyboard, LoaderCircle, Mic, Timer, TriangleAlert, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useBeforeUnload, useBlocker, useLocation, useParams } from "react-router";
 import { DevelopingBox, ErrorBox, LoadingBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
 import { Logo } from "../../components/Logo";
-import { Recorder } from "../../components/Recorder";
 import { TranscriptConfirm } from "../../components/TranscriptConfirm";
+import { UnifiedChatComposer } from "../../components/UnifiedChatComposer";
 import { ApiError, apiCall, errorText, FRIENDLY, type Schema } from "../../lib/api";
 import { fetchAudioUrl } from "../../lib/audio";
 import { mmss, useCountdown } from "../../lib/countdown";
-import { createTypingMeter } from "../../lib/typing-meter";
 import { useApi } from "../../lib/useApi";
 import { useChannel } from "../../lib/ws";
 
@@ -36,7 +35,6 @@ export interface SessionLocationState {
 
 type Message = { id: number; from: "tutee"; text: string } | { id: number; from: "student"; text: string; mode: InputMode } | { id: number; from: "notice"; text: string };
 
-const MAX_TEXT = 20_000; // Turn.text 1–20 000 ký tự (hợp đồng C1-01)
 const LIVE: SessionStatus[] = ["CREATED", "EXPLAINING", "CHALLENGING"];
 const OPENING_WAIT_MS = 6_000; // chờ câu mở đầu qua WebSocket tối đa chừng này rồi cho SV giảng tiếp
 
@@ -53,8 +51,6 @@ function toMessage(t: SessionTurnView, id: number): Message {
   return { id, from: "student", text: t.text, mode: t.inputMode };
 }
 
-const canRecord = () => typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
-
 /** SV-04 Phiên giảng lại (Figma 25:1214, FR-TB-03…05, 08, GD-07): hội thoại với Whybi, giảng bằng giọng nói hoặc gõ chữ. */
 export default function TeachingSession() {
   const { sessionId = "" } = useParams();
@@ -67,7 +63,6 @@ export default function TeachingSession() {
   const [status, setStatus] = useState<SessionStatus>(initial.status ?? "EXPLAINING");
   const [progress, setProgress] = useState<{ asked: number; total: number }>({ asked: 0, total: 0 });
   const [pending, setPending] = useState<{ transcript: Schema<"Transcript">; audioUrl: string }>();
-  const [mode, setMode] = useState<InputMode>(initial.inputMode ?? (canRecord() ? "VOICE" : "TEXT"));
   const [consented, setConsented] = useState(false);
   // Recorder gửi bản ghi từ callback onstop dựng trước lúc đồng ý ⇒ đọc consent qua ref, không qua closure cũ.
   const consentRef = useRef(false);
@@ -232,39 +227,78 @@ export default function TeachingSession() {
     }
   }
 
-  async function sendVoice(audio: Blob) {
-    setBusy(true);
-    setFailure(undefined);
-    let transcript: Schema<"Transcript">;
-    try {
-      const form = new FormData();
-      form.append("file", audio, `turn.${audio.type.includes("mp4") ? "m4a" : audio.type.includes("ogg") ? "ogg" : "webm"}`);
-      form.append("consent", String(consentRef.current)); // BR-13: chỉ lưu ghi âm khi SV đồng ý (C1-12)
-      transcript = await apiCall("post", "/sessions/{session_id}/audio", { path: { session_id: sessionId }, body: form });
-    } catch (err) {
-      setFailure(err);
-      setBusy(false);
-      throw err;
+  async function handleUnifiedSend(payload: {
+    text: string;
+    inputMode: InputMode;
+    audioBlob?: Blob;
+    durationMs?: number;
+    pasteRatio: number;
+    typingCps: number;
+  }) {
+    let audioRef: string | undefined;
+    let sttConfidence: number | undefined;
+    let transcriptEdited = false;
+
+    let textToSend = payload.text.trim();
+    if (payload.audioBlob && payload.inputMode === "VOICE") {
+      try {
+        const form = new FormData();
+        const ext = payload.audioBlob.type.includes("mp4") ? "m4a" : payload.audioBlob.type.includes("ogg") ? "ogg" : "webm";
+        form.append("file", payload.audioBlob, `turn.${ext}`);
+        form.append("consent", String(consentRef.current));
+        const transcript = await apiCall("post", "/sessions/{session_id}/audio", {
+          path: { session_id: sessionId },
+          body: form,
+        });
+
+        if (!transcript.text.trim() && !textToSend) {
+          const e = new NoSpeech();
+          setFailure(e);
+          throw e;
+        }
+
+        if (transcript.needsConfirmation) {
+          setPending({ transcript, audioUrl: URL.createObjectURL(payload.audioBlob) });
+          return;
+        }
+
+        audioRef = transcript.audioRef;
+        sttConfidence = transcript.confidence;
+        if (!textToSend) {
+          textToSend = transcript.text;
+          transcriptEdited = false;
+        } else {
+          transcriptEdited = textToSend !== transcript.text.trim();
+        }
+      } catch (err) {
+        if (!textToSend) {
+          setFailure(err);
+          throw err;
+        }
+      }
     }
-    if (!transcript.text.trim()) {
-      const e = new NoSpeech();
-      setFailure(e);
-      setBusy(false);
-      throw e;
-    }
-    if (transcript.needsConfirmation) {
-      // SV-05: dừng lại cho SV kiểm tra bản chép lời trước khi gửi (FR-TB-06, 07)
-      setPending({ transcript, audioUrl: URL.createObjectURL(audio) });
-      setBusy(false);
-      return;
-    }
+
     await postTurn({
-      inputMode: "VOICE",
-      text: transcript.text,
-      audioRef: transcript.audioRef,
-      sttConfidence: transcript.confidence,
-      transcriptEdited: false,
+      inputMode: payload.inputMode,
+      text: textToSend,
+      audioRef,
+      sttConfidence,
+      transcriptEdited,
+      pasteRatio: payload.pasteRatio,
+      typingCps: payload.typingCps,
     });
+  }
+
+  async function handleTranscribeAudio(audio: Blob): Promise<string> {
+    const form = new FormData();
+    const ext = audio.type.includes("mp4") ? "m4a" : audio.type.includes("ogg") ? "ogg" : "webm";
+    form.append("file", audio, `turn.${ext}`);
+    form.append("consent", String(consentRef.current));
+    const transcript = await apiCall("post", "/sessions/{session_id}/audio", {
+      path: { session_id: sessionId },
+      body: form,
+    });
+    return transcript.text;
   }
 
   function closePending() {
@@ -330,22 +364,16 @@ export default function TeachingSession() {
         )}
         {live ? (
           <>
-            <ModeTabs mode={mode} onChange={setMode} />
-            <div role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`}>
-              {mode === "VOICE" ? (
-                <Recorder
-                  key={turnType}
-                  maxSeconds={turnType === "EXPLANATION" ? 300 : 90}
-                  consented={consented}
-                  onConsent={onConsent}
-                  onSubmit={sendVoice}
-                  onUseText={() => setMode("TEXT")}
-                  disabled={busy || waiting}
-                />
-              ) : (
-                <TextComposer turnType={turnType} busy={busy || waiting} onSend={(t) => postTurn({ inputMode: "TEXT", transcriptEdited: false, ...t })} />
-              )}
-            </div>
+            <UnifiedChatComposer
+              turnType={turnType}
+              maxSeconds={turnType === "EXPLANATION" ? 300 : 90}
+              consented={consented}
+              onConsent={onConsent}
+              busy={busy || waiting}
+              disabled={busy || waiting}
+              onSend={handleUnifiedSend}
+              onTranscribeAudio={handleTranscribeAudio}
+            />
             <p className="flex items-start gap-2 rounded-md border border-honey/50 bg-honey-soft px-3 py-2 text-body-s text-honey-deep">
               <Info aria-hidden size={14} className="mt-0.5 shrink-0" />
               Hãy giải thích bản chất “vì sao”, không chỉ nêu định nghĩa. Whybi sẽ không đưa đáp án.
@@ -441,103 +469,6 @@ function Bubble({ m }: { m: Message }) {
       </p>
       <p className="whitespace-pre-wrap rounded-lg rounded-tr-sm bg-teal-soft px-3 py-2 text-left text-body-m">{m.text}</p>
     </div>
-  );
-}
-
-function ModeTabs({ mode, onChange }: { mode: InputMode; onChange: (m: InputMode) => void }) {
-  const tabs: { value: InputMode; label: string; icon: typeof Mic }[] = [
-    { value: "VOICE", label: "Giọng nói", icon: Mic },
-    { value: "TEXT", label: "Văn bản", icon: Keyboard },
-  ];
-  function onKey(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    const next: InputMode = mode === "VOICE" ? "TEXT" : "VOICE";
-    onChange(next);
-    e.currentTarget.querySelector<HTMLButtonElement>(`#tab-${next}`)?.focus();
-  }
-  return (
-    <div role="tablist" aria-label="Cách giảng" className="grid grid-cols-2 gap-1 rounded-md bg-app p-1" onKeyDown={onKey}>
-      {tabs.map(({ value, label, icon: Icon }) => {
-        const selected = mode === value;
-        return (
-          <button
-            key={value}
-            id={`tab-${value}`}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-controls={selected ? `panel-${value}` : undefined}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onChange(value)}
-            className={`flex items-center justify-center gap-2 rounded-md py-2 text-body-m font-semibold ${selected ? "bg-surface text-ink-900 shadow-card" : "text-ink-500"}`}
-          >
-            <Icon aria-hidden size={16} /> {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function TextComposer({
-  turnType,
-  busy,
-  onSend,
-}: {
-  turnType: Turn["turnType"];
-  busy: boolean;
-  onSend: (t: { text: string; pasteRatio: number; typingCps: number }) => Promise<void>;
-}) {
-  const [text, setText] = useState("");
-  const meter = useRef(createTypingMeter());
-  // đổi lượt (giảng → trả lời) thì đo lại từ đầu
-  useEffect(() => meter.current.reset(), [turnType]);
-
-  const label = turnType === "EXPLANATION" ? "Lời giảng của bạn" : "Câu trả lời của bạn";
-  const content = text.trim();
-
-  async function submit(e?: FormEvent) {
-    e?.preventDefault();
-    if (!content || busy) return;
-    try {
-      await onSend({ text: content, ...meter.current.snapshot() });
-      setText("");
-      meter.current.reset();
-    } catch {
-      /* lỗi đã hiện ở FailureBox; giữ chữ để gửi lại */
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="space-y-2">
-      <label htmlFor="turn-text" className="sr-only">
-        {label}
-      </label>
-      <textarea
-        id="turn-text"
-        value={text}
-        rows={4}
-        maxLength={MAX_TEXT}
-        placeholder={turnType === "EXPLANATION" ? "Giảng lại khái niệm này bằng lời của bạn…" : "Trả lời câu hỏi của Whybi…"}
-        onPaste={(e: ClipboardEvent<HTMLTextAreaElement>) => meter.current.paste(e.clipboardData?.getData("text")?.length ?? 0)}
-        onChange={(e) => {
-          meter.current.change(text, e.target.value);
-          setText(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void submit();
-        }}
-        className="w-full resize-y rounded-md border border-line-strong bg-surface px-3 py-2 text-body-m placeholder:text-ink-300 focus-visible:outline-2 focus-visible:outline-teal"
-      />
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-body-s text-ink-500">
-          {text.length.toLocaleString("vi-VN")}/{MAX_TEXT.toLocaleString("vi-VN")} · Ctrl + Enter để gửi
-        </span>
-        <Button type="submit" variant="teal" disabled={!content || busy} aria-label={turnType === "EXPLANATION" ? "Gửi lời giảng" : "Gửi câu trả lời"}>
-          {busy ? <LoaderCircle aria-hidden size={16} className="animate-spin" /> : <Send aria-hidden size={16} />} Gửi
-        </Button>
-      </div>
-    </form>
   );
 }
 
