@@ -128,6 +128,8 @@ PHAN_QUYEN: dict[tuple[str, str], frozenset[Role]] = {
     ("PUT", "/admin/ai-config"): frozenset({QTV}),
     ("GET", "/admin/quotas"): frozenset({QTV}),
     ("PUT", "/admin/quotas"): frozenset({QTV}),
+    ("GET", "/admin/classes-lite"): frozenset({QTV}),
+    ("GET", "/admin/usage-stats"): frozenset({QTV}),
     ("GET", "/admin/audit-logs"): frozenset({QTV}),
     ("GET", "/admin/flags"): frozenset({GV, QTV}),
     ("POST", "/admin/flags/{flag_id}/resolve"): frozenset({GV, QTV}),

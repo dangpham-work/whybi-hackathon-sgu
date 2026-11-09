@@ -98,6 +98,23 @@ class QuotaOut(QuotaIn):
     audio_minutes_used: float = 0.0
 
 
+class ClassLiteOut(ApiModel):
+    """Danh sách gọn để QTV chọn lớp khi đặt hạn mức, thay cho gõ tay UUID (C2-24)."""
+
+    id: UUID
+    name: str
+
+
+class UsageStatsOut(ApiModel):
+    """Token / phút ghi âm đã dùng, cộng theo provider + model LLM đang/đã cấu hình (C2-24, bổ sung FR-AD-06)."""
+
+    provider: str
+    model: str
+    tokens_used: int
+    audio_minutes_used: float
+    session_count: int
+
+
 class FlagOut(ApiModel):
     id: UUID
     session_id: UUID

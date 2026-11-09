@@ -147,4 +147,6 @@ class UsageRecord(UUIDPk, Base):
     class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("class_sections.id", ondelete="CASCADE"))
     tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     audio_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    provider: Mapped[str | None] = mapped_column(String(40))  # nhà cung cấp LLM đang cấu hình lúc ghi (C2-24)
+    model: Mapped[str | None] = mapped_column(String(60))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

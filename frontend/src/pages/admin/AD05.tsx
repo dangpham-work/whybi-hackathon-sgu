@@ -62,16 +62,21 @@ export default function AdminFlags() {
         </AsyncView>
       </Panel>
       <Panel title="Nhật ký thao tác">
-        <AsyncView state={logs} isEmpty={(l) => l.length === 0} empty="Chưa có thao tác nào được ghi.">
-          {(list) => (
-            <table aria-label="Nhật ký thao tác" className="min-w-full">
-              <thead><tr><Th>Thời gian</Th><Th>Thao tác</Th><Th>Đối tượng</Th></tr></thead>
-              <tbody>
-                {list.map((l) => <tr key={l.id}><Td>{vn(l.createdAt)}</Td><Td strong>{l.action}</Td><Td>{l.entity}</Td></tr>)}
-              </tbody>
-            </table>
-          )}
-        </AsyncView>
+        <details>
+          <summary className="cursor-pointer text-body-m font-semibold">Xem nhật ký (ít dùng – để kiểm tra khi cần)</summary>
+          <div className="mt-3">
+            <AsyncView state={logs} isEmpty={(l) => l.length === 0} empty="Chưa có thao tác nào được ghi.">
+              {(list) => (
+                <table aria-label="Nhật ký thao tác" className="min-w-full">
+                  <thead><tr><Th>Thời gian</Th><Th>Thao tác</Th><Th>Đối tượng</Th></tr></thead>
+                  <tbody>
+                    {list.map((l) => <tr key={l.id}><Td>{vn(l.createdAt)}</Td><Td strong>{l.action}</Td><Td>{l.entity}</Td></tr>)}
+                  </tbody>
+                </table>
+              )}
+            </AsyncView>
+          </div>
+        </details>
       </Panel>
     </AdminPage>
   );
