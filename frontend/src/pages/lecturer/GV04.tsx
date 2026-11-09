@@ -74,11 +74,11 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         path: { class_id: classId },
       })) as unknown as Schema<"FillRubricsAccepted">;
       if (r.missing === 0) {
-        setMessage({ kind: "ok", lines: ["Mọi nút đã có rubric."] });
+        setMessage({ kind: "ok", items: [{ text: "Mọi nút đã có rubric." }] });
         return;
       }
       setFilling(true);
-      setMessage({ kind: "ok", lines: [`Đã xếp hàng sinh rubric cho ${r.missing} nút – rubric sẽ hiện dần, nhớ xem và duyệt.`] });
+      setMessage({ kind: "ok", items: [{ text: `Đã xếp hàng sinh rubric cho ${r.missing} nút – rubric sẽ hiện dần, nhớ xem và duyệt.` }] });
     });
 
   useEffect(() => {
@@ -92,14 +92,14 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         setTree((t) => ({ ...t, nodes: t.nodes.map((n) => (!n.rubric && byKey.get(n.key) ? { ...n, rubric: byKey.get(n.key) } : n)) }));
         if (fresh.nodes.every((n) => n.rubric)) {
           setFilling(false);
-          setMessage({ kind: "ok", lines: ["AI đã sinh rubric cho mọi nút – hãy xem và duyệt từng nút."] });
+          setMessage({ kind: "ok", items: [{ text: "AI đã sinh rubric cho mọi nút – hãy xem và duyệt từng nút." }] });
         }
       } catch {
         /* lần hỏi sau thử lại */
       }
       if (Date.now() - started > 10 * 60_000) {
         setFilling(false);
-        setMessage({ kind: "error", lines: ["Sinh rubric quá lâu – tải lại trang để xem nút nào còn thiếu, rồi sinh từng nút."] });
+        setMessage({ kind: "error", items: [{ text: "Sinh rubric quá lâu – tải lại trang để xem nút nào còn thiếu, rồi sinh từng nút." }] });
       }
     }, 5000);
     return () => clearInterval(timer);
@@ -162,7 +162,7 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
     if (!n?.id) return;
     patchNode(key, (x) => ({ ...x, positionX: pos.x, positionY: pos.y }));
     void apiCall("patch", "/nodes/{node_id}", { path: { node_id: n.id }, body: { positionX: pos.x, positionY: pos.y } }).catch((e) =>
-      setMessage({ kind: "error", lines: [`Không lưu được vị trí nút "${n.title}": ${errorText(e)}`] }),
+      setMessage({ kind: "error", items: [{ text: `Không lưu được vị trí nút "${n.title}": ${errorText(e)}` }] }),
     );
   };
 
