@@ -1,6 +1,6 @@
 import { Download, EyeOff, Flame, Maximize2, Mic, Search, TriangleAlert, Users, Wifi, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
 import { HeatGrid } from "../../components/HeatGrid";
 import { NodeDetailDrawer } from "../../components/NodeDetailDrawer";
@@ -12,7 +12,7 @@ import { applyHeatmapEvent, detailsByKey, heatByKey, rootCauseKey, type Snapshot
 import { useApi } from "../../lib/useApi";
 import { useChannel, type WsStatus } from "../../lib/ws";
 
-type Tab = "tree" | "grid" | "in-progress" | "stats";
+type Tab = "tree" | "grid" | "heatmap" | "stats";
 
 /** GV-05 Dashboard bản đồ nhiệt (Figma 17:1447, FR-HM-01…06, GD-10). Ảnh chụp + kênh `class:{id}:heatmap`, không cần tải lại trang. */
 export default function LecturerHeatmap() {
@@ -29,13 +29,8 @@ export default function LecturerHeatmap() {
 
   // Lọc và ẩn tên do máy chủ làm: tên SV không bao giờ tới trình duyệt khi đang trình chiếu
   const snap = useApi(
-    (signal) =>
-      apiCall("get", "/classes/{class_id}/heatmap", {
-        path: { class_id: classId },
-        query: { q: q || undefined, anonymize },
-        signal,
-      }),
-    [classId, q, anonymize]
+    (signal) => apiCall("get", "/classes/{class_id}/heatmap", { path: { class_id: classId }, query: { q: q || undefined, anonymize }, signal }),
+    [classId, q, anonymize],
   );
   const [live, setLive] = useState<Snapshot>();
   useEffect(() => setLive(snap.data), [snap.data]);
@@ -49,51 +44,20 @@ export default function LecturerHeatmap() {
     <div className={`space-y-5 ${present ? "p-6" : "p-4 lg:p-7"}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-h1 font-bold">Bản đồ nhiệt lớp học</h1>
-        <Toolbar
-          classId={classId}
-          search={search}
-          onSearch={setSearch}
-          hideNames={anonymize}
-          lockHide={present}
-          onHide={setHideNames}
-          present={present}
-          onPresent={setPresent}
-        />
+        <Toolbar classId={classId} search={search} onSearch={setSearch} hideNames={anonymize} lockHide={present} onHide={setHideNames} present={present} onPresent={setPresent} />
       </div>
-      <AsyncView
-        state={snap.status === "success" && live ? { ...snap, data: live } : snap}
-        loadingText="Đang tải bản đồ nhiệt…"
-      >
+      <AsyncView state={snap.status === "success" && live ? { ...snap, data: live } : snap} loadingText="Đang tải bản đồ nhiệt…">
         {(s) => <Dashboard s={s} classId={classId} wsStatus={status} hideNames={anonymize} />}
       </AsyncView>
     </div>
   );
-  return present ? (
-    <div role="dialog" aria-label="Chế độ trình chiếu" className="fixed inset-0 z-50 overflow-auto bg-app">
-      {body}
-    </div>
-  ) : (
-    body
-  );
+  return present ? <div role="dialog" aria-label="Chế độ trình chiếu" className="fixed inset-0 z-50 overflow-auto bg-app">{body}</div> : body;
 }
 
-const WS_TEXT: Partial<Record<WsStatus, string>> = {
-  reconnecting: "Mất kết nối – đang nối lại…",
-  connecting: "Đang kết nối…",
-  closed: "Mất kết nối",
-};
+const WS_TEXT: Partial<Record<WsStatus, string>> = { reconnecting: "Mất kết nối – đang nối lại…", connecting: "Đang kết nối…", closed: "Mất kết nối" };
 
 /** Tìm theo tên / MSSV, ẩn tên khi chiếu, trình chiếu toàn màn hình, xuất báo cáo (FR-HM-09, 10; GD-14, GD-16). */
-function Toolbar(p: {
-  classId: string;
-  search: string;
-  onSearch: (v: string) => void;
-  hideNames: boolean;
-  lockHide: boolean;
-  onHide: (v: boolean) => void;
-  present: boolean;
-  onPresent: (v: boolean) => void;
-}) {
+function Toolbar(p: { classId: string; search: string; onSearch: (v: string) => void; hideNames: boolean; lockHide: boolean; onHide: (v: boolean) => void; present: boolean; onPresent: (v: boolean) => void }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
   async function exportAs(format: "csv" | "pdf") {
@@ -107,29 +71,16 @@ function Toolbar(p: {
       setBusy(false);
     }
   }
-  const btn =
-    "inline-flex items-center gap-1 rounded-md border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold disabled:opacity-50 hover:bg-app";
+  const btn = "inline-flex items-center gap-1 rounded-md border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold disabled:opacity-50";
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!p.present && (
         <label className="flex items-center gap-1 rounded-md border border-line-strong bg-surface px-2 py-1.5">
           <Search aria-hidden size={14} />
-          <input
-            aria-label="Tìm sinh viên theo tên hoặc MSSV"
-            placeholder="Tìm tên / MSSV"
-            value={p.search}
-            onChange={(e) => p.onSearch(e.target.value)}
-            className="w-40 bg-transparent text-body-s outline-none"
-          />
+          <input aria-label="Tìm sinh viên theo tên hoặc MSSV" placeholder="Tìm tên / MSSV" value={p.search} onChange={(e) => p.onSearch(e.target.value)} className="w-40 bg-transparent text-body-s outline-none" />
         </label>
       )}
-      <button
-        type="button"
-        aria-pressed={p.hideNames}
-        disabled={p.lockHide}
-        onClick={() => p.onHide(!p.hideNames)}
-        className={btn}
-      >
+      <button type="button" aria-pressed={p.hideNames} disabled={p.lockHide} onClick={() => p.onHide(!p.hideNames)} className={btn}>
         <EyeOff aria-hidden size={14} /> Ẩn tên khi chiếu
       </button>
       {p.present ? (
@@ -149,39 +100,36 @@ function Toolbar(p: {
           </button>
         </>
       )}
-      {failure && (
-        <p role="alert" className="w-full text-body-s text-red-800">
-          {failure}
-        </p>
-      )}
+      {failure && <p role="alert" className="w-full text-body-s text-red-800">{failure}</p>}
     </div>
   );
 }
 
-function Dashboard({
-  s,
-  classId,
-  wsStatus,
-  hideNames,
-}: {
-  s: Snapshot;
-  classId: string;
-  wsStatus: WsStatus;
-  hideNames: boolean;
-}) {
+function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: string; wsStatus: WsStatus; hideNames: boolean }) {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [tab, setTabState] = useState<Tab>(params.get("tab") === "thong-ke" ? "stats" : "tree");
+  const [tab, setTabState] = useState<Tab>(
+    params.get("tab") === "thong-ke"
+      ? "stats"
+      : params.get("tab") === "ban-do-nhiet"
+      ? "heatmap"
+      : params.get("tab") === "ma-tran"
+      ? "grid"
+      : "tree",
+  );
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const setTab = (t: Tab) => {
     setTabState(t);
     const p = new URLSearchParams(params);
     if (t === "stats") p.set("tab", "thong-ke");
+    else if (t === "heatmap") p.set("tab", "ban-do-nhiet");
+    else if (t === "grid") p.set("tab", "ma-tran");
     else p.delete("tab");
     setParams(p, { replace: true });
   };
-
   const alerts = s.alerts ?? [];
+  const goNode = (nodeId?: string | null) => nodeId && navigate(`/gv/classes/${classId}/nodes/${nodeId}`);
 
   return (
     <div className="space-y-4">
@@ -206,23 +154,23 @@ function Dashboard({
       <div role="tablist" aria-label="Chế độ xem" className="inline-flex flex-wrap gap-1 rounded-lg bg-app p-1">
         {(
           [
-            ["tree", "Chế độ cây"],
-            ["grid", "Lưới SV × Nút"],
-            ["in-progress", "Bản đồ nhiệt đang làm"],
-            ["stats", "Thống kê"],
+            ["tree", "Tiến độ học theo cây", "Chế độ cây"],
+            ["grid", "Theo ma trận", "Lưới SV × Nút"],
+            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt"],
+            ["stats", "Theo thống kê", "Thống kê"],
           ] as const
-        ).map(([id, label]) => (
+        ).map(([id, label, ariaLabel]) => (
           <button
             key={id}
             role="tab"
             aria-selected={tab === id}
-            aria-label={label}
+            aria-label={ariaLabel}
             onClick={() => setTab(id)}
             className={`rounded-md px-4 py-1.5 text-body-m font-semibold transition-all ${
               tab === id ? "bg-surface shadow-card text-ink-900" : "text-ink-500 hover:text-ink-900"
             }`}
           >
-            {id === "grid" ? "Ma trận thành thạo" : label}
+            {label}
           </button>
         ))}
       </div>
@@ -325,14 +273,14 @@ function Dashboard({
         </section>
       )}
 
-      {/* Tab 3: Bản đồ nhiệt đang làm (Chưa có yêu cầu) */}
-      {tab === "in-progress" && (
+      {/* Tab 3: Bản đồ nhiệt realtime */}
+      {tab === "heatmap" && (
         <section
-          aria-label="Bản đồ nhiệt đang làm"
+          aria-label="Bản đồ nhiệt realtime"
           className="rounded-lg border border-dashed border-line-strong bg-surface p-12 text-center space-y-3"
         >
           <Flame className="mx-auto text-honey-deep" size={40} />
-          <h3 className="text-h3 font-bold text-ink-900">Bản đồ nhiệt đang làm</h3>
+          <h3 className="text-h3 font-bold text-ink-900">Theo bản đồ nhiệt</h3>
           <p className="text-body-m text-ink-500 max-w-md mx-auto">
             Hiện đang có <strong>{s.activeSessions}</strong> phiên giảng đang diễn ra. Chức năng đang được chuẩn bị theo
             thiết kế mới.

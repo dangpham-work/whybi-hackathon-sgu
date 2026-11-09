@@ -144,6 +144,21 @@ describe("GV-02 Tổng quan lớp (GD-05)", () => {
     open("/gv/classes/c2");
     expect(await screen.findByRole("link", { name: /Tải giáo trình/ })).toBeTruthy();
   });
+
+  it("lớp có cây nháp DRAFT thì hiển thị Bản nháp và nút Tiếp tục chỉnh sửa cây", async () => {
+    const api = mockApi({
+      ...me,
+      "GET /classes": ok([OS]),
+      "GET /classes/c2/tree": ok({ versionNo: 1, status: "DRAFT", nodes: [{}, {}], edges: [{}] }),
+    });
+    open("/gv/classes/c2");
+    expect(await screen.findByRole("heading", { name: "Hệ điều hành" })).toBeTruthy();
+    expect(await screen.findByText("v1")).toBeTruthy();
+    expect(screen.getByText("Bản nháp")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Tiếp tục chỉnh sửa cây/ })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: /Ghép cặp/ }).length).toBeGreaterThanOrEqual(1);
+    expect(api.called("GET /classes/c2/tree")[0].url).toContain("draft=true");
+  });
 });
 
 describe("GV-03 Tải giáo trình và tiến độ (GD-05)", () => {

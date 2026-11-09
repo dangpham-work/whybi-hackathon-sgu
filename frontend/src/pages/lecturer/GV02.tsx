@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, Flame, Network, Pencil, Upload } from "lucide-react";
+import { Archive, ArchiveRestore, Flame, Network, Pencil, Upload, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { AsyncView, EmptyBox } from "../../components/AsyncView";
@@ -8,16 +8,17 @@ import { useMyClasses } from "../../lib/classes";
 import { NO_TREE, TREE_STATUS } from "../../lib/status";
 import { useApi } from "../../lib/useApi";
 
-/** GV-02 Tổng quan lớp (Figma 14:1122, FR-SK-01, GD-05): thông tin lớp + phiên bản cây hiện hành. */
+/** GV-02 Tổng quan lớp (Figma 14:1122, FR-SK-01, GD-05): thông tin lớp + phiên bản cây hiện hành (kể cả bản nháp mới nhất). */
 export default function LecturerClassOverview() {
   const { classId = "" } = useParams();
   const classes = useMyClasses();
   const [archivedOverride, setArchivedOverride] = useState<boolean | null>(null);
 
-  // 404 = lớp chưa có cây → coi là "chưa có", không phải lỗi
+  // draft: true để lấy phiên bản mới nhất (kể cả bản nháp DRAFT chưa phát hành);
+  // 404 = lớp chưa có cây nào → coi là "chưa có", hướng dẫn tải giáo trình
   const tree = useApi(
     (signal) =>
-      apiCall("get", "/classes/{class_id}/tree", { path: { class_id: classId }, signal }).catch((e: unknown) => {
+      apiCall("get", "/classes/{class_id}/tree", { path: { class_id: classId }, query: { draft: true }, signal }).catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
       }),
@@ -125,13 +126,23 @@ export default function LecturerClassOverview() {
                           </div>
                         </dl>
                         <div className="flex flex-wrap gap-2">
-                          <Link to={`${base}/heatmap`} className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 font-semibold text-white">
-                            <Flame aria-hidden size={16} /> Mở bản đồ nhiệt
-                          </Link>
+                          {t.status === "PUBLISHED" ? (
+                            <Link to={`${base}/heatmap`} className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 font-semibold text-white">
+                              <Flame aria-hidden size={16} /> Mở bản đồ nhiệt
+                            </Link>
+                          ) : null}
                           {!isArchived && (
                             <>
-                              <Link to={`${base}/tree`} className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2 font-semibold">
-                                <Pencil aria-hidden size={16} /> Mở trình sửa
+                              <Link
+                                to={`${base}/tree`}
+                                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
+                                  t.status === "DRAFT" ? "bg-honey text-ink-900" : "border border-line-strong"
+                                }`}
+                              >
+                                <Pencil aria-hidden size={16} /> {t.status === "DRAFT" ? "Tiếp tục chỉnh sửa cây" : "Xem / Sửa cây"}
+                              </Link>
+                              <Link to={`${base}/matching`} className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2 font-semibold">
+                                <Users aria-hidden size={16} /> Ghép cặp
                               </Link>
                               <Link to={`${base}/syllabus`} className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2 font-semibold">
                                 <Network aria-hidden size={16} /> Tải giáo trình mới

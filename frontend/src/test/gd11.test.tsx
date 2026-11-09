@@ -87,7 +87,7 @@ describe("GV-09 Quản lý ghép cặp (GD-11)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Chạy vòng ghép cặp/ }));
     expect(await screen.findByText(/Đã ghép 1 cặp từ 38 SV; 3 SV chờ vòng sau/)).toBeTruthy();
     expect(m.called("POST /classes/c1/matching-rounds")[0].body).toEqual({ priorityNodeId: "i5" });
-    expect(m.called("GET /classes/c1/matches").length).toBeGreaterThan(1);
+    await waitFor(() => expect(m.called("GET /classes/c1/matches").length).toBeGreaterThan(1));
   });
 
   it("chưa đủ SV bật ghép cặp thì báo bằng câu dễ hiểu", async () => {
@@ -106,25 +106,38 @@ describe("SV-07 Bạn cùng tiến (GD-11)", () => {
     "GET /classes/c1/my-map": ok({ classId: "c1", studentId: "chau", tree: TREE, progress: [], frontier: [], masteredCount: 0, totalCount: 2 }),
   };
 
-  it("hiện gợi ý An kèm nút dạy – học theo tên nút và hạn còn lại", async () => {
+  it("hiện gợi ý An kèm nút dạy – học theo tên nút, thời gian ghép và hạn còn lại", async () => {
     mockApi(base);
     open("/sv/classes/c1/peers");
     expect(await screen.findByText("Nguyễn Minh An")).toBeTruthy();
     expect(await screen.findByText("Đệ quy")).toBeTruthy();
     expect(screen.getByText("Con trỏ")).toBeTruthy();
     expect(screen.getByText("Hạn: còn 41 giờ")).toBeTruthy();
+    expect(screen.getByText(/Được giảng viên ghép:/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Chấp nhận/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Từ chối/ })).toBeNull();
   });
 
-  it("chấp nhận gửi accept rồi tải lại; từ chối gửi decline", async () => {
-    const m = mockApi({ ...base, "POST /matches/m1/accept": ok({ ...MATCH, status: "WAITING_OTHER", acceptedByMe: true }), "POST /matches/m1/decline": ok({ ...MATCH, status: "DECLINED" }) });
+  it("lớp chưa có ghép cặp thì hiển thị 'Chưa được ghép cặp'", async () => {
+    mockApi({ ...base, "GET /classes/c1/matches": ok([]) });
     open("/sv/classes/c1/peers");
-    fireEvent.click(await screen.findByRole("button", { name: /Chấp nhận/ }));
-    await waitFor(() => expect(m.called("POST /matches/m1/accept")).toHaveLength(1));
-    await waitFor(() => expect(m.called("GET /classes/c1/matches").length).toBeGreaterThan(1));
+    expect(await screen.findByText("Chưa được ghép cặp")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Chấp nhận/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Từ chối/ })).toBeNull();
   });
 
-  it("cặp đã chấp nhận có nút Đã học cùng", async () => {
-    const m = mockApi({ ...base, "GET /classes/c1/matches": ok([{ ...MATCH, status: "ACCEPTED", acceptedByMe: true }]), "POST /matches/m1/studied": ok({ ...MATCH, status: "STUDIED" }) });
+  it("hiển thị ghép cặp mới nhất ở ô chính và tab sổ xuống xem lịch sử", async () => {
+    const olderMatch = { ...MATCH, id: "m2", partnerName: "Lê Văn Cũ", createdAt: "2026-11-01T10:00:00Z" };
+    mockApi({ ...base, "GET /classes/c1/matches": ok([MATCH, olderMatch]) });
+    open("/sv/classes/c1/peers");
+    expect(await screen.findByText("Nguyễn Minh An")).toBeTruthy();
+    expect(screen.getByText(/Lịch sử ghép cặp/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Lịch sử ghép cặp/ }));
+    expect(await screen.findByText("Lê Văn Cũ")).toBeTruthy();
+  });
+
+  it("cặp hiển thị nút Đã học cùng và gửi action studied", async () => {
+    const m = mockApi({ ...base, "POST /matches/m1/studied": ok({ ...MATCH, status: "STUDIED", studiedByMe: true }) });
     open("/sv/classes/c1/peers");
     fireEvent.click(await screen.findByRole("button", { name: /Đã học cùng/ }));
     await waitFor(() => expect(m.called("POST /matches/m1/studied")).toHaveLength(1));
@@ -134,7 +147,7 @@ describe("SV-07 Bạn cùng tiến (GD-11)", () => {
     const item = { id: "it1", teacherId: "an", learnerId: "chau", nodeId: "i5", nodeKey: "n5", verified: false };
     const m = mockApi({
       ...base,
-      "GET /classes/c1/matches": ok([{ ...MATCH, status: "STUDIED", items: [item] }]),
+      "GET /classes/c1/matches": ok([{ ...MATCH, status: "STUDIED", studiedByMe: true, items: [item] }]),
       "POST /sessions": ok({ sessionId: "s1", status: "EXPLAINING", opening: { text: "Chào" } }, 201),
     });
     open("/sv/classes/c1/peers");

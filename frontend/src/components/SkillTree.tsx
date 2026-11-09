@@ -56,6 +56,11 @@ export interface SkillTreeProps {
   /** Chiều cao khung vẽ (px hoặc CSS). */
   height?: number | string;
   legend?: boolean;
+  /** Cạnh tạo chu trình gây lỗi (vẽ đường đỏ cảnh báo trực quan – BR-01) */
+  cycleEdge?: { fromKey: string; toKey: string } | null;
+  /** Xóa cảnh báo chu trình khi thao tác khác trên cây */
+  onClearCycleEdge?: () => void;
+  onPaneClick?: () => void;
   onNodeClick?: (node: TreeNode) => void;
   /** Chỉ ở mode="edit": GV thả nút xong → lưu positionX/Y. */
   onNodeMove?: (key: string, pos: { x: number; y: number }) => void;
@@ -152,6 +157,9 @@ export function SkillTree({
   direction = "TB",
   height = 480,
   legend = true,
+  cycleEdge,
+  onClearCycleEdge,
+  onPaneClick,
   onNodeClick,
   onNodeMove,
   onConnect,
@@ -228,20 +236,32 @@ export function SkillTree({
     }));
   }, [nodes, pos, direction, mode, mastery, heat, details, rootCauseKey, selectedKey, editable, vertical]);
 
-  const flowEdges = useMemo<Edge[]>(
-    () =>
-      edges.map((e) => ({
-        id: `${e.fromKey}->${e.toKey}`,
-        source: e.fromKey,
-        target: e.toKey,
+  const flowEdges = useMemo<Edge[]>(() => {
+    const list: Edge[] = edges.map((e) => ({
+      id: `${e.fromKey}->${e.toKey}`,
+      source: e.fromKey,
+      target: e.toKey,
+      type: "smoothstep",
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: "var(--color-ink-300)" },
+      // Cạnh AI đề xuất (chưa GV xác nhận) vẽ nét đứt ở trình sửa cây
+      style: { stroke: "var(--color-ink-300)", strokeWidth: 1.5, strokeDasharray: editable && e.source === "AI" ? "5 4" : undefined },
+      ariaLabel: `${e.fromKey} là tiên quyết của ${e.toKey}`,
+    }));
+    // Nếu có cạnh gây chu trình: vẽ đường đỏ cảnh báo nổi bật (BR-01)
+    if (cycleEdge) {
+      list.push({
+        id: `cycle-${cycleEdge.fromKey}->${cycleEdge.toKey}`,
+        source: cycleEdge.fromKey,
+        target: cycleEdge.toKey,
         type: "smoothstep",
-        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: "var(--color-ink-300)" },
-        // Cạnh AI đề xuất (chưa GV xác nhận) vẽ nét đứt ở trình sửa cây
-        style: { stroke: "var(--color-ink-300)", strokeWidth: 1.5, strokeDasharray: editable && e.source === "AI" ? "5 4" : undefined },
-        ariaLabel: `${e.fromKey} là tiên quyết của ${e.toKey}`,
-      })),
-    [edges, editable],
-  );
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "#ef4444" },
+        style: { stroke: "#ef4444", strokeWidth: 3 },
+        ariaLabel: `Cạnh tạo chu trình: ${cycleEdge.fromKey} đến ${cycleEdge.toKey}`,
+      });
+    }
+    return list;
+  }, [edges, editable, cycleEdge]);
 
   // Kéo thả ở chế độ sửa: giữ vị trí cục bộ; dữ liệu mới từ props thì đặt lại.
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<SkillFlowNode>(flowNodes);
@@ -266,9 +286,20 @@ export function SkillTree({
             edges={flowEdges}
             nodeTypes={nodeTypes}
             onNodesChange={editable ? onNodesChange : undefined}
-            onNodeClick={(_, n) => onNodeClick?.(n.data.node)}
+            onNodeClick={(_, n) => {
+              onClearCycleEdge?.();
+              onNodeClick?.(n.data.node);
+            }}
+            onPaneClick={() => {
+              onClearCycleEdge?.();
+              onPaneClick?.();
+            }}
+            onNodeDragStart={() => onClearCycleEdge?.()}
             onNodeDragStop={(_, n) => onNodeMove?.(n.id, n.position)}
-            onConnect={(c) => c.source && c.target && onConnect?.(c.source, c.target)}
+            onConnect={(c) => {
+              onClearCycleEdge?.();
+              if (c.source && c.target) onConnect?.(c.source, c.target);
+            }}
             nodesDraggable={editable}
             nodesConnectable={editable}
             elementsSelectable={editable}

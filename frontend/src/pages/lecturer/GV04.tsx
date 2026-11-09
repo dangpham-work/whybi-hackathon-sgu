@@ -1,4 +1,4 @@
-import { CheckCheck, CircleCheck, Flag, History, Lock, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { CheckCheck, CircleCheck, Flag, History, Lock, Plus, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -6,7 +6,8 @@ import { Button } from "../../components/Button";
 import { RubricEditor } from "../../components/RubricEditor";
 import { VersionHistory } from "../../components/VersionHistory";
 import { SkillTree, BLOOM_LABEL } from "../../components/SkillTree";
-import { apiCall, errorText, type Schema } from "../../lib/api";
+import { apiCall, ApiError, errorText, type Schema } from "../../lib/api";
+import { layoutTree } from "../../lib/tree-layout";
 import {
   cycleMessage,
   emptyRubric,
@@ -39,6 +40,7 @@ export default function LecturerTreeEditor() {
 function Editor({ initial, classId }: { initial: TreeVersion; classId: string }) {
   const [tree, setTree] = useState(initial);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [cycleEdge, setCycleEdge] = useState<{ fromKey: string; toKey: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "ok"; items: PublishErrorItem[] }>();
   const [adding, setAdding] = useState(false);
@@ -147,9 +149,40 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
       async () => {
         const edge = await apiCall("post", "/tree-versions/{version_id}/edges", { path: { version_id: tree.id! }, body: { fromKey: from, toKey: to, source: "LECTURER" } });
         setTree((t) => ({ ...t, edges: [...t.edges, edge] }));
+        setCycleEdge(null);
       },
-      (e) => [{ text: cycleMessage(e, tree.nodes) ?? errorText(e) }],
+      (e) => {
+        if (e instanceof ApiError && e.code === "CYCLE_DETECTED") {
+          setCycleEdge({ fromKey: from, toKey: to });
+        }
+        return [{ text: cycleMessage(e, tree.nodes) ?? errorText(e) }];
+      },
     );
+
+  const autoLayout = () =>
+    run(async () => {
+      const newPos = layoutTree(tree.nodes, tree.edges, "TB");
+      const positions = tree.nodes
+        .filter((n) => n.id && newPos.has(n.key))
+        .map((n) => ({
+          nodeId: n.id!,
+          x: Math.round(newPos.get(n.key)!.x),
+          y: Math.round(newPos.get(n.key)!.y),
+        }));
+      await apiCall("put", "/tree-versions/{version_id}/positions", {
+        path: { version_id: tree.id! },
+        body: { positions },
+      });
+      setTree((t) => ({
+        ...t,
+        nodes: t.nodes.map((n) => {
+          const p = newPos.get(n.key);
+          return p ? { ...n, positionX: p.x, positionY: p.y } : n;
+        }),
+      }));
+      setCycleEdge(null);
+      setMessage({ kind: "ok", items: [{ text: "Đã tự động sắp xếp lại cây kỹ năng." }] });
+    });
 
   const removeEdge = (id: string) =>
     run(async () => {
@@ -251,6 +284,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
         </Button>
         <Button variant="secondary" aria-pressed={history} onClick={() => setHistory((h) => !h)}>
           <History aria-hidden size={16} /> Lịch sử
+        </Button>
+        <Button variant="secondary" disabled={!editable || busy} title="Tự động sắp xếp các nút phân tầng hợp lý" onClick={autoLayout}>
+          <Sparkles aria-hidden size={16} /> Sắp xếp
         </Button>
         {editable && missing.length > 0 && (
           <Button variant="secondary" disabled={busy} onClick={approveAll}>
@@ -364,8 +400,13 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
             nodes={tree.nodes}
             edges={tree.edges}
             selectedKey={selectedKey}
+            cycleEdge={cycleEdge}
+            onClearCycleEdge={() => setCycleEdge(null)}
             height={420}
-            onNodeClick={(n) => setSelectedKey(n.key)}
+            onNodeClick={(n) => {
+              setCycleEdge(null);
+              setSelectedKey(n.key);
+            }}
             onNodeMove={editable ? move : undefined}
             onConnect={editable ? connect : undefined}
           />
