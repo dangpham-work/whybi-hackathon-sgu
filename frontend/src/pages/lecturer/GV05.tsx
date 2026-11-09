@@ -1,23 +1,9 @@
-import {
-  BarChart3,
-  Download,
-  EyeOff,
-  Flame,
-  LayoutGrid,
-  Maximize2,
-  Mic,
-  Network,
-  Pencil,
-  Search,
-  TriangleAlert,
-  Users,
-  Wifi,
-  X,
-} from "lucide-react";
+import { Download, EyeOff, Flame, Maximize2, Mic, Search, TriangleAlert, Users, Wifi, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
 import { HeatGrid } from "../../components/HeatGrid";
+import { NodeDetailDrawer } from "../../components/NodeDetailDrawer";
 import { SkillTree } from "../../components/SkillTree";
 import { StatsTab } from "../../components/stats/StatsTab";
 import { apiCall, errorText } from "../../lib/api";
@@ -120,7 +106,6 @@ function Toolbar(p: { classId: string; search: string; onSearch: (v: string) => 
 }
 
 function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: string; wsStatus: WsStatus; hideNames: boolean }) {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [tab, setTabState] = useState<Tab>(
     params.get("tab") === "thong-ke"
@@ -131,6 +116,8 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
       ? "grid"
       : "tree",
   );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
   const setTab = (t: Tab) => {
     setTabState(t);
     const p = new URLSearchParams(params);
@@ -141,9 +128,9 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
     setParams(p, { replace: true });
   };
   const alerts = s.alerts ?? [];
-  const goNode = (nodeId?: string | null) => nodeId && navigate(`/gv/classes/${classId}/nodes/${nodeId}`);
+
   return (
-    <>
+    <div className="space-y-4">
       <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-body-m">
         <span className="flex items-center gap-1">
           <Users aria-hidden size={16} /> Sĩ số <strong>{s.enrolledCount}</strong>
@@ -161,62 +148,103 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
         )}
       </p>
 
-      <div role="tablist" aria-label="Chế độ xem" className="inline-flex flex-wrap gap-1 rounded-xl bg-app p-1.5 border border-line-soft">
+      {/* 4 Tabs theo đặc tả MX3 */}
+      <div role="tablist" aria-label="Chế độ xem" className="inline-flex flex-wrap gap-1 rounded-lg bg-app p-1">
         {(
           [
-            ["tree", "Tiến độ học theo cây", "Chế độ cây", Network],
-            ["grid", "Theo ma trận", "Lưới SV × Nút", LayoutGrid],
-            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt", Flame],
-            ["stats", "Theo thống kê", "Thống kê", BarChart3],
+            ["tree", "Tiến độ học theo cây", "Chế độ cây"],
+            ["grid", "Theo ma trận", "Lưới SV × Nút"],
+            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt"],
+            ["stats", "Theo thống kê", "Thống kê"],
           ] as const
-        ).map(([id, label, ariaLabel, Icon]) => (
+        ).map(([id, label, ariaLabel]) => (
           <button
             key={id}
             role="tab"
             aria-selected={tab === id}
             aria-label={ariaLabel}
             onClick={() => setTab(id)}
-            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-body-m font-semibold transition-all ${
-              tab === id ? "bg-surface text-ink-900 shadow-card" : "text-ink-500 hover:text-ink-900"
+            className={`rounded-md px-4 py-1.5 text-body-m font-semibold transition-all ${
+              tab === id ? "bg-surface shadow-card text-ink-900" : "text-ink-500 hover:text-ink-900"
             }`}
           >
-            <Icon aria-hidden size={16} />
             {label}
           </button>
         ))}
       </div>
 
-      <div className={`grid gap-4 ${tab === "stats" || tab === "heatmap" ? "" : "xl:grid-cols-[1fr_380px]"}`}>
-        {tab === "stats" ? (
-          <div className="min-w-0">
-            <StatsTab s={s} classId={classId} hideNames={hideNames} />
-          </div>
-        ) : tab === "heatmap" ? (
-          <section aria-label="Bản đồ nhiệt realtime" className="col-span-full space-y-3 rounded-xl border border-dashed border-line-strong bg-surface p-8 text-center shadow-card">
-            <p className="text-h3 font-semibold text-ink-700">Theo bản đồ nhiệt</p>
-            <p className="text-body-m text-ink-500">
-              Bản đồ nhiệt đang được nâng cấp với các luồng cập nhật realtime. Bạn có thể theo dõi tiến độ qua tab &ldquo;Tiến độ học theo cây&rdquo; hoặc &ldquo;Theo ma trận&rdquo;.
-            </p>
-          </section>
-        ) : (
-        <section aria-label={tab === "tree" ? "Cây kỹ năng theo tỉ lệ Đạt" : "Lưới sinh viên"} className="space-y-4 rounded-xl border border-line-soft bg-surface p-4 shadow-card">
-          {tab === "tree" ? (
-            s.tree ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft pb-2.5">
-                  <div>
-                    <h2 className="text-h3 font-semibold">Cây kỹ năng & Tỉ lệ làm chủ</h2>
-                    <p className="text-body-s text-ink-500">
-                      Màu nút phản ánh mức độ làm chủ của lớp (Xanh: Đạt, Vàng: Cần chú ý, Đỏ: Điểm nghẽn)
-                    </p>
-                  </div>
-                  <Link
-                    to={`/gv/classes/${classId}/tree`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold text-ink-700 hover:bg-app hover:text-ink-900 shadow-2xs transition"
+      {/* Tab 1: Cây kỹ năng (Toàn màn hình mặc định, click nút mở trượt chi tiết bên trái) */}
+      {tab === "tree" && (
+        <div className="space-y-3">
+          {/* Cảnh báo điểm nghẽn gọn gàng */}
+          <aside aria-label="Cảnh báo điểm nghẽn">
+            {alerts.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-line-strong bg-surface/50 px-4 py-2 text-body-s text-ink-500">
+                Chưa có điểm nghẽn nào – lớp đang tiến triển ổn.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {alerts.map((a) => (
+                  <div
+                    key={a.nodeId}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-700/40 bg-st-fail/25 px-4 py-2.5"
                   >
-                    <Pencil aria-hidden size={14} /> Chỉnh sửa cây & Rubric
-                  </Link>
-                </div>
+                    <div className="space-y-0.5">
+                      <p className="flex items-center gap-2 text-body-m font-bold text-red-900">
+                        <TriangleAlert aria-hidden size={16} className="text-red-700 shrink-0" />
+                        {a.message}
+                      </p>
+                      {a.conditionalFailRate != null && (
+                        <p className="text-body-xs text-ink-700 pl-6">
+                          {Math.round(a.conditionalFailRate * 100)}% SV trượt nút này cũng chưa Đạt nút gốc
+                          {a.failedCount != null && ` (${a.failedCount} SV)`}.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedNodeId(a.rootCauseNodeId)}
+                        className="rounded-md border border-red-700/50 bg-surface px-3 py-1 text-body-s font-semibold text-red-900 hover:bg-red-50"
+                      >
+                        Xem chi tiết nút gốc
+                      </button>
+                      <Link
+                        to={`/gv/classes/${classId}/matching`}
+                        className="rounded-md border border-line-strong bg-surface px-3 py-1 text-body-s font-semibold hover:bg-app"
+                      >
+                        Ghép cặp ưu tiên
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </aside>
+
+          {/* Vùng cây: Mặc định chiếm 100% window, khi chọn nút thì bên trái trượt mở chi tiết */}
+          <div className="relative flex flex-col lg:flex-row gap-4 items-stretch w-full min-h-[580px]">
+            {selectedNodeId && (
+              <aside
+                aria-label="Chi tiết nút kỹ năng"
+                className="w-full lg:w-[400px] shrink-0 rounded-lg border border-line-soft bg-surface p-4 shadow-sm overflow-y-auto max-h-[calc(100vh-250px)] transition-all duration-300 ease-in-out"
+              >
+                <NodeDetailDrawer
+                  classId={classId}
+                  nodeId={selectedNodeId}
+                  initialStat={s.nodes.find((n) => n.nodeId === selectedNodeId)}
+                  onClose={() => setSelectedNodeId(null)}
+                  hideNames={hideNames}
+                  onSelectNode={(id) => setSelectedNodeId(id)}
+                />
+              </aside>
+            )}
+
+            <section
+              aria-label="Cây kỹ năng theo tỉ lệ Đạt"
+              className="flex-1 min-w-0 rounded-lg border border-line-soft bg-surface p-4 transition-all duration-300 ease-in-out"
+            >
+              {s.tree ? (
                 <SkillTree
                   mode="heatmap"
                   nodes={s.tree.nodes}
@@ -224,48 +252,46 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
                   heat={heatByKey(s)}
                   details={detailsByKey(s)}
                   rootCauseKey={rootCauseKey(s)}
-                  height={500}
-                  onNodeClick={(n) => goNode(n.id)}
+                  selectedKey={s.tree.nodes.find((n) => n.id === selectedNodeId)?.key ?? null}
+                  height={560}
+                  onNodeClick={(n) => setSelectedNodeId(n.id === selectedNodeId ? null : (n.id ?? null))}
                 />
-              </div>
-            ) : (
-              <p className="text-body-m text-ink-500">Lớp chưa có cây đang phát hành.</p>
-            )
-          ) : (
-            <HeatGrid rows={s.grid} nodes={s.nodes} hideNames={hideNames} />
-          )}
-        </section>
-        )}
+              ) : (
+                <p className="text-body-m text-ink-500">Lớp chưa có cây đang phát hành.</p>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
 
-        <aside aria-label="Cảnh báo điểm nghẽn" className="space-y-3">
-          <h2 className="flex items-center gap-2 text-h3 font-semibold">
-            <TriangleAlert aria-hidden size={18} className="text-red-700" /> Cảnh báo điểm nghẽn
-          </h2>
-          {alerts.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-line-strong p-4 text-body-m text-ink-500">Chưa có điểm nghẽn nào – lớp đang tiến triển ổn.</p>
-          ) : (
-            alerts.map((a) => (
-              <div key={a.nodeId} className="space-y-2 rounded-lg border border-red-700/40 bg-st-fail/30 p-4">
-                <p className="text-h3 font-bold text-red-900">{a.message}</p>
-                {a.conditionalFailRate != null && (
-                  <p className="text-body-s">
-                    {Math.round(a.conditionalFailRate * 100)}% SV trượt nút này cũng chưa Đạt nút gốc
-                    {a.failedCount != null && ` (${a.failedCount} SV)`}.
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <button onClick={() => goNode(a.rootCauseNodeId)} className="rounded-md border border-red-700/50 bg-surface px-3 py-1.5 text-body-s font-semibold text-red-900">
-                    Xem chi tiết nút
-                  </button>
-                  <Link to={`/gv/classes/${classId}/matching`} className="rounded-md border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold">
-                    Ghép cặp ưu tiên
-                  </Link>
-                </div>
-              </div>
-            ))
-          )}
-        </aside>
-      </div>
-    </>
+      {/* Tab 2: Ma trận thành thạo (Khung lớn chiếm trọn, thanh cuộn riêng, freeze panes như Excel) */}
+      {tab === "grid" && (
+        <section aria-label="Ma trận thành thạo" className="w-full">
+          <HeatGrid rows={s.grid} nodes={s.nodes} classId={classId} hideNames={hideNames} />
+        </section>
+      )}
+
+      {/* Tab 3: Bản đồ nhiệt realtime */}
+      {tab === "heatmap" && (
+        <section
+          aria-label="Bản đồ nhiệt realtime"
+          className="rounded-lg border border-dashed border-line-strong bg-surface p-12 text-center space-y-3"
+        >
+          <Flame className="mx-auto text-honey-deep" size={40} />
+          <h3 className="text-h3 font-bold text-ink-900">Theo bản đồ nhiệt</h3>
+          <p className="text-body-m text-ink-500 max-w-md mx-auto">
+            Hiện đang có <strong>{s.activeSessions}</strong> phiên giảng đang diễn ra. Chức năng đang được chuẩn bị theo
+            thiết kế mới.
+          </p>
+        </section>
+      )}
+
+      {/* Tab 4: Thống kê (Giữ nguyên) */}
+      {tab === "stats" && (
+        <div className="w-full">
+          <StatsTab s={s} classId={classId} hideNames={hideNames} />
+        </div>
+      )}
+    </div>
   );
 }

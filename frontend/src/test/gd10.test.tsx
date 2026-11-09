@@ -4,7 +4,7 @@ import { setToken } from "../lib/api";
 import { auth } from "../lib/auth";
 import { applyHeatmapEvent, type Snapshot } from "../lib/heatmap";
 import { routes } from "../router";
-import { err, mockApi, ok } from "./mock-api";
+import { mockApi, ok } from "./mock-api";
 
 let push: (e: { channel: string; event: string; payload: unknown }) => void = () => {};
 let channel: string | null = null;
@@ -118,11 +118,26 @@ describe("GV-05 Dashboard bản đồ nhiệt (GD-10)", () => {
     expect(within(grid).getByLabelText("Đạt")).toBeTruthy();
   });
 
-  it("bấm nút trên cây mở GV-06 của nút đó", async () => {
-    mockApi({ ...me, "GET /classes/c1/heatmap": ok(SNAP), "GET /classes/c1/nodes/i5/detail": err(501, "NOT_IMPLEMENTED") });
+  it("bấm nút trên cây mở chi tiết nút trượt ra ở bên trái", async () => {
+    mockApi({
+      ...me,
+      "GET /classes/c1/heatmap": ok(SNAP),
+      "GET /classes/c1/nodes/i5/detail": ok({
+        nodeId: "i5",
+        stat: SNAP.nodes[0],
+        studentsByState: { NOT_PASSED: [{ studentId: "s1", studentName: "Trần Bảo Châu", studentCode: "1", states: {}, progress: 0 }] },
+        topMisconceptions: [],
+        alert: null,
+      }),
+    });
     const router = createMemoryRouter(routes, { initialEntries: ["/gv/classes/c1/heatmap"] });
     render(<RouterProvider router={router} />);
     fireEvent.click(await screen.findByText("Con trỏ: YELLOW"));
+    // Khung chi tiết bên trái xuất hiện
+    expect(await screen.findByRole("complementary", { name: "Chi tiết nút kỹ năng" })).toBeTruthy();
+    expect(screen.getByText("N5 – Con trỏ")).toBeTruthy();
+    // Bấm link xem toàn màn hình
+    fireEvent.click(screen.getByRole("link", { name: "Mở toàn màn hình chi tiết nút" }));
     expect(router.state.location.pathname).toBe("/gv/classes/c1/nodes/i5");
   });
 });
