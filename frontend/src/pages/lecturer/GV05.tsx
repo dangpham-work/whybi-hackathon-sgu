@@ -1,6 +1,6 @@
 import { Download, EyeOff, Flame, Maximize2, Mic, Search, TriangleAlert, Users, Wifi, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
 import { HeatGrid } from "../../components/HeatGrid";
 import { NodeDetailDrawer } from "../../components/NodeDetailDrawer";
@@ -106,7 +106,6 @@ function Toolbar(p: { classId: string; search: string; onSearch: (v: string) => 
 }
 
 function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: string; wsStatus: WsStatus; hideNames: boolean }) {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [tab, setTabState] = useState<Tab>(
     params.get("tab") === "thong-ke"
@@ -129,7 +128,6 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
     setParams(p, { replace: true });
   };
   const alerts = s.alerts ?? [];
-  const goNode = (nodeId?: string | null) => nodeId && navigate(`/gv/classes/${classId}/nodes/${nodeId}`);
 
   return (
     <div className="space-y-4">
