@@ -267,8 +267,9 @@ describe("GV-04 lịch sử, so sánh, khôi phục (GD-14)", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Sắp xếp/ }));
     await waitFor(() => expect(m.called("PUT /tree-versions/v1/positions")).toHaveLength(1));
     const req = m.called("PUT /tree-versions/v1/positions")[0];
-    expect(Array.isArray(req.body.positions)).toBe(true);
-    expect(req.body.positions.length).toBe(2);
+    const body = req.body as { positions?: unknown[] };
+    expect(Array.isArray(body.positions)).toBe(true);
+    expect(body.positions?.length).toBe(2);
     expect(await screen.findByText(/Đã tự động sắp xếp lại cây kỹ năng/)).toBeTruthy();
   });
 });
