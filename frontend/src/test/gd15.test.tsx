@@ -69,8 +69,10 @@ describe("AD-01 Tài khoản (GD-15)", () => {
 });
 
 describe("AD-02 Môn học, AD-04 Hạn mức, AD-05 Cờ (GD-15)", () => {
-  it("thêm môn học", async () => {
-    const m = mockApi({ ...admin, "GET /admin/courses": ok([]), "POST /admin/courses": ok({ id: "c", code: "CTDL", name: "CTDL", credits: 3 }, 201) });
+  it("thêm môn học và hiển thị nút chép mã môn", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const m = mockApi({ ...admin, "GET /admin/courses": ok([]), "POST /admin/courses": ok({ id: "uuid-ctdl-123", code: "CTDL", name: "Cấu trúc dữ liệu", credits: 3 }, 201) });
     open("/admin/courses");
     fireEvent.change(await screen.findByLabelText("Mã môn"), { target: { value: "CTDL" } });
     fireEvent.change(screen.getByLabelText("Tên môn"), { target: { value: "Cấu trúc dữ liệu" } });
@@ -78,6 +80,45 @@ describe("AD-02 Môn học, AD-04 Hạn mức, AD-05 Cờ (GD-15)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Thêm môn/ }));
     await waitFor(() => expect(m.called("POST /admin/courses")).toHaveLength(1));
     expect(m.called("POST /admin/courses")[0].body).toMatchObject({ code: "CTDL", name: "Cấu trúc dữ liệu", credits: 3 });
+
+    // Kiểm tra thông báo kết quả tạo môn kèm nút copy
+    const status = await screen.findByRole("status", { name: "Kết quả tạo môn" });
+    expect(status.textContent).toContain("Cấu trúc dữ liệu");
+    const copyBtn = within(status).getByRole("button", { name: "Chép mã CTDL" });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+    expect(writeText).toHaveBeenCalledWith("uuid-ctdl-123");
+  });
+
+  it("thanh môn học theo từng hàng có nút copy mã môn không lộ chuỗi UUID", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const courses = [
+      { id: "uuid-comp1013", code: "COMP1013", name: "Cấu trúc dữ liệu & Giải thuật", credits: 4, description: null },
+      { id: "uuid-comp2031", code: "COMP2031", name: "Hệ điều hành", credits: 3, description: null },
+    ];
+    mockApi({ ...admin, "GET /admin/courses": ok(courses) });
+    open("/admin/courses");
+    const table = await screen.findByRole("table", { name: "Môn học" });
+    // Không hiện chuỗi UUID trên giao diện
+    expect(within(table).queryByText("uuid-comp1013")).toBeNull();
+    expect(within(table).queryByText("uuid-comp2031")).toBeNull();
+
+    // Có nút copy mã môn cho từng dòng
+    const copyBtn1 = within(table).getByRole("button", { name: "Chép mã môn COMP1013" });
+    const copyBtn2 = within(table).getByRole("button", { name: "Chép mã môn COMP2031" });
+    expect(copyBtn1).toBeTruthy();
+    expect(copyBtn2).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(copyBtn1);
+    });
+    expect(writeText).toHaveBeenCalledWith("uuid-comp1013");
+    await act(async () => {
+      fireEvent.click(copyBtn2);
+    });
+    expect(writeText).toHaveBeenCalledWith("uuid-comp2031");
   });
 
   it("đặt hạn mức: để trống nghĩa là không giới hạn (null)", async () => {
