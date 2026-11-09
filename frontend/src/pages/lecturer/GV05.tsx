@@ -231,7 +231,7 @@ function Dashboard({
       {tab === "tree" && (
         <div className="space-y-3">
           {/* Cảnh báo điểm nghẽn gọn gàng */}
-          <div aria-label="Cảnh báo điểm nghẽn">
+          <aside aria-label="Cảnh báo điểm nghẽn">
             {alerts.length === 0 ? (
               <p className="rounded-lg border border-dashed border-line-strong bg-surface/50 px-4 py-2 text-body-s text-ink-500">
                 Chưa có điểm nghẽn nào – lớp đang tiến triển ổn.
@@ -274,7 +274,7 @@ function Dashboard({
                 ))}
               </div>
             )}
-          </div>
+          </aside>
 
           {/* Vùng cây: Mặc định chiếm 100% window, khi chọn nút thì bên trái trượt mở chi tiết */}
           <div className="relative flex flex-col lg:flex-row gap-4 items-stretch w-full min-h-[580px]">

@@ -9,7 +9,14 @@ type Detail = Schema<"NodeDetail">;
 type Stat = Schema<"NodeStat">;
 type StudentRow = Detail["studentsByState"][string][number];
 
-const STATE_ORDER: MasteryState[] = ["NOT_PASSED", "IN_PROGRESS", "MASTERED", "NEEDS_REVERIFY", "AVAILABLE"];
+const STATE_ORDER: MasteryState[] = [
+  "NOT_PASSED",
+  "IN_PROGRESS",
+  "MASTERED",
+  "NEEDS_REVERIFY",
+  "AVAILABLE",
+  "LOCKED",
+];
 
 function dedupStudents(rows: StudentRow[] = []): StudentRow[] {
   const seenIds = new Set<string>();
@@ -149,7 +156,13 @@ export function NodeDetailDrawer({
 
       {/* Alert if root cause */}
       {d?.alert && (
-        <div className="space-y-2 rounded-lg border border-red-700/40 bg-st-fail/30 p-3 text-body-s">
+        <section
+          aria-label="Truy vết điểm nghẽn gốc"
+          className="space-y-2 rounded-lg border border-red-700/40 bg-st-fail/30 p-3 text-body-s"
+        >
+          <h3 className="text-body-xs font-bold uppercase tracking-wider text-red-900">
+            Truy vết điểm nghẽn gốc
+          </h3>
           <p className="font-bold text-red-900">{d.alert.message}</p>
           {d.alert.conditionalFailRate != null && (
             <p className="text-body-xs text-ink-700">
@@ -165,11 +178,14 @@ export function NodeDetailDrawer({
               Chuyển tới nút gốc
             </button>
           )}
-        </div>
+        </section>
       )}
 
       {/* Students By State List */}
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      <section
+        aria-label="Sinh viên theo trạng thái"
+        className="flex-1 space-y-3 overflow-y-auto pr-1"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-body-xs font-bold text-ink-700 uppercase tracking-wider">
             Sinh viên theo trạng thái
@@ -274,7 +290,7 @@ export function NodeDetailDrawer({
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
