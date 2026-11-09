@@ -64,7 +64,7 @@ export function Waveform({
   }, [stream, active, barsCount]);
 
   return (
-    <div role="img" aria-label={active ? "Dạng sóng âm thanh đang ghi" : "Dạng sóng âm thanh"} className={className}>
+    <div role="img" aria-label="Dạng sóng âm thanh" className={className}>
       {Array.from({ length: barsCount }, (_, i) => (
         <span
           key={i}

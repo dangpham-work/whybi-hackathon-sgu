@@ -379,6 +379,20 @@ export function UnifiedChatComposer({
     }, maxSeconds * 1000);
   };
 
+  const handleRetake = () => {
+    stopRecording();
+    recordedAudioRef.current = null;
+    chunksRef.current = [];
+    setIsRecorded(false);
+    setAutoStopped(false);
+    setElapsed(0);
+    hasSpokenRef.current = false;
+    setText("");
+    baseTextRef.current = "";
+    currentSpeechRef.current = "";
+    meter.current.reset();
+  };
+
   const handleToggleMic = () => {
     if (disabled || busy) return;
     if (isRecording) {
@@ -450,6 +464,7 @@ export function UnifiedChatComposer({
           aria-selected={activeTab === "TEXT"}
           onClick={() => {
             setActiveTab("TEXT");
+            hasSpokenRef.current = false;
             textareaRef.current?.focus();
           }}
         >
@@ -533,9 +548,14 @@ export function UnifiedChatComposer({
               </span>
             )}
             {isRecorded && !isRecording && (
-              <span className="text-body-s font-semibold text-ink-400">
-                Đã dừng
-              </span>
+              <button
+                type="button"
+                onClick={handleRetake}
+                aria-label="Ghi lại"
+                className="flex items-center gap-1 rounded-md bg-ink-800 px-2 py-1 text-body-s font-medium text-ink-300 hover:bg-ink-700 hover:text-white"
+              >
+                <RotateCcw aria-hidden size={13} /> Ghi lại
+              </button>
             )}
           </div>
 
