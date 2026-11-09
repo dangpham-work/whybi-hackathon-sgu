@@ -1,4 +1,15 @@
-import { Archive, ArchiveRestore, Flame, Network, Pencil, Upload, Users } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Flame,
+  GitFork,
+  Layers,
+  Network,
+  Pencil,
+  Sparkles,
+  Upload,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { AsyncView, EmptyBox } from "../../components/AsyncView";
@@ -89,63 +100,112 @@ export default function LecturerClassOverview() {
                   </span>
                 </p>
               </header>
-              <section aria-label="Cây kỹ năng" className="space-y-4 rounded-lg border border-line-soft bg-surface p-5">
-                <h2 className="text-h3 font-semibold">Cây kỹ năng</h2>
+              <section aria-label="Cây kỹ năng" className="space-y-4 rounded-xl border border-line-soft bg-surface p-5 shadow-card">
+                <div className="flex items-center justify-between border-b border-line-soft pb-3">
+                  <h2 className="text-h3 font-semibold">Cây kỹ năng</h2>
+                  <span className="text-body-s text-ink-500">Bản đồ kiến thức chuẩn hóa của học phần</span>
+                </div>
                 <AsyncView state={tree} loadingText="Đang tải cây kỹ năng…">
                   {(t) => {
                     if (!t)
                       return (
-                        <div className="space-y-3">
-                          <p className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-body-s font-semibold ${NO_TREE.className}`}>
-                            <NO_TREE.icon aria-hidden size={14} /> {NO_TREE.label}
-                          </p>
-                          <p className="text-body-m text-ink-500">
-                            {isArchived
-                              ? "Lớp chưa có cây kỹ năng trước khi lưu trữ."
-                              : "Tải giáo trình để Whybi AI sinh cây kỹ năng tự động."}
-                          </p>
+                        <div className="space-y-4 rounded-xl border border-dashed border-line-strong bg-app/40 p-6 text-center sm:text-left">
+                          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-honey-soft text-honey-deep shadow-inner">
+                              <Sparkles size={28} />
+                            </div>
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-body-s font-semibold ${NO_TREE.className}`}>
+                                  <NO_TREE.icon aria-hidden size={14} /> {NO_TREE.label}
+                                </span>
+                              </div>
+                              <p className="text-h3 font-bold text-ink-900">Khởi tạo cây kỹ năng cho lớp</p>
+                              <p className="text-body-m text-ink-500 max-w-2xl">
+                                {isArchived
+                                  ? "Lớp chưa có cây kỹ năng trước khi lưu trữ."
+                                  : "Tải giáo trình để Whybi AI sinh cây kỹ năng tự động."}
+                              </p>
+                            </div>
+                          </div>
                           {!isArchived && (
-                            <Link to={`${base}/syllabus`} className="inline-flex items-center gap-2 rounded-md bg-honey px-4 py-2 font-semibold">
-                              <Upload aria-hidden size={16} /> Tải giáo trình
-                            </Link>
+                            <div className="pt-2 flex justify-center sm:justify-start">
+                              <Link
+                                to={`${base}/syllabus`}
+                                className="inline-flex items-center gap-2 rounded-lg bg-honey px-5 py-2.5 font-bold text-ink-900 shadow-sm hover:brightness-105 transition-all text-body-m"
+                              >
+                                <Upload aria-hidden size={18} /> Tải giáo trình
+                              </Link>
+                            </div>
                           )}
                         </div>
                       );
                     const look = TREE_STATUS[t.status] ?? NO_TREE;
                     return (
-                      <div className="space-y-4">
-                        <dl className="grid grid-cols-2 gap-3 text-body-m sm:grid-cols-4">
-                          <Fact label="Phiên bản" value={`v${t.versionNo}`} />
-                          <Fact label="Số nút" value={t.nodes.length} />
-                          <Fact label="Số cạnh" value={t.edges.length} />
-                          <div>
-                            <dt className="caps">Trạng thái</dt>
-                            <dd className={`mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-body-s font-semibold ${look.className}`}>
-                              <look.icon aria-hidden size={14} /> {look.label}
+                      <div className="space-y-5">
+                        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <FactCard
+                            icon={Layers}
+                            label="Phiên bản"
+                            value={`v${t.versionNo}`}
+                            note="Phiên bản hiện hành"
+                          />
+                          <FactCard
+                            icon={Network}
+                            label="Số nút"
+                            value={t.nodes.length}
+                            note="Khái niệm & kỹ năng"
+                          />
+                          <FactCard
+                            icon={GitFork}
+                            label="Số cạnh"
+                            value={t.edges.length}
+                            note="Quan hệ tiên quyết"
+                          />
+                          <div className="rounded-xl border border-line-soft bg-app/50 p-4 transition-all hover:shadow-sm">
+                            <dt className="caps text-ink-500">Trạng thái</dt>
+                            <dd className="mt-2">
+                              <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-body-s font-semibold shadow-sm ${look.className}`}>
+                                <look.icon aria-hidden size={14} /> {look.label}
+                              </span>
                             </dd>
+                            <p className="mt-1 text-body-s text-ink-400">
+                              {t.status === "PUBLISHED" ? "Sinh viên có thể học" : "Chờ duyệt & phát hành"}
+                            </p>
                           </div>
                         </dl>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
                           {t.status === "PUBLISHED" ? (
-                            <Link to={`${base}/heatmap`} className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 font-semibold text-white">
-                              <Flame aria-hidden size={16} /> Mở bản đồ nhiệt
+                            <Link
+                              to={`${base}/heatmap`}
+                              className="inline-flex items-center gap-2 rounded-lg bg-teal px-5 py-2.5 font-semibold text-white shadow-sm hover:brightness-110 transition-all text-body-m"
+                            >
+                              <Flame aria-hidden size={18} /> Mở bản đồ nhiệt
                             </Link>
                           ) : null}
                           {!isArchived && (
                             <>
                               <Link
                                 to={`${base}/tree`}
-                                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
-                                  t.status === "DRAFT" ? "bg-honey text-ink-900" : "border border-line-strong"
+                                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition-all text-body-m ${
+                                  t.status === "DRAFT"
+                                    ? "bg-honey text-ink-900 shadow-sm hover:brightness-105"
+                                    : "border border-line-strong bg-surface text-ink-900 hover:bg-app shadow-sm"
                                 }`}
                               >
-                                <Pencil aria-hidden size={16} /> {t.status === "DRAFT" ? "Tiếp tục chỉnh sửa cây" : "Xem / Sửa cây"}
+                                <Pencil aria-hidden size={18} /> {t.status === "DRAFT" ? "Tiếp tục chỉnh sửa cây" : "Xem / Sửa cây"}
                               </Link>
-                              <Link to={`${base}/matching`} className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2 font-semibold">
-                                <Users aria-hidden size={16} /> Ghép cặp
+                              <Link
+                                to={`${base}/matching`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2.5 font-semibold text-ink-900 hover:bg-app shadow-sm transition-all text-body-m"
+                              >
+                                <Users aria-hidden size={18} /> Ghép cặp
                               </Link>
-                              <Link to={`${base}/syllabus`} className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2 font-semibold">
-                                <Network aria-hidden size={16} /> Tải giáo trình mới
+                              <Link
+                                to={`${base}/syllabus`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2.5 font-semibold text-ink-700 hover:bg-app shadow-sm transition-all text-body-m"
+                              >
+                                <Upload aria-hidden size={18} /> Tải giáo trình mới
                               </Link>
                             </>
                           )}
@@ -163,11 +223,27 @@ export default function LecturerClassOverview() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string | number }) {
+function FactCard({
+  icon: Icon,
+  label,
+  value,
+  note,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string | number;
+  note: string;
+}) {
   return (
-    <div>
-      <dt className="caps">{label}</dt>
-      <dd className="text-h3 font-bold">{value}</dd>
+    <div className="rounded-xl border border-line-soft bg-app/50 p-4 transition-all hover:shadow-sm">
+      <div className="flex items-center justify-between">
+        <dt className="caps text-ink-500">{label}</dt>
+        <span className="flex size-7 items-center justify-center rounded-md bg-surface text-ink-500 shadow-xs">
+          <Icon size={14} />
+        </span>
+      </div>
+      <dd className="mt-1 text-h2 font-extrabold text-ink-900">{value}</dd>
+      <p className="mt-0.5 text-body-s text-ink-400">{note}</p>
     </div>
   );
 }

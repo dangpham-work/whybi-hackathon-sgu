@@ -9,8 +9,8 @@ import type { components } from "./api-types";
 type TreeNode = components["schemas"]["Node"];
 type TreeEdge = components["schemas"]["Edge"];
 
-export const NODE_W = 220;
-export const NODE_H = 64;
+export const NODE_W = 248;
+export const NODE_H = 68;
 
 export type Direction = "TB" | "LR";
 export interface Point {
@@ -31,7 +31,7 @@ export function layoutTree(nodes: TreeNode[], edges: TreeEdge[], direction: Dire
   }
 
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: direction, nodesep: 32, ranksep: 56, marginx: 16, marginy: 16 });
+  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 60, marginx: 16, marginy: 16 });
   g.setDefaultEdgeLabel(() => ({}));
   for (const n of nodes) g.setNode(n.key, { width: NODE_W, height: NODE_H });
   const keys = new Set(nodes.map((n) => n.key));

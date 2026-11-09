@@ -1,4 +1,19 @@
-import { Download, EyeOff, Maximize2, Mic, Search, TriangleAlert, Users, Wifi, X } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  EyeOff,
+  Flame,
+  LayoutGrid,
+  Maximize2,
+  Mic,
+  Network,
+  Pencil,
+  Search,
+  TriangleAlert,
+  Users,
+  Wifi,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { AsyncView } from "../../components/AsyncView";
@@ -146,23 +161,26 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
         )}
       </p>
 
-      <div role="tablist" aria-label="Chế độ xem" className="inline-flex gap-1 rounded-lg bg-app p-1">
+      <div role="tablist" aria-label="Chế độ xem" className="inline-flex flex-wrap gap-1 rounded-xl bg-app p-1.5 border border-line-soft">
         {(
           [
-            ["tree", "Tiến độ học theo cây", "Chế độ cây"],
-            ["grid", "Theo ma trận", "Lưới SV × Nút"],
-            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt"],
-            ["stats", "Theo thống kê", "Thống kê"],
+            ["tree", "Tiến độ học theo cây", "Chế độ cây", Network],
+            ["grid", "Theo ma trận", "Lưới SV × Nút", LayoutGrid],
+            ["heatmap", "Theo bản đồ nhiệt", "Theo bản đồ nhiệt", Flame],
+            ["stats", "Theo thống kê", "Thống kê", BarChart3],
           ] as const
-        ).map(([id, label, ariaLabel]) => (
+        ).map(([id, label, ariaLabel, Icon]) => (
           <button
             key={id}
             role="tab"
             aria-selected={tab === id}
             aria-label={ariaLabel}
             onClick={() => setTab(id)}
-            className={`rounded-md px-4 py-1.5 text-body-m font-semibold ${tab === id ? "bg-surface shadow-card" : "text-ink-500"}`}
+            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-body-m font-semibold transition-all ${
+              tab === id ? "bg-surface text-ink-900 shadow-card" : "text-ink-500 hover:text-ink-900"
+            }`}
           >
+            <Icon aria-hidden size={16} />
             {label}
           </button>
         ))}
@@ -174,26 +192,42 @@ function Dashboard({ s, classId, wsStatus, hideNames }: { s: Snapshot; classId: 
             <StatsTab s={s} classId={classId} hideNames={hideNames} />
           </div>
         ) : tab === "heatmap" ? (
-          <section aria-label="Bản đồ nhiệt realtime" className="col-span-full space-y-3 rounded-lg border border-dashed border-line-strong bg-surface p-8 text-center">
+          <section aria-label="Bản đồ nhiệt realtime" className="col-span-full space-y-3 rounded-xl border border-dashed border-line-strong bg-surface p-8 text-center shadow-card">
             <p className="text-h3 font-semibold text-ink-700">Theo bản đồ nhiệt</p>
             <p className="text-body-m text-ink-500">
               Bản đồ nhiệt đang được nâng cấp với các luồng cập nhật realtime. Bạn có thể theo dõi tiến độ qua tab &ldquo;Tiến độ học theo cây&rdquo; hoặc &ldquo;Theo ma trận&rdquo;.
             </p>
           </section>
         ) : (
-        <section aria-label={tab === "tree" ? "Cây kỹ năng theo tỉ lệ Đạt" : "Lưới sinh viên"} className="space-y-3 rounded-lg border border-line-soft bg-surface p-4">
+        <section aria-label={tab === "tree" ? "Cây kỹ năng theo tỉ lệ Đạt" : "Lưới sinh viên"} className="space-y-4 rounded-xl border border-line-soft bg-surface p-4 shadow-card">
           {tab === "tree" ? (
             s.tree ? (
-              <SkillTree
-                mode="heatmap"
-                nodes={s.tree.nodes}
-                edges={s.tree.edges}
-                heat={heatByKey(s)}
-                details={detailsByKey(s)}
-                rootCauseKey={rootCauseKey(s)}
-                height={440}
-                onNodeClick={(n) => goNode(n.id)}
-              />
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft pb-2.5">
+                  <div>
+                    <h2 className="text-h3 font-semibold">Cây kỹ năng & Tỉ lệ làm chủ</h2>
+                    <p className="text-body-s text-ink-500">
+                      Màu nút phản ánh mức độ làm chủ của lớp (Xanh: Đạt, Vàng: Cần chú ý, Đỏ: Điểm nghẽn)
+                    </p>
+                  </div>
+                  <Link
+                    to={`/gv/classes/${classId}/tree`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold text-ink-700 hover:bg-app hover:text-ink-900 shadow-2xs transition"
+                  >
+                    <Pencil aria-hidden size={14} /> Chỉnh sửa cây & Rubric
+                  </Link>
+                </div>
+                <SkillTree
+                  mode="heatmap"
+                  nodes={s.tree.nodes}
+                  edges={s.tree.edges}
+                  heat={heatByKey(s)}
+                  details={detailsByKey(s)}
+                  rootCauseKey={rootCauseKey(s)}
+                  height={500}
+                  onNodeClick={(n) => goNode(n.id)}
+                />
+              </div>
             ) : (
               <p className="text-body-m text-ink-500">Lớp chưa có cây đang phát hành.</p>
             )
