@@ -262,7 +262,7 @@ function MainMatchCard({
         </div>
         <div className="flex items-center gap-1.5">
           {isOneWay && (
-            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-body-s font-semibold text-blue-800">
+            <span className="inline-flex items-center rounded-full bg-honey-soft px-2.5 py-0.5 text-body-s font-semibold text-honey-deep">
               Ghép 1 chiều (kiểm tra bài cũ)
             </span>
           )}

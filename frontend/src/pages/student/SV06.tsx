@@ -3,18 +3,10 @@ import { useEffect } from "react";
 import { Link, useParams } from "react-router";
 import { AsyncView, LoadingBox } from "../../components/AsyncView";
 import { ApiError, apiCall, type Schema } from "../../lib/api";
+import { CRITERION_LABEL } from "../../lib/criteria";
 import { useApi } from "../../lib/useApi";
 
 type Result = Schema<"SessionResult">;
-
-/** Nhãn 5 tiêu chí Judge (Bảng 6.4). */
-export const CRITERION_LABEL: Record<Schema<"CriterionCode">, string> = {
-  CORRECTNESS: "Đúng đắn",
-  COVERAGE: "Bao phủ ý chính",
-  ESSENCE: "Bản chất – vì sao",
-  ROBUSTNESS: "Đứng vững trước phản biện",
-  CLARITY: "Diễn đạt mạch lạc",
-};
 const FLAG_LABEL: Partial<Record<Schema<"FlagType">, string>> = {
   PASTE_SUSPECTED: "Phát hiện dán văn bản dài – giảng viên có thể xem lại phiên này.",
   LOW_STT_CONFIDENCE: "Bản chép lời có độ tin cậy thấp ở một số đoạn.",

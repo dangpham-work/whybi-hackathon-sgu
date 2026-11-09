@@ -84,7 +84,7 @@ export default function LecturerClasses() {
       {actionMessage && (
         <div role="status" className="flex items-center justify-between rounded-lg border border-line-soft bg-surface p-3 text-body-s text-ink-700 shadow-sm">
           <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="text-ink-400 hover:text-ink-700">
+          <button onClick={() => setActionMessage(null)} aria-label="Đóng thông báo" className="text-ink-500 hover:text-ink-700">
             <X size={16} />
           </button>
         </div>
@@ -204,7 +204,7 @@ function ClassCard({
 
       <div className="flex items-center justify-between text-body-s text-ink-500">
         {isArchived ? (
-          <span className="italic text-ink-400">Lớp đã đóng tham gia</span>
+          <span className="italic text-ink-500">Lớp đã đóng tham gia</span>
         ) : (
           <>
             Mã tham gia <CopyCode code={c.joinCode} />
