@@ -10,6 +10,8 @@ vi.mock("../components/SkillTree", async (orig) => ({
   ...(await orig<typeof import("../components/SkillTree")>()),
   SkillTree: (p: {
     nodes: { key: string; title: string }[];
+    cycleEdge?: { fromKey: string; toKey: string } | null;
+    onClearCycleEdge?: () => void;
     onNodeClick?: (n: { key: string }) => void;
     onConnect?: (a: string, b: string) => void;
   }) => (
@@ -18,6 +20,12 @@ vi.mock("../components/SkillTree", async (orig) => ({
         <button key={n.key} onClick={() => p.onNodeClick?.(n)}>{`nút ${n.title}`}</button>
       ))}
       <button onClick={() => p.onConnect?.("n2", "n1")}>nối n2→n1</button>
+      {p.cycleEdge && (
+        <div data-testid="cycle-edge-warning">
+          <span>{`Đường đỏ chu trình: ${p.cycleEdge.fromKey}→${p.cycleEdge.toKey}`}</span>
+          <button onClick={() => p.onClearCycleEdge?.()}>xóa đường đỏ</button>
+        </div>
+      )}
     </div>
   ),
 }));
@@ -230,5 +238,37 @@ describe("GV-04 lịch sử, so sánh, khôi phục (GD-14)", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Lịch sử/ }));
     fireEvent.click(await screen.findByLabelText("Chọn v1 để so sánh"));
     expect((screen.getByRole("button", { name: /So sánh 2 phiên bản/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("tạo chu trình thì hiển thị đường đỏ và biến mất khi thao tác khác trên cây", async () => {
+    mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "POST /tree-versions/v1/edges": err(409, "CYCLE_DETECTED", "cycle", { path: ["n2", "n1", "n2"] }),
+    });
+    open();
+    fireEvent.click(await screen.findByText("nối n2→n1"));
+    expect(await screen.findByText(/Cạnh này tạo chu trình/)).toBeTruthy();
+    expect(screen.getByTestId("cycle-edge-warning")).toBeTruthy();
+    expect(screen.getByText(/Đường đỏ chu trình: n2→n1/)).toBeTruthy();
+
+    // Thao tác khác (ví dụ click chọn nút khác) làm đường đỏ biến mất
+    fireEvent.click(screen.getByText("nút Biến"));
+    expect(screen.queryByTestId("cycle-edge-warning")).toBeNull();
+  });
+
+  it("nút Sắp xếp tự động gọi PUT /tree-versions/{version_id}/positions", async () => {
+    const m = mockApi({
+      ...me,
+      "GET /classes/c1/tree": ok(TREE()),
+      "PUT /tree-versions/v1/positions": ok(undefined, 204),
+    });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: /Sắp xếp/ }));
+    await waitFor(() => expect(m.called("PUT /tree-versions/v1/positions")).toHaveLength(1));
+    const req = m.called("PUT /tree-versions/v1/positions")[0];
+    expect(Array.isArray(req.body.positions)).toBe(true);
+    expect(req.body.positions.length).toBe(2);
+    expect(await screen.findByText(/Đã tự động sắp xếp lại cây kỹ năng/)).toBeTruthy();
   });
 });

@@ -87,7 +87,7 @@ describe("GV-09 Quản lý ghép cặp (GD-11)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Chạy vòng ghép cặp/ }));
     expect(await screen.findByText(/Đã ghép 1 cặp từ 38 SV; 3 SV chờ vòng sau/)).toBeTruthy();
     expect(m.called("POST /classes/c1/matching-rounds")[0].body).toEqual({ priorityNodeId: "i5" });
-    expect(m.called("GET /classes/c1/matches").length).toBeGreaterThan(1);
+    await waitFor(() => expect(m.called("GET /classes/c1/matches").length).toBeGreaterThan(1));
   });
 
   it("chưa đủ SV bật ghép cặp thì báo bằng câu dễ hiểu", async () => {
