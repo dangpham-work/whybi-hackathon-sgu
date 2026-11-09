@@ -34,6 +34,7 @@ class OpenAICompatProvider:
         http_client: httpx.Client | None = None,
     ):
         self.base_url = base_url.rstrip("/")
+        self._no_temperature: set[str] = set()  # model từ chối temperature tùy ý
         self.api_key = api_key
         self.model = model
         self.json_mode = json_mode
@@ -70,9 +71,19 @@ class OpenAICompatProvider:
             }
         else:
             fmt = {"type": "json_object"}
-        body = {"model": model, "messages": messages, "temperature": temperature, "response_format": fmt}
+        body = {"model": model, "messages": messages, "response_format": fmt}
+        if model not in self._no_temperature:
+            body["temperature"] = temperature
         t0 = time.perf_counter()
-        data = self._post("/chat/completions", body)
+        try:
+            data = self._post("/chat/completions", body)
+        except PermanentProviderError as e:
+            # Một số model (dòng suy luận) chỉ nhận temperature mặc định ⇒ nhớ lại và thử lại không gửi tham số đó
+            if "temperature" not in body or "temperature" not in str(e):
+                raise
+            self._no_temperature.add(model)
+            body.pop("temperature")
+            data = self._post("/chat/completions", body)
         latency = int((time.perf_counter() - t0) * 1000)
         try:
             text = data["choices"][0]["message"]["content"] or ""

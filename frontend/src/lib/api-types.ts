@@ -580,6 +580,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/classes/{class_id}/syllabi/latest/toc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Latest Syllabus Toc
+         * @description Báo cáo mục lục của giáo trình tải lên gần nhất của lớp – GV tải lại trang GV-03 vẫn thấy cảnh báo đang chờ
+         *     chọn chương. Lớp chưa có giáo trình / chưa có báo cáo ⇒ 404 TOC_NOT_FOUND. Khai báo TRƯỚC `{document_id}`.
+         */
+        get: operations["get_latest_syllabus_toc_api_v1_classes__class_id__syllabi_latest_toc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/syllabi/{document_id}/toc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Syllabus Toc
+         * @description Mục lục chương AI/chương trình đã trích + cảnh báo cỡ giáo trình trước khi dựng cây. Chưa có báo cáo ⇒ 404
+         *     TOC_NOT_FOUND; không phải GV phụ trách lớp ⇒ 403 NOT_CLASS_OWNER.
+         */
+        get: operations["get_syllabus_toc_api_v1_classes__class_id__syllabi__document_id__toc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/syllabi/{document_id}/build-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build Tree From Syllabus
+         * @description GV chọn khoảng trang trọng tâm rồi dựng cây (rỗng ⇒ toàn bộ); tiến độ tiếp tục trên kênh job:{jobId}.
+         *     Khoảng trang sai ⇒ 422 INVALID_RANGE; chưa bóc chữ xong ⇒ 409 DOCUMENT_NOT_READY.
+         */
+        post: operations["build_tree_from_syllabus_api_v1_classes__class_id__syllabi__document_id__build_tree_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree/rubrics/generate-missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Missing Rubrics
+         * @description Sinh rubric (chưa duyệt) cho các nút CHƯA có rubric của bản nháp – dùng sau khi dựng cây với lazyRubric và cắt
+         *     tỉa nút. Chạy nền; giao diện hỏi lại cây để thấy rubric xuất hiện. Cây đã phát hành ⇒ 409 TREE_NOT_EDITABLE.
+         */
+        post: operations["generate_missing_rubrics_api_v1_classes__class_id__tree_rubrics_generate_missing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/syllabi/{document_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Syllabus Job
+         * @description Hủy tiến trình bóc chữ hoặc dựng cây đang chạy của giáo trình (khi GV tải nhầm tệp hoặc đổi ý).
+         */
+        post: operations["cancel_syllabus_job_api_v1_classes__class_id__syllabi__document_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classes/{class_id}/heatmap": {
         parameters: {
             query?: never;
@@ -1233,7 +1337,7 @@ export interface paths {
         put?: never;
         /**
          * Regenerate Rubric
-         * @description Sinh lại rubric bằng AI (RAG) – thẻ của Đăng.
+         * @description Sinh lại rubric bằng AI (RAG) cho một nút; kết quả về trạng thái chưa duyệt (FR-SK-08).
          */
         post: operations["regenerate_rubric_api_v1_nodes__node_id__rubric_regenerate_post"];
         delete?: never;
@@ -1253,10 +1357,71 @@ export interface paths {
         put?: never;
         /**
          * Publish
-         * @description Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm `details.errors`.
+         * @description Kiểm BR-05 (DAG, có nút gốc, mọi rubric đã duyệt và hợp lệ) – thiếu ⇒ 422 PUBLISH_CHECK_FAILED kèm
+         *     `details.errors`. Thân tùy chọn `{changeNote}` ghi vào lịch sử phiên bản.
          *     Bản phát hành trước chuyển ARCHIVED. Khởi tạo / di chuyển trạng thái SV (BR-14): C2-10.
          */
         post: operations["publish_api_v1_tree_versions__version_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree/publish-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Publish Check
+         * @description Xem trước phát hành bản mới nhất: lỗi chặn, số rubric chưa duyệt, số SV bị ảnh hưởng. Không ghi gì (C2-23).
+         */
+        get: operations["publish_check_api_v1_classes__class_id__tree_publish_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/tree/rubrics/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Rubrics
+         * @description Duyệt hàng loạt rubric của bản nháp mới nhất: rubric hợp lệ được duyệt, còn lại kèm lý do (C2-23).
+         */
+        post: operations["approve_rubrics_api_v1_classes__class_id__tree_rubrics_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tree-versions/{version_id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Positions
+         * @description Lưu vị trí nhiều nút một lượt ("Tự sắp xếp" ở GV-04) (C2-23).
+         */
+        put: operations["put_positions_api_v1_tree_versions__version_id__positions_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1340,6 +1505,21 @@ export interface components {
              */
             audioRetentionDays: number;
         };
+        /** ApproveRubricsBody */
+        ApproveRubricsBody: {
+            /** Nodeids */
+            nodeIds: string[];
+        };
+        /**
+         * ApproveRubricsResult
+         * @description Duyệt hàng loạt (FR-SK-08): chỉ rubric hợp lệ được duyệt, phần còn lại kèm lý do để GV sửa.
+         */
+        ApproveRubricsResult: {
+            /** Approved */
+            approved: string[];
+            /** Rejected */
+            rejected: components["schemas"]["RejectedRubric"][];
+        };
         /** AuditLogOut */
         AuditLogOut: {
             /** Id */
@@ -1386,6 +1566,25 @@ export interface components {
         Body_upload_syllabus_api_v1_classes__class_id__syllabi_post: {
             /** File */
             file: string;
+        };
+        /** BuildTreeRequest */
+        BuildTreeRequest: {
+            /**
+             * Ranges
+             * @default []
+             */
+            ranges: number[][];
+            /**
+             * Detail
+             * @default STANDARD
+             * @enum {string}
+             */
+            detail: "SUMMARY" | "STANDARD" | "DETAILED";
+            /**
+             * Lazyrubric
+             * @default false
+             */
+            lazyRubric: boolean;
         };
         /** ChallengeScenarioSchema */
         ChallengeScenarioSchema: {
@@ -1564,6 +1763,11 @@ export interface components {
         /** ErrorResponse */
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** FillRubricsAccepted */
+        FillRubricsAccepted: {
+            /** Missing */
+            missing: number;
         };
         /** FlagOut */
         FlagOut: {
@@ -1774,6 +1978,16 @@ export interface components {
             documentId: string;
             /** Channel */
             channel: string;
+        };
+        /** JobCancelledOut */
+        JobCancelledOut: {
+            /** Documentid */
+            documentId: string;
+            /**
+             * Status
+             * @default CANCELLED
+             */
+            status: string;
         };
         /** JoinRequest */
         JoinRequest: {
@@ -2035,6 +2249,15 @@ export interface components {
             description?: string | null;
             /** Chapterref */
             chapterRef?: string | null;
+            /** Sourcepagestart */
+            sourcePageStart?: number | null;
+            /** Sourcepageend */
+            sourcePageEnd?: number | null;
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: string[];
             /** @default UNDERSTAND */
             bloomLevel: components["schemas"]["BloomLevel"];
             /** Positionx */
@@ -2152,6 +2375,18 @@ export interface components {
             /** Positiony */
             positionY?: number | null;
         };
+        /** NodePosition */
+        NodePosition: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /**
          * NodeProgress
          * @description Một ô của SV: trạng thái + đủ dữ liệu cho SV-03 Chi tiết nút.
@@ -2260,6 +2495,11 @@ export interface components {
             /** Peeroptin */
             peerOptIn: boolean;
         };
+        /** PositionsBody */
+        PositionsBody: {
+            /** Positions */
+            positions: components["schemas"]["NodePosition"][];
+        };
         /** ProfileSession */
         ProfileSession: {
             /**
@@ -2346,6 +2586,42 @@ export interface components {
          */
         ProviderKind: "LLM" | "STT" | "TTS";
         /**
+         * PublishBody
+         * @description Thân tùy chọn của POST /tree-versions/{id}/publish: ghi chú thay đổi hiện ở lịch sử phiên bản (FR-SK-10).
+         */
+        PublishBody: {
+            /** Changenote */
+            changeNote?: string | null;
+        };
+        /**
+         * PublishCheck
+         * @description GET /classes/{id}/tree/publish-check: xem trước phát hành (BR-05, BR-14) mà không đổi gì.
+         */
+        PublishCheck: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Versionid
+             * Format: uuid
+             */
+            versionId: string;
+            /** Versionno */
+            versionNo: number;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Unapprovedcount */
+            unapprovedCount: number;
+            /** Affectedstudents */
+            affectedStudents: number;
+            /** Olderthanpublished */
+            olderThanPublished: boolean;
+        };
+        /**
          * Question
          * @description Câu hỏi của Tutee (kênh session:{id} → session.question; cũng là câu mở đầu).
          */
@@ -2418,6 +2694,16 @@ export interface components {
         RefreshRequest: {
             /** Refreshtoken */
             refreshToken: string;
+        };
+        /** RejectedRubric */
+        RejectedRubric: {
+            /**
+             * Nodeid
+             * Format: uuid
+             */
+            nodeId: string;
+            /** Reason */
+            reason: string;
         };
         /** ResetPasswordRequest */
         ResetPasswordRequest: {
@@ -2839,6 +3125,110 @@ export interface components {
             /** Sessions */
             sessions: components["schemas"]["ProfileSession"][];
         };
+        /** TocAdvice */
+        TocAdvice: {
+            /** Message */
+            message: string;
+            /**
+             * Keep
+             * @default []
+             */
+            keep: number[];
+            /**
+             * Skip
+             * @default []
+             */
+            skip: components["schemas"]["TocSkip"][];
+            /**
+             * Suggestsplit
+             * @default false
+             */
+            suggestSplit: boolean;
+        };
+        /** TocChapter */
+        TocChapter: {
+            /** Index */
+            index: number;
+            /** Title */
+            title: string;
+            /** Startpage */
+            startPage?: number | null;
+            /** Endpage */
+            endPage?: number | null;
+            /** Pages */
+            pages?: number | null;
+            /**
+             * Chars
+             * @default 0
+             */
+            chars: number;
+        };
+        /** TocReport */
+        TocReport: {
+            /** Documentid */
+            documentId: string;
+            /** Source */
+            source: string;
+            /** Totalpages */
+            totalPages: number;
+            /** Totalchars */
+            totalChars: number;
+            /** Offset */
+            offset?: number | null;
+            /**
+             * Tocpages
+             * @default []
+             */
+            tocPages: number[];
+            /** Level */
+            level: string;
+            /** Estnodes */
+            estNodes: number;
+            /** Estcalls */
+            estCalls: number;
+            /**
+             * Charsperchunk
+             * @default 12000
+             */
+            charsPerChunk: number;
+            /**
+             * Nodesperchunk
+             * @default {}
+             */
+            nodesPerChunk: {
+                [key: string]: number;
+            };
+            /**
+             * Detailcaps
+             * @default {}
+             */
+            detailCaps: {
+                [key: string]: number;
+            };
+            /**
+             * Chapters
+             * @default []
+             */
+            chapters: components["schemas"]["TocChapter"][];
+            advice: components["schemas"]["TocAdvice"];
+            /**
+             * Aiwritten
+             * @default false
+             */
+            aiWritten: boolean;
+            /**
+             * Gated
+             * @default false
+             */
+            gated: boolean;
+        };
+        /** TocSkip */
+        TocSkip: {
+            /** Index */
+            index: number;
+            /** Reason */
+            reason: string;
+        };
         /** TokenPair */
         TokenPair: {
             /** Accesstoken */
@@ -2929,6 +3319,30 @@ export interface components {
             nodes: components["schemas"]["Node"][];
             /** Edges */
             edges: components["schemas"]["Edge"][];
+        };
+        /**
+         * TreeVersionSummary
+         * @description Một dòng lịch sử phiên bản (FR-SK-10): không kèm cả cây như TreeVersion.
+         */
+        TreeVersionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Versionno */
+            versionNo: number;
+            status: components["schemas"]["TreeStatus"];
+            /** Changenote */
+            changeNote?: string | null;
+            /** Createdat */
+            createdAt?: string | null;
+            /** Publishedat */
+            publishedAt?: string | null;
+            /** Nodecount */
+            nodeCount: number;
+            /** Edgecount */
+            edgeCount: number;
         };
         /**
          * Turn
@@ -3954,6 +4368,168 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_syllabus_toc_api_v1_classes__class_id__syllabi_latest_toc_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TocReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_syllabus_toc_api_v1_classes__class_id__syllabi__document_id__toc_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TocReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    build_tree_from_syllabus_api_v1_classes__class_id__syllabi__document_id__build_tree_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuildTreeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_missing_rubrics_api_v1_classes__class_id__tree_rubrics_generate_missing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FillRubricsAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_syllabus_job_api_v1_classes__class_id__syllabi__document_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCancelledOut"];
                 };
             };
             /** @description Validation Error */
@@ -5030,7 +5606,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TreeVersion"][];
+                    "application/json": components["schemas"]["TreeVersionSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -5319,7 +5895,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishBody"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5329,6 +5909,105 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TreeVersion"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_check_api_v1_classes__class_id__tree_publish_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_rubrics_api_v1_classes__class_id__tree_rubrics_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRubricsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveRubricsResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_positions_api_v1_tree_versions__version_id__positions_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

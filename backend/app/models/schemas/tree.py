@@ -59,6 +59,11 @@ class Node(ApiModel):
     title: str = Field(max_length=200)
     description: str | None = None
     chapter_ref: str | None = None
+    source_page_start: int | None = None  # trang đầu / cuối trong giáo trình nơi khái niệm được trích (C1-20)
+    source_page_end: int | None = None
+    aliases: list[
+        str
+    ] = []  # key cũ của các nút đã gộp vào nút này: MasteryService ghép ô thành thạo theo key hoặc alias
     bloom_level: BloomLevel = BloomLevel.UNDERSTAND
     position_x: float | None = None
     position_y: float | None = None
@@ -134,3 +139,60 @@ class TreeDiff(ApiModel):
     nodes_changed: list[str]  # cùng key nhưng khác tiêu đề, mô tả, Bloom, vị trí hoặc rubric
     edges_added: list[EdgeRef]
     edges_removed: list[EdgeRef]
+
+
+class PublishBody(ApiModel):
+    """Thân tùy chọn của POST /tree-versions/{id}/publish: ghi chú thay đổi hiện ở lịch sử phiên bản (FR-SK-10)."""
+
+    change_note: str | None = Field(None, max_length=500)
+
+
+class ApproveRubricsBody(ApiModel):
+    node_ids: list[UUID] = Field(max_length=1000)
+
+
+class RejectedRubric(ApiModel):
+    node_id: UUID
+    reason: str
+
+
+class ApproveRubricsResult(ApiModel):
+    """Duyệt hàng loạt (FR-SK-08): chỉ rubric hợp lệ được duyệt, phần còn lại kèm lý do để GV sửa."""
+
+    approved: list[UUID]
+    rejected: list[RejectedRubric]
+
+
+class PublishCheck(ApiModel):
+    """GET /classes/{id}/tree/publish-check: xem trước phát hành (BR-05, BR-14) mà không đổi gì."""
+
+    ok: bool
+    version_id: UUID
+    version_no: int
+    errors: list[dict] = []  # cùng khuôn `details.errors` của 422 PUBLISH_CHECK_FAILED
+    unapproved_count: int
+    affected_students: int  # SV đã tham gia lớp: trạng thái thành thạo được khởi tạo / di chuyển khi phát hành
+    older_than_published: bool  # bản nháp cũ hơn bản đang phát hành ⇒ phát hành sẽ thay bản mới hơn
+
+
+class TreeVersionSummary(ApiModel):
+    """Một dòng lịch sử phiên bản (FR-SK-10): không kèm cả cây như TreeVersion."""
+
+    id: UUID
+    version_no: int
+    status: TreeStatus
+    change_note: str | None = None
+    created_at: datetime | None = None
+    published_at: datetime | None = None
+    node_count: int
+    edge_count: int
+
+
+class NodePosition(ApiModel):
+    node_id: UUID
+    x: float
+    y: float
+
+
+class PositionsBody(ApiModel):
+    positions: list[NodePosition] = Field(max_length=1000)

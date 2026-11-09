@@ -53,6 +53,9 @@ class ConceptNode(UUIDPk, Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
     chapter_ref: Mapped[str | None] = mapped_column(String(100))
+    source_page_start: Mapped[int | None] = mapped_column(SmallInteger)  # C1-20: trang giáo trình nơi trích khái niệm
+    source_page_end: Mapped[int | None] = mapped_column(SmallInteger)
+    aliases: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")  # key cũ của nút đã gộp vào đây
     bloom_level: Mapped[str] = mapped_column(String(16))  # BloomLevel
     position_x: Mapped[float | None] = mapped_column(REAL)
     position_y: Mapped[float | None] = mapped_column(REAL)

@@ -33,7 +33,7 @@ from app.models.schemas.mastery import JobProgress
 from app.realtime.gateway import REDIS_PREFIX, channel_job
 from app.services.retrieval import RetrievalService
 from app.services.storage import ObjectStorage, StorageUnavailable
-from app.services.syllabus import DocumentRef, pages_key
+from app.services.syllabus import DocumentRef, pages_key, sibling_url, toc_key
 from app.workers.celery_app import celery
 
 log = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ SCAN_MIN_CHARS = 40
 OCR_DPI = 300
 OCR_LANG = "vie+eng"  # giáo trình CNTT lẫn thuật ngữ tiếng Anh
 OCR_TIMEOUT_S = 120
+FILL_LOCK_TTL_S = 900  # khóa sinh rubric bù theo lớp: hết hạn sau 15 phút phòng worker chết giữa chừng
 HEADING_SIZE_RATIO = 1.2  # cỡ chữ ≥ 1,2 × cỡ thân bài ⇒ tiêu đề
 HEADING_MAX_CHARS = 150
 
@@ -269,10 +270,16 @@ def extract_docx(data: bytes) -> list[Page]:
 # --- Tiến độ trên kênh job:{jobId} ---------------------------------------------------------------
 
 
+class JobCancelled(Exception):
+    """Tiến trình bị người dùng hủy giữa chừng."""
+
+
 class JobProgressSink(Protocol):
     def report(self, job_id: str, percent: int, step: str) -> None: ...
 
     def emit(self, job_id: str, event: str, payload: dict[str, Any]) -> None: ...
+
+    def is_cancelled(self, job_id: str) -> bool: ...
 
 
 def _envelope(job_id: str, percent: int, step: str) -> dict[str, Any]:
@@ -285,6 +292,7 @@ class InMemoryJobProgress:
 
     def __init__(self) -> None:
         self.events: list[tuple[str, str, dict[str, Any]]] = []
+        self.cancelled: set[str] = set()
 
     def report(self, job_id: str, percent: int, step: str) -> None:
         e = _envelope(job_id, percent, step)
@@ -292,6 +300,16 @@ class InMemoryJobProgress:
 
     def emit(self, job_id: str, event: str, payload: dict[str, Any]) -> None:
         self.events.append((channel_job(job_id), event, payload))
+
+    def is_cancelled(self, job_id: str) -> bool:
+        return job_id in self.cancelled
+
+    def cancel(self, job_id: str) -> None:
+        self.cancelled.add(job_id)
+        self.report(job_id, 0, "CANCELLED")
+
+    def uncancel(self, job_id: str) -> None:
+        self.cancelled.discard(job_id)
 
 
 class RedisJobProgress:
@@ -320,6 +338,41 @@ class RedisJobProgress:
     def emit(self, job_id: str, event: str, payload: dict[str, Any]) -> None:
         self._publish({"channel": channel_job(job_id), "event": event, "payload": payload})
 
+    def is_cancelled(self, job_id: str) -> bool:
+        try:
+            return bool(self._redis().exists(f"job:{job_id}:cancelled"))
+        except Exception:
+            return False
+
+    def cancel(self, job_id: str) -> None:
+        try:
+            r = self._redis()
+            r.set(f"job:{job_id}:cancelled", "1", ex=3600)
+            self.report(job_id, 0, "CANCELLED")
+        except Exception as exc:
+            log.warning("không ghi được cờ hủy cho job %s: %s", job_id, exc)
+
+    def uncancel(self, job_id: str) -> None:
+        """Xóa cờ hủy cũ trước khi xếp lại job cùng id (job_id = documentId), kẻo job mới bị hủy ngay."""
+        try:
+            self._redis().delete(f"job:{job_id}:cancelled")
+        except Exception as exc:
+            log.warning("không xóa được cờ hủy của job %s: %s", job_id, exc)
+
+    def lock_fill(self, class_id: Any) -> bool:
+        """Khóa 'đang sinh rubric bù' theo lớp (hết hạn sau 15 phút phòng worker chết). Redis lỗi ⇒ cho qua."""
+        try:
+            return bool(self._redis().set(f"job:fill:{class_id}", "1", nx=True, ex=FILL_LOCK_TTL_S))
+        except Exception as exc:
+            log.warning("không đặt được khóa sinh rubric lớp %s: %s", class_id, exc)
+            return True
+
+    def unlock_fill(self, class_id: Any) -> None:
+        try:
+            self._redis().delete(f"job:fill:{class_id}")
+        except Exception as exc:
+            log.warning("không nhả được khóa sinh rubric lớp %s: %s", class_id, exc)
+
     def _publish(self, e: dict[str, Any]) -> None:
         import redis
 
@@ -330,17 +383,22 @@ class RedisJobProgress:
 
 
 class _Progress:
-    """Giữ phần trăm không giảm; nhớ mức cuối để báo FAILED đúng chỗ thanh tiến độ dừng."""
+    """Giữ phần trăm không giảm; nhớ mức cuối để báo FAILED hoặc CANCELLED đúng chỗ thanh tiến độ dừng."""
 
     def __init__(self, sink: JobProgressSink, job_id: str) -> None:
         self.sink, self.job_id, self.percent = sink, job_id, 0
 
     def __call__(self, percent: int, step: str) -> None:
+        if self.sink.is_cancelled(self.job_id):
+            raise JobCancelled(f"job {self.job_id} đã bị hủy bởi người dùng")
         self.percent = max(self.percent, min(100, percent))
         self.sink.report(self.job_id, self.percent, step)
 
     def fail(self) -> None:
         self.sink.report(self.job_id, self.percent, "FAILED")
+
+    def cancel(self) -> None:
+        self.sink.report(self.job_id, self.percent, "CANCELLED")
 
 
 # --- Pipeline -------------------------------------------------------------------------------------
@@ -390,6 +448,10 @@ class SyllabusPreprocessor:
             prog(100, "DONE")
             log.info("job %s: tài liệu %s xong %d trang (%d trang OCR)", job_id, ref.id, len(pages), _n_ocr(pages))
             return pages
+        except JobCancelled:
+            log.info("job %s: người dùng đã hủy bóc chữ tài liệu %s", job_id, ref.id)
+            self._cancel(ref, prog)
+            return []
         except ExtractionError as exc:
             log.warning("job %s: tài liệu %s không bóc được: %s", job_id, ref.id, exc)
             self._fail(ref, prog, str(exc))
@@ -427,6 +489,14 @@ class SyllabusPreprocessor:
         finally:
             prog.fail()
 
+    def _cancel(self, ref: DocumentRef, prog: _Progress, message: str = "Đã hủy theo yêu cầu") -> None:
+        try:
+            self.repo.mark_failed(ref.id, message)
+        except Exception:
+            log.exception("không ghi được trạng thái FAILED khi hủy tài liệu %s", ref.id)
+        finally:
+            prog.cancel()
+
 
 def _n_ocr(pages: list[Page]) -> int:
     return sum(1 for p in pages if p.ocr)
@@ -448,13 +518,116 @@ def open_preprocessor() -> Iterator[SyllabusPreprocessor]:
         db.close()
 
 
+EVENT_TOC_READY = "syllabus.toc_ready"
+STEP_AWAITING = "AWAITING_SELECTION"
+
+
+def _chars_between(pages: list[Page], start: int | None, end: int | None, skip: set[int]) -> int:
+    """Ký tự (không tính khoảng trắng) của các trang start–end, bỏ trang mục lục; 0 khi chưa biết trang."""
+    if start is None or end is None:
+        return 0
+    return sum(_visible_chars(p.text) for p in pages if start <= p.number <= end and p.number not in skip)
+
+
+class TocStep:
+    """Sau khi bóc chữ, TRƯỚC khi tốn token dựng cây: dò mục lục (Python, 0 token), ước cỡ, nếu lớn thì nhờ AI viết
+    cảnh báo từ danh sách mục lục và lưu `toc.json`. Trả True ⇒ dừng, chờ GV chọn chương (POST …/build-tree).
+    Lỗi bất kỳ chỉ ghi log và coi như không có cổng: dựng cây như trước, không làm hỏng job."""
+
+    def __init__(self, storage: ObjectStorage, progress: JobProgressSink, gateway: Any) -> None:
+        self.storage, self.progress, self.gw = storage, progress, gateway
+
+    def run(self, ref: DocumentRef, job_id: str, pages: list[Page]) -> bool:
+        try:
+            return self._run(ref, job_id, pages)
+        except Exception:
+            log.exception("job %s: bước mục lục lỗi, bỏ qua và dựng cây như thường", job_id)
+            return False
+
+    def _bookmarks(self, ref: DocumentRef) -> list[tuple[int, str, int]]:
+        if ref.file_type != "pdf":
+            return []
+        try:
+            with pymupdf.open(stream=self.storage.get(ref.file_url), filetype="pdf") as doc:
+                return [(lvl, title, page) for lvl, title, page in (x[:3] for x in doc.get_toc())]
+        except Exception:  # noqa: BLE001 – bookmark chỉ là đường tắt, không có thì dò trang mục lục
+            return []
+
+    def _run(self, ref: DocumentRef, job_id: str, pages: list[Page]) -> bool:
+        from app.ai.agents.toc_advisor import advise, classify_chapters
+        from app.core.config import get_settings
+        from app.models.schemas.toc import TocAdvice, TocChapter, TocReport
+        from app.services.syllabus_toc import CHARS_PER_CHUNK, DETAIL_CAPS, NODES_PER_CHUNK, estimate_size, find_toc
+
+        cfg = get_settings()
+        if self.progress.is_cancelled(job_id):
+            return False
+        res = find_toc([asdict(p) for p in pages], self._bookmarks(ref))
+        if self.progress.is_cancelled(job_id):
+            return False
+        if res.ambiguous and res.entries:
+            classify_chapters(
+                self.gw, res
+            )  # không nhận ra chương bằng từ khóa ⇒ AI nhỏ bỏ tên sách / tổng quan / phụ lục
+        skip = set(res.toc_pages)
+        chars = sum(_visible_chars(p.text) for p in pages if p.number not in skip)  # trang mục lục sẽ bị loại
+        est = estimate_size(chars, len(res.entries), cfg.toc_warn_nodes, cfg.toc_max_nodes)
+        if est.level == "OK":
+            advice, by_ai = TocAdvice(message="Giáo trình cỡ vừa, có thể dựng cây ngay."), False
+        else:
+            advice, by_ai = advise(self.gw, res, est, cfg.toc_warn_nodes)
+        gated = cfg.toc_gate_enabled and est.level != "OK"
+        report = TocReport(
+            document_id=str(ref.id),
+            source=res.source,
+            total_pages=res.total_pages,
+            total_chars=chars,
+            offset=res.offset,
+            toc_pages=res.toc_pages,
+            level=est.level,
+            est_nodes=est.nodes,
+            est_calls=est.llm_calls,
+            chars_per_chunk=CHARS_PER_CHUNK,
+            nodes_per_chunk=dict(NODES_PER_CHUNK),
+            detail_caps=dict(DETAIL_CAPS),
+            chapters=[
+                TocChapter(
+                    index=i,
+                    title=e.title,
+                    start_page=e.start,
+                    end_page=e.end,
+                    pages=e.pages,
+                    chars=_chars_between(pages, e.start, e.end, skip),
+                )
+                for i, e in enumerate(res.entries, 1)
+            ],
+            advice=advice,
+            ai_written=by_ai,
+            gated=gated,
+        )
+        body = json.dumps(report.model_dump(by_alias=True, mode="json"), ensure_ascii=False).encode()
+        self.storage.put(toc_key(ref.class_id, ref.id), body, "application/json")
+        self.progress.emit(job_id, EVENT_TOC_READY, {"documentId": str(ref.id), "level": est.level, "gated": gated})
+        if gated:
+            self.progress.report(job_id, 100, STEP_AWAITING)
+            log.info("job %s: giáo trình ~%d nút (%s) – dừng chờ GV chọn chương", job_id, est.nodes, est.level)
+        return gated
+
+
 @celery.task(name="app.workers.documents.process_syllabus")
 def process_syllabus(document_id: str, job_id: str) -> None:
     """Đẩy bởi SyllabusService.upload (C2-08), task_id = job_id. Không tự thử lại: lỗi ⇒ FAILED, GV tải lại.
-    Bóc chữ xong (PARSED) thì nối `build_tree` để thanh tiến độ chạy tiếp tới cây nháp (C1-10)."""
+    Bóc chữ xong (PARSED) → dò mục lục + ước cỡ (`TocStep`); cỡ nhỏ (hoặc cổng tắt) thì nối `build_tree` để thanh
+    tiến độ chạy tiếp tới cây nháp (C1-10), cỡ lớn thì dừng chờ GV chọn chương."""
+    from app.ai.gateway import get_gateway
+
+    gated = False
     with open_preprocessor() as pre:
         pages = pre.run(UUID(document_id), job_id)
-    if pages:
+        ref = pre.repo.get(UUID(document_id)) if pages else None
+        if ref is not None:
+            gated = TocStep(pre.storage, pre.progress, get_gateway()).run(ref, job_id, pages)
+    if pages and not gated:
         build_tree.apply_async(args=[document_id, job_id], queue="documents")
 
 
@@ -474,8 +647,46 @@ class TreeDrafter:
     def __init__(self, db: Any, storage: ObjectStorage, progress: JobProgressSink, builder: Any) -> None:
         self.db, self.storage, self.progress, self.builder = db, storage, progress, builder
 
-    def run(self, document_id: UUID, job_id: str) -> UUID | None:
+    def _scope(self, doc: Any, pages: list[dict[str, Any]], ranges: list[list[int]] | None) -> list[dict[str, Any]]:
+        """Bỏ trang mục lục (đã biết từ `toc.json`) và, nếu GV chọn khoảng trang, chỉ giữ các khoảng đó.
+        Số trang giữ nguyên để trích dẫn trang vẫn đúng."""
+        skip: set[int] = set()
+        try:
+            toc = json.loads(self.storage.get(sibling_url(doc.file_url, doc.class_id, toc_key(doc.class_id, doc.id))))
+            skip = set(toc.get("tocPages", []))
+        except (StorageUnavailable, KeyError, ValueError):
+            pass  # không có báo cáo mục lục (tài liệu cũ) ⇒ giữ nguyên
+        keep = {n for a, b in ranges or [] for n in range(a, b + 1)}
+        return [p for p in pages if p["number"] not in skip and (not keep or p["number"] in keep)]
+
+    def _toc_chapters(self, doc: Any) -> list[tuple[str, int, int]] | None:
+        """Chương (tiêu đề, trang đầu, trang cuối) từ mục lục đã dò – nhãn chương ổn định cho nút. Không có ⇒ None."""
+        try:
+            toc = json.loads(self.storage.get(sibling_url(doc.file_url, doc.class_id, toc_key(doc.class_id, doc.id))))
+            out = [
+                (c["title"], c["startPage"], c["endPage"])
+                for c in toc.get("chapters", [])
+                if c.get("title") and c.get("startPage") and c.get("endPage")
+            ]
+            return out or None
+        except (StorageUnavailable, KeyError, ValueError):
+            return None
+
+    def run(
+        self,
+        document_id: UUID,
+        job_id: str,
+        ranges: list[list[int]] | None = None,
+        detail: str | None = None,
+        lazy_rubric: bool = False,
+    ) -> UUID | None:
+        """`detail`: mức chi tiết GV chọn (SUMMARY/STANDARD/DETAILED) ⇒ trần khái niệm mỗi đoạn; None ⇒ mặc định.
+        `lazy_rubric`: chưa sinh rubric (GV cắt tỉa cây rồi sinh một lượt bằng `fill_rubrics`)."""
         from app.api.deps import CurrentUser
+        from app.services.syllabus_toc import DETAIL_CAPS
+
+        if detail in DETAIL_CAPS:
+            self.builder.max_concepts = DETAIL_CAPS[detail]
         from app.core.errors import AppError
         from app.models.enums import Role
         from app.models.users import SyllabusDocument
@@ -493,12 +704,13 @@ class TreeDrafter:
                 pages = json.loads(raw)["pages"]
             except (StorageUnavailable, KeyError, ValueError):
                 raise AppError(500, "PAGES_UNAVAILABLE", MSG_NO_PAGES) from None
+            pages = self._scope(doc, pages, ranges)
             prog(10, "CONCEPTS")
             from app.ai import demo
 
             demo_tree = False
             try:
-                body = self.builder.build(pages, prog)
+                body = self.builder.build(pages, prog, toc_chapters=self._toc_chapters(doc))
             except AppError as exc:
                 if not demo.active(exc):
                     raise
@@ -508,19 +720,21 @@ class TreeDrafter:
             removed: list[tuple[str, str]] = []
             trees = SkillTreeService(self.db)
             version = trees.create_version(doc.class_id, user, body, sanitize_graph=True, removed_edges=removed)
+            doc.error_message = None  # dựng lại thành công: bỏ thông báo hủy / lỗi của lần trước
+            self.db.commit()
             prog(92, "INDEXING")
             try:
                 RetrievalService(self.db).index_document(doc.id, pages)  # C1-11: nhúng đoạn giáo trình vào pgvector
             except AppError as exc:
-                if not demo.active(exc):
-                    raise
+                # Cây đã commit: không nhúng được giáo trình thì rubric không truy hồi được, nhưng cây vẫn dùng được.
                 self.db.rollback()
-                log.warning("job %s: không nhúng được giáo trình, bỏ qua (DEMO_MODE)", job_id)
-            prog(95, "RUBRICS")
-            missing = self._rubrics(trees, doc.class_id, version, user, only_missing=demo_tree)
-            if missing:
-                doc.error_message = f"{missing} nút chưa sinh được rubric – hãy bấm sinh lại ở từng nút"
-                self.db.commit()
+                log.warning("job %s: không nhúng được giáo trình, bỏ qua: %s", job_id, exc.message)
+            if not lazy_rubric:
+                prog(95, "RUBRICS")
+                missing = self._rubrics(trees, doc.class_id, version, user, only_missing=demo_tree, document_id=doc.id)
+                if missing:
+                    doc.error_message = f"{missing} nút chưa sinh được rubric – hãy bấm sinh lại ở từng nút"
+                    self.db.commit()
             prog(100, "DONE")
             self.progress.emit(job_id, EVENT_TREE_GENERATED, {"versionId": str(version.id)})
             log.info(
@@ -528,6 +742,10 @@ class TreeDrafter:
                 job_id, version.id, len(version.nodes), len(version.edges), len(removed),
             )  # fmt: skip
             return version.id
+        except JobCancelled:
+            log.info("job %s: người dùng đã hủy dựng cây từ %s", job_id, document_id)
+            self._cancel(doc, prog)
+            return None
         except AppError as exc:
             self._fail(doc, prog, exc.message if exc.status < 500 or exc.code == "PAGES_UNAVAILABLE" else MSG_TREE_AI)
         except Exception:
@@ -536,8 +754,31 @@ class TreeDrafter:
             raise
         return None
 
-    def _rubrics(self, trees: Any, class_id: UUID, version: Any, user: Any, only_missing: bool = False) -> int:
+    def fill_rubrics(self, class_id: UUID, user_id: UUID) -> int:
+        """Sinh rubric (chưa duyệt) cho các nút CHƯA có rubric của bản nháp hiện tại – dùng sau khi GV cắt tỉa cây dựng
+        với `lazy_rubric`. Bản đã phát hành thì không làm gì. Trả số nút lỗi (GV bấm sinh lại ở từng nút)."""
+        from app.api.deps import CurrentUser
+        from app.models.enums import Role
+        from app.services.skill_tree import SkillTreeService
+
+        user = CurrentUser(id=user_id, role=Role.LECTURER)
+        trees = SkillTreeService(self.db)
+        version = trees.get_class_tree(class_id, user=user, draft=True)
+        if version.status not in ("DRAFT", "EDITING"):
+            return 0
+        return self._rubrics(trees, class_id, version, user, only_missing=True)
+
+    def _rubrics(
+        self,
+        trees: Any,
+        class_id: UUID,
+        version: Any,
+        user: Any,
+        only_missing: bool = False,
+        document_id: UUID | None = None,
+    ) -> int:
         """Sinh rubric (chưa duyệt) cho mọi nút: truy hồi tuần tự trên phiên CSDL, LLM chạy song song, ghi tuần tự.
+        `document_id`: chỉ truy hồi đoạn của giáo trình đang dựng (lớp có nhiều giáo trình thì không lẫn trang).
         Trả số nút bị lỗi (nút đó để trống, GV bấm sinh lại)."""
         from app.ai import demo
         from app.ai.agents.rubric_generator import TOP_PASSAGES, RubricGenerator, class_params, query_for
@@ -551,16 +792,19 @@ class TreeDrafter:
         jobs, failed = [], 0
         for n in todo:
             try:
-                jobs.append((n, retrieval.retrieve(class_id, query_for(n), TOP_PASSAGES)))
+                jobs.append((n, retrieval.retrieve(class_id, query_for(n), TOP_PASSAGES, document_id=document_id)))
             except AppError as exc:
+                # Cây đã lưu: lỗi truy hồi/nhúng của một nút (kể cả không ở DEMO_MODE) chỉ làm nút đó để trống, GV sinh
+                # lại sau; không làm hỏng cả job.
                 if not demo.active(exc):
-                    raise
-                failed += 1  # C1-13: LLM mất kết nối ⇒ nút chưa có rubric lưu sẵn để trống, GV sinh lại sau
+                    log.warning("không truy hồi được đoạn giáo trình cho nút %s: %s", n.key, exc.message)
+                self.db.rollback()
+                failed += 1
         with ThreadPoolExecutor(RUBRIC_WORKERS) as ex:
             futures = [(n, ex.submit(gen.generate, n, passages)) for n, passages in jobs]
             for n, fut in futures:
                 try:
-                    trees.put_rubric(n.id, fut.result(), user)
+                    trees.put_rubric(n.id, fut.result(), user, only_if_missing=True)  # không đè rubric GV vừa nhập
                 except Exception:
                     log.exception("không sinh được rubric cho nút %s", n.key)
                     self.db.rollback()
@@ -582,6 +826,16 @@ class TreeDrafter:
         finally:
             prog.fail()
 
+    def _cancel(self, doc: Any, prog: _Progress, message: str = "Đã hủy theo yêu cầu") -> None:
+        try:
+            self.db.rollback()
+            doc = self.db.get(type(doc), doc.id)
+            if doc is not None:
+                doc.error_message = message
+                self.db.commit()
+        finally:
+            prog.cancel()
+
 
 @contextmanager
 def open_tree_drafter() -> Iterator[TreeDrafter]:
@@ -598,7 +852,27 @@ def open_tree_drafter() -> Iterator[TreeDrafter]:
 
 
 @celery.task(name="app.workers.documents.build_tree")
-def build_tree(document_id: str, job_id: str) -> None:
-    """Trích khái niệm (JSON Schema mục 6.1.2) → tiên quyết (6.1.3) → DAG (C2-09). Rubric (6.1.5): C1-11."""
+def build_tree(
+    document_id: str,
+    job_id: str,
+    ranges: list[list[int]] | None = None,
+    detail: str | None = None,
+    lazy_rubric: bool = False,
+) -> None:
+    """Trích khái niệm (JSON Schema mục 6.1.2) → tiên quyết (6.1.3) → DAG (C2-09). Rubric (6.1.5): C1-11.
+    `ranges`: các khoảng trang [từ, đến] GV đã chọn sau cảnh báo cỡ giáo trình; None ⇒ toàn bộ (trừ trang mục lục).
+    `detail`, `lazy_rubric`: mức chi tiết và việc hoãn sinh rubric, cũng do GV chọn ở bước đó."""
     with open_tree_drafter() as drafter:
-        drafter.run(UUID(document_id), job_id)
+        drafter.run(UUID(document_id), job_id, ranges, detail, lazy_rubric)
+
+
+@celery.task(name="app.workers.documents.fill_rubrics")
+def fill_rubrics(class_id: str, user_id: str) -> None:
+    """Sinh rubric cho các nút còn thiếu của bản nháp (GV bấm ở trình sửa cây). Giao diện hỏi lại cây định kỳ."""
+    try:
+        with open_tree_drafter() as drafter:
+            failed = drafter.fill_rubrics(UUID(class_id), UUID(user_id))
+    finally:
+        RedisJobProgress().unlock_fill(class_id)  # nhả khóa kể cả khi lỗi để GV bấm lại được
+    if failed:
+        log.warning("lớp %s: %d nút chưa sinh được rubric", class_id, failed)

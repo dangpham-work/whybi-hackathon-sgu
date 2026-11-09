@@ -1,5 +1,5 @@
 import { Flag, History, Plus, Trash2, TriangleAlert, CircleCheck, Lock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
@@ -47,6 +47,8 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
   const editable = isEditable(tree);
   const selected = tree.nodes.find((n) => n.key === selectedKey);
   const missing = unapproved(tree);
+  const noRubric = tree.nodes.filter((n) => !n.rubric);
+  const [filling, setFilling] = useState(false);
   const nodeTitle = (key: string) => tree.nodes.find((n) => n.key === key)?.title ?? key;
 
   /** Chạy một thao tác ghi: báo lỗi dễ hiểu, không làm mất bản vẽ hiện tại. */
@@ -64,6 +66,45 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
   const patchNode = (key: string, f: (n: Schema<"Node">) => Schema<"Node">) =>
     setTree((t) => ({ ...t, nodes: t.nodes.map((n) => (n.key === key ? f(n) : n)) }));
 
+  /** Sinh rubric cho nút chưa có (dựng cây với "chưa sinh rubric"): chạy nền, hỏi lại cây mỗi 5 giây tới khi đủ (tối đa 10 phút). */
+  const fillMissing = () =>
+    run(async () => {
+      // OpenAPI chưa khai báo thân 202 nên kiểu trả về là void – ép về FillRubricsAccepted (như GV03)
+      const r = (await apiCall("post", "/classes/{class_id}/tree/rubrics/generate-missing", {
+        path: { class_id: classId },
+      })) as unknown as Schema<"FillRubricsAccepted">;
+      if (r.missing === 0) {
+        setMessage({ kind: "ok", items: [{ text: "Mọi nút đã có rubric." }] });
+        return;
+      }
+      setFilling(true);
+      setMessage({ kind: "ok", items: [{ text: `Đã xếp hàng sinh rubric cho ${r.missing} nút – rubric sẽ hiện dần, nhớ xem và duyệt.` }] });
+    });
+
+  useEffect(() => {
+    if (!filling) return;
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      try {
+        const fresh = await apiCall("get", "/classes/{class_id}/tree", { path: { class_id: classId }, query: { draft: true } });
+        const byKey = new Map(fresh.nodes.map((n) => [n.key, n.rubric]));
+        // chỉ điền rubric cho nút local chưa có, không đè thứ GV đang sửa
+        setTree((t) => ({ ...t, nodes: t.nodes.map((n) => (!n.rubric && byKey.get(n.key) ? { ...n, rubric: byKey.get(n.key) } : n)) }));
+        if (fresh.nodes.every((n) => n.rubric)) {
+          setFilling(false);
+          setMessage({ kind: "ok", items: [{ text: "AI đã sinh rubric cho mọi nút – hãy xem và duyệt từng nút." }] });
+        }
+      } catch {
+        /* lần hỏi sau thử lại */
+      }
+      if (Date.now() - started > 10 * 60_000) {
+        setFilling(false);
+        setMessage({ kind: "error", items: [{ text: "Sinh rubric quá lâu – tải lại trang để xem nút nào còn thiếu, rồi sinh từng nút." }] });
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [filling, classId]);
+
   const makeDraft = () =>
     run(async () => {
       const draft = await apiCall("post", "/classes/{class_id}/tree-versions", { path: { class_id: classId } });
@@ -74,7 +115,13 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
     run(async () => {
       const node = await apiCall("post", "/tree-versions/{version_id}/nodes", {
         path: { version_id: tree.id! },
-        body: { key: newNodeKey(tree.nodes), title: title.trim(), bloomLevel: "UNDERSTAND", rubric: emptyRubric() },
+        body: {
+          key: newNodeKey(tree.nodes),
+          title: title.trim(),
+          bloomLevel: "UNDERSTAND",
+          aliases: [],
+          rubric: emptyRubric(),
+        },
       });
       setTree((t) => ({ ...t, nodes: [...t.nodes, node] }));
       setTitle("");
@@ -114,7 +161,9 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
     const n = tree.nodes.find((x) => x.key === key);
     if (!n?.id) return;
     patchNode(key, (x) => ({ ...x, positionX: pos.x, positionY: pos.y }));
-    void apiCall("patch", "/nodes/{node_id}", { path: { node_id: n.id }, body: { positionX: pos.x, positionY: pos.y } }).catch(() => {});
+    void apiCall("patch", "/nodes/{node_id}", { path: { node_id: n.id }, body: { positionX: pos.x, positionY: pos.y } }).catch((e) =>
+      setMessage({ kind: "error", items: [{ text: `Không lưu được vị trí nút "${n.title}": ${errorText(e)}` }] }),
+    );
   };
 
   const saveBasics = (n: Schema<"Node">) =>
@@ -247,6 +296,18 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
             });
           }}
         />
+      )}
+
+      {editable && noRubric.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md bg-honey-soft px-3 py-2 text-body-s">
+          <span className="flex items-center gap-2 font-semibold text-honey-deep">
+            <TriangleAlert aria-hidden size={14} /> {noRubric.length} nút chưa có rubric
+          </span>
+          <Button variant="secondary" disabled={busy || filling} onClick={fillMissing}>
+            {filling ? "Đang sinh rubric…" : "Sinh rubric cho nút còn thiếu"}
+          </Button>
+          <span className="text-ink-500">Nên bỏ bớt nút không cần trước khi sinh để đỡ tốn.</span>
+        </div>
       )}
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">

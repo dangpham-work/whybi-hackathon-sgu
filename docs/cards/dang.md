@@ -200,3 +200,26 @@
 - **Xong khi:** Không còn bug P0 nào mở ở H19
 - **Người phụ trách:** Đăng
 - **Nhánh:** `feat/c1-18-<mô-tả>` · commit bắt đầu bằng `C1-18:`
+
+## C1-19
+
+- **Thẻ việc:** Trích mục lục giáo trình bằng Python (bookmark/trang mục lục in sẵn), ước tính số nút và cảnh báo cỡ giáo trình (WARN/TOO_LARGE); phân loại chương bằng AI khi mơ hồ; dừng chờ GV khoanh vùng chương/khoảng trang và chọn mức chi tiết trước khi dựng cây; hỗ trợ hoãn sinh rubric (lazy rubric) và nút sinh bổ sung rubric cho các nút còn thiếu ở trình duyệt cây
+- **Yêu cầu / mục đề cương:** FR-SK-03, FR-SK-04; mục 6.1.1–6.1.3
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** C1-09, C1-10, C1-11
+- **Giờ:** H20+
+- **Xong khi:** Giáo trình lớn tự trích mục lục, cảnh báo WARN/TOO_LARGE, GV chọn được chương/khoảng trang hoặc hoãn rubric; sinh rubric bổ sung thành công; test đơn vị & DB xanh
+- **Người phụ trách:** Đăng (phối hợp Long C2, Thắng GD, Quyền KT)
+- **Nhánh:** `feat/cay-tu-de-cuong` · commit bắt đầu bằng `C1-19:`
+
+
+## C1-20
+
+- **Thẻ việc:** Nâng chất lượng cây AI dựng từ giáo trình: ứng viên tiên quyết có ngưỡng tương đồng và so tên theo từ nguyên vẹn, gộp trùng theo tên chuẩn hóa rồi theo bản giống nhất, chỉ embed một lần, prompt không ép lấp đầy trần, nút mang trang nguồn và chương lấy từ mục lục, truy hồi rubric theo đúng giáo trình đang dựng; công cụ đo `evals/tree/dung_that.py`
+- **Yêu cầu / mục đề cương:** FR-SK-04, FR-SK-05; mục 6.1.2–6.1.3
+- **Vòng:** 3 (Bảo vệ / Nâng cao)
+- **Phụ thuộc:** C1-10, C1-11, C1-19, C2-22
+- **Giờ:** H20+
+- **Xong khi:** Hết nút trùng tên; cạnh thô và lượt gọi AI giảm trên 2 giáo trình thật (số đo ở `evals/results/tree-dung-that.md`); nút có trang nguồn; test mới xanh; migration chạy được lên DB tạm
+- **Người phụ trách:** Đăng (làm thay: Long; migration `c120e5b7a9d3` do Long tạo)
+- **Nhánh:** `feat/c1-20-chat-luong-cay` · commit bắt đầu bằng `C1-20:`

@@ -62,7 +62,7 @@ async function record(page: Page, consent = true) {
   if (consent) await page.getByRole("button", { name: "Đồng ý ghi âm", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dừng ghi âm", exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Dạng sóng âm thanh" })).toBeVisible();
-  await expect(page.getByText(/00:0[1-9] \/ 03:00/)).toBeVisible();
+  await expect(page.getByText(/00:0[1-9] \/ 0[35]:00/)).toBeVisible();
   await page.getByRole("button", { name: "Dừng ghi âm", exact: true }).click();
   await expect(page.getByRole("button", { name: "Gửi bản ghi", exact: true })).toBeEnabled();
 }
@@ -123,14 +123,14 @@ test("KT-10 / TC07: confidence 0,65 phải xác nhận rồi mới gửi", async
   await expect(dialog).toHaveCount(0);
 });
 
-test("KT-10 / FR-TB-05: đủ 3 phút thì tự dừng, không tự tải lên", async ({ page }) => {
+test("KT-10 / FR-TB-05: đủ 5 phút thì tự dừng, không tự tải lên", async ({ page }) => {
   const received = await prepare(page);
   await page.clock.install();
   await page.getByRole("button", { name: "Bắt đầu ghi âm", exact: true }).click();
   await page.getByRole("button", { name: "Đồng ý ghi âm", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dừng ghi âm", exact: true })).toBeVisible();
-  await page.clock.fastForward(180_001);
-  await expect(page.getByText("Đã đủ 3 phút – bản ghi tự dừng. Bấm Gửi hoặc Ghi lại.")).toBeVisible();
+  await page.clock.fastForward(300_001);
+  await expect(page.getByText("Đã đủ 5 phút – bản ghi tự dừng. Bấm Gửi hoặc Ghi lại.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Gửi bản ghi", exact: true })).toBeEnabled();
   expect(received.uploads).toHaveLength(0);
   expect(received.turns).toHaveLength(0);

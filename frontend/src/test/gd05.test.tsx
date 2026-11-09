@@ -169,9 +169,37 @@ describe("GV-03 Tải giáo trình và tiến độ (GD-05)", () => {
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("40");
     expect(screen.getByText("Trích văn bản theo trang")).toBeTruthy();
 
+    // DONE đầu tiên chỉ là bóc chữ xong: cây chưa dựng nên chưa được mời mở trình sửa cây
     act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 100, step: "DONE" } }));
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+    expect(screen.queryByRole("link", { name: /Mở trình sửa cây/ })).toBeNull();
+
+    act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 30, step: "CONCEPTS" } }));
+    expect(screen.getByText("Trích khái niệm")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Mở trình sửa cây/ })).toBeNull();
+
+    act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 100, step: "DONE" } }));
+    act(() => push({ channel: "job:job-9", event: "tree.generated", payload: { versionId: "v1" } }));
     expect(screen.getByRole("link", { name: /Mở trình sửa cây/ })).toBeTruthy();
+  });
+
+  it("bấm Hủy khi đang dựng cây thì gọi API hủy giáo trình", async () => {
+    const m = mockApi({
+      ...me,
+      "POST /classes/c1/syllabi": ok({ jobId: "job-9", documentId: "d1" }, 202),
+      "POST /classes/c1/syllabi/d1/cancel": ok({ documentId: "d1", status: "CANCELLED" }),
+    });
+    open("/gv/classes/c1/syllabus");
+    await pick(new File(["%PDF"], "gt.pdf", { type: "application/pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tải lên/ }));
+    await waitFor(() => expect(channel).toBe("job:job-9"));
+    act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 30, step: "CONCEPTS" } }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Hủy/ }));
+    await waitFor(() => expect(m.called("POST /classes/c1/syllabi/d1/cancel")).toHaveLength(1));
+    act(() => push({ channel: "job:job-9", event: "job.progress", payload: { percent: 0, step: "CANCELLED" } }));
+    expect(screen.getByText("Đã hủy")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Hủy/ })).toBeNull();
   });
 
   it("máy chủ báo INVALID_FILE thì hiện câu dễ hiểu", async () => {

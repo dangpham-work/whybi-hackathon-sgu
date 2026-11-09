@@ -173,3 +173,114 @@ def test_cau_hinh_lop_quyet_dinh_nguong_va_so_cau(world):
     drafter.run(doc.id, "job-5")
     r = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"][0]["rubric"]
     assert (r["passThreshold"], r["minChallenges"]) == (80, 4)
+
+
+def test_ai_khong_ghi_de_rubric_gv_vua_duyet(world):
+    """GV đã sửa và duyệt rubric một nút; lượt sinh rubric của AI chạy sau (dựng cây / sinh bù) không được ghi đè."""
+    from app.api.deps import CurrentUser
+    from app.models.enums import Role
+    from app.services.skill_tree import SkillTreeService
+
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    drafter.run(doc.id, "job-5")
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    mang = next(n for n in nodes if n["key"] == "mang")
+    mine = {**mang["rubric"], "approved": True}
+    mine["keyPoints"] = [{"id": "KP1", "content": "GV tự viết", "isRequired": True}]
+    assert world.api.put(f"/api/v1/nodes/{mang['id']}/rubric", json=mine).status_code == 200
+
+    user = CurrentUser(id=world.gv, role=Role.LECTURER)
+    trees = SkillTreeService(world.db)
+    version = trees.get_class_tree(world.class_id, user=user, draft=True)
+    drafter._rubrics(trees, world.class_id, version, user)  # lượt AI thứ hai chụp sẵn danh sách nút
+
+    after = next(
+        n
+        for n in world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+        if n["key"] == "mang"
+    )
+    assert after["rubric"]["keyPoints"][0]["content"] == "GV tự viết" and after["rubric"]["approved"] is True
+
+
+def test_loi_truy_hoi_mot_nut_khong_lam_hong_job(world, monkeypatch):
+    """Cây đã lưu rồi mà truy hồi RAG của một nút báo lỗi: job vẫn xong, nút đó để trống và GV được báo."""
+    from app.core.errors import AppError
+    from app.services import retrieval as retrieval_mod
+
+    real = retrieval_mod.RetrievalService.retrieve
+
+    def flaky(self, class_id, query, k, *a, **kw):
+        if "Mảng" in query:
+            raise AppError(503, "EMBEDDING_UNAVAILABLE", "Dịch vụ nhúng tạm thời không dùng được")
+        return real(self, class_id, query, k, *a, **kw)
+
+    monkeypatch.setattr(retrieval_mod.RetrievalService, "retrieve", flaky)
+    gw = RagGateway()
+    doc, drafter, progress = _setup(world, gw)
+    assert drafter.run(doc.id, "job-6") is not None  # trước đây ném AppError ⇒ FAILED dù cây đã lưu
+    world.db.refresh(doc)
+    assert doc.status == "PARSED" and "1 nút chưa sinh được rubric" in doc.error_message
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    assert {n["key"] for n in nodes if not n["rubric"]} == {"mang"}
+    assert progress.events[-1][1] == "tree.generated" or any(e[1] == "tree.generated" for e in progress.events)
+
+
+def test_dung_lai_thanh_cong_xoa_thong_bao_loi_cu(world):
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    doc.error_message = "Đã hủy dựng cây theo yêu cầu"
+    world.db.commit()
+    assert drafter.run(doc.id, "job-7") is not None
+    world.db.refresh(doc)
+    assert doc.error_message is None
+
+
+def test_truy_hoi_co_the_gioi_han_theo_mot_tai_lieu(world):
+    """Lớp có hai giáo trình: rubric của tài liệu đang dựng không được trích trang của tài liệu kia."""
+    gw = RagGateway()
+    doc_a, _, _ = _setup(world, gw)
+    doc_b = SyllabusDocument(
+        id=uuid4(),
+        class_id=world.class_id,
+        uploaded_by=world.gv,
+        file_url="s3://whybi/syllabi/x/b.pdf",
+        file_type="pdf",
+        status="PARSED",
+    )
+    world.db.add(doc_b)
+    world.db.commit()
+    other = [{"number": 90, "text": "con trỏ trong tài liệu khác hẳn", "headings": ["Chương 9"], "ocr": False}]
+    svc = RetrievalService(world.db, gw)
+    svc.index_document(doc_a.id, PAGES)
+    svc.index_document(doc_b.id, other)
+    only_a = svc.retrieve(world.class_id, "con trỏ", 10, document_id=doc_a.id)
+    assert only_a and all(p.page_from < 90 for p in only_a)
+    both = svc.retrieve(world.class_id, "con trỏ", 10)
+    assert any(p.page_from == 90 for p in both)  # không giới hạn thì vẫn thấy cả hai
+
+
+def test_dung_cay_truy_hoi_rubric_theo_tai_lieu_dang_dung_va_chuong_tu_muc_luc(world, monkeypatch):
+    from app.services import retrieval as retrieval_mod
+    from app.services.syllabus import toc_key
+
+    seen = []
+    real = retrieval_mod.RetrievalService.retrieve
+
+    def spy(self, class_id, query, k, *a, **kw):
+        seen.append(kw.get("document_id"))
+        return real(self, class_id, query, k, *a, **kw)
+
+    monkeypatch.setattr(retrieval_mod.RetrievalService, "retrieve", spy)
+    gw = RagGateway()
+    doc, drafter, _ = _setup(world, gw)
+    toc = {"chapters": [{"index": 1, "title": "Chương 2. Con trỏ (mục lục)", "startPage": 3, "endPage": 3}]}
+    drafter.storage.put(toc_key(world.class_id, doc.id), json.dumps(toc).encode(), "application/json")
+    assert drafter.run(doc.id, "job-8") is not None
+    assert seen and set(seen) == {doc.id}
+    nodes = world.api.get(f"/api/v1/classes/{world.class_id}/tree?draft=true").json()["nodes"]
+    con_tro = next(n for n in nodes if n["key"] == "con_tro")
+    assert con_tro["chapterRef"] == "Chương 2. Con trỏ (mục lục)"
+    assert (con_tro["sourcePageStart"], con_tro["sourcePageEnd"]) == (3, 3)
+    mang = next(n for n in nodes if n["key"] == "mang")
+    assert mang["chapterRef"] == "Chương 3 Mảng"  # không có trong mục lục ⇒ tiêu đề do hệ thống tách

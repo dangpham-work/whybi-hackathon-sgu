@@ -118,17 +118,19 @@ class RetrievalService:
             is not None
         )
 
-    def retrieve(self, class_id: UUID, query: str, k: int = 5) -> list[Passage]:
-        """k đoạn giáo trình gần `query` nhất trong các tài liệu PARSED của lớp (mới nhất ưu tiên khi hòa)."""
+    def retrieve(self, class_id: UUID, query: str, k: int = 5, document_id: UUID | None = None) -> list[Passage]:
+        """k đoạn giáo trình gần `query` nhất trong các tài liệu PARSED của lớp (mới nhất ưu tiên khi hòa).
+        `document_id`: chỉ lấy đoạn của một tài liệu (rubric của cây dựng từ tài liệu đó)."""
         qv = self.gw.embed([query])[0]
         dist = DocumentChunk.embedding.cosine_distance(qv)
-        rows = self.db.execute(
+        stmt = (
             select(DocumentChunk, dist.label("dist"))
             .join(SyllabusDocument, SyllabusDocument.id == DocumentChunk.document_id)
             .where(SyllabusDocument.class_id == class_id, SyllabusDocument.status == DocumentStatus.PARSED)
-            .order_by(dist, SyllabusDocument.uploaded_at.desc())
-            .limit(k)
-        ).all()
+        )
+        if document_id is not None:
+            stmt = stmt.where(DocumentChunk.document_id == document_id)
+        rows = self.db.execute(stmt.order_by(dist, SyllabusDocument.uploaded_at.desc()).limit(k)).all()
         return [
             Passage(c.content, c.page_from, c.page_to, c.chapter, c.section_title, 1 - float(d or 1.0)) for c, d in rows
         ]

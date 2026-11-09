@@ -13,7 +13,7 @@ from app.core.errors import AppError
 from app.models import tree as orm
 from app.models.enums import Role, TreeStatus
 from app.models.schemas.session import DEFAULT_CRITERION_WEIGHTS
-from app.models.schemas.tree import Edge, Node, NodePatch, Rubric, TreeVersion
+from app.models.schemas.tree import Edge, KeyPointSchema, Node, NodePatch, Rubric, TreeVersion
 from app.models.session import TeachingSession
 from app.models.users import ClassSection, Course, User
 from app.services import skill_tree as module
@@ -45,7 +45,8 @@ def committed_world():
 
 
 def draft(engine, world, user):
-    body = TreeVersion(nodes=[Node(key=k, title=k, rubric=Rubric(key_points=[])) for k in ("a", "b")], edges=[])
+    valid = Rubric(key_points=[KeyPointSchema(id="KP1", content="ý chính")])  # rubric rỗng không duyệt được (C2-23)
+    body = TreeVersion(nodes=[Node(key=k, title=k, rubric=valid) for k in ("a", "b")], edges=[])
     with Session(engine) as db:
         service = SkillTreeService(db)
         tree = service.create_version(world.class_id, user, body)

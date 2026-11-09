@@ -20,7 +20,8 @@ export interface Point {
 
 /**
  * Vị trí góc trên-trái của từng nút theo `key`.
- * Mọi nút đều có positionX/Y (GV đã kéo thả và lưu ở GV-04) → dùng nguyên; thiếu một nút → dagre xếp lại cả cây.
+ * Nút nào GV đã kéo thả và lưu (có positionX/Y ở GV-04) giữ đúng chỗ đó; nút chưa có vị trí (cây AI vừa dựng, nút mới
+ * thêm) lấy vị trí dagre. Không còn xếp lại cả cây chỉ vì thiếu tọa độ ở một nút.
  */
 export function layoutTree(nodes: TreeNode[], edges: TreeEdge[], direction: Direction = "TB"): Map<string, Point> {
   const pos = new Map<string, Point>();
@@ -38,6 +39,10 @@ export function layoutTree(nodes: TreeNode[], edges: TreeEdge[], direction: Dire
   dagre.layout(g);
 
   for (const n of nodes) {
+    if (n.positionX != null && n.positionY != null) {
+      pos.set(n.key, { x: n.positionX, y: n.positionY }); // GV đã kéo nút này: giữ nguyên
+      continue;
+    }
     const { x, y } = g.node(n.key); // dagre trả tâm nút
     pos.set(n.key, { x: x - NODE_W / 2, y: y - NODE_H / 2 });
   }
