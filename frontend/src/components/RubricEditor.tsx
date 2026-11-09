@@ -1,4 +1,4 @@
-import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, CircleCheck, Clock, Plus, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import type { Rubric } from "../lib/tree-edit";
 import { rubricProblems } from "../lib/tree-edit";
@@ -30,25 +30,52 @@ export function RubricEditor({
     return `${prefix}${i}`;
   };
 
+  const problems = rubricProblems(r);
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-line-soft pb-2">
+        <h3 className="caps text-ink-700">Tiêu chí đánh giá (Rubric)</h3>
+        {r.approved && !dirty ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-teal-soft px-2 py-0.5 text-body-s font-semibold text-teal">
+            <CircleCheck size={12} /> Đã duyệt
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-honey-soft px-2 py-0.5 text-body-s font-semibold text-honey-deep">
+            <Clock size={12} /> Chưa duyệt
+          </span>
+        )}
+      </div>
+
       <section aria-label="Ý chính" className="space-y-2">
-        <h3 className="caps">Ý chính bắt buộc ({r.keyPoints.filter((k) => k.isRequired).length})</h3>
+        <div className="flex items-center justify-between">
+          <h4 className="caps text-ink-700">Ý chính bắt buộc ({r.keyPoints.filter((k) => k.isRequired).length}/{r.keyPoints.length})</h4>
+          <span className="text-body-s text-ink-400">Tích chọn để bắt buộc</span>
+        </div>
         {r.keyPoints.map((k, i) => (
           <div key={k.id} className="flex items-center gap-2">
             <input
               type="checkbox"
               aria-label={`Ý ${k.id} bắt buộc`}
+              title="Ý này bắt buộc phải đạt"
               checked={k.isRequired}
+              className="size-4 rounded border-line-strong text-teal focus:ring-teal"
               onChange={(e) => set({ keyPoints: r.keyPoints.map((x, j) => (j === i ? { ...x, isRequired: e.target.checked } : x)) })}
             />
             <input
               aria-label={`Nội dung ý ${k.id}`}
               className={field}
+              placeholder="Nội dung tiêu chí cần đạt..."
               value={k.content}
               onChange={(e) => set({ keyPoints: r.keyPoints.map((x, j) => (j === i ? { ...x, content: e.target.value } : x)) })}
             />
-            <button type="button" aria-label={`Xóa ý ${k.id}`} onClick={() => set({ keyPoints: r.keyPoints.filter((_, j) => j !== i) })} className="p-1 text-ink-500 hover:text-red-700">
+            <button
+              type="button"
+              aria-label={`Xóa ý ${k.id}`}
+              title="Xóa ý này"
+              onClick={() => set({ keyPoints: r.keyPoints.filter((_, j) => j !== i) })}
+              className="p-1 text-ink-400 hover:text-red-700 transition"
+            >
               <Trash2 aria-hidden size={16} />
             </button>
           </div>
@@ -56,23 +83,30 @@ export function RubricEditor({
         <button
           type="button"
           onClick={() => set({ keyPoints: [...r.keyPoints, { id: nextId("KP", r.keyPoints.map((k) => k.id)), content: "", isRequired: true }] })}
-          className="inline-flex items-center gap-1 text-body-m font-semibold text-teal"
+          className="inline-flex items-center gap-1 text-body-m font-semibold text-teal hover:underline"
         >
           <Plus aria-hidden size={16} /> Thêm ý chính
         </button>
       </section>
 
       <section aria-label="Quan niệm sai" className="space-y-2">
-        <h3 className="caps">Quan niệm sai thường gặp</h3>
+        <h4 className="caps text-ink-700">Quan niệm sai thường gặp ({r.misconceptions.length})</h4>
         {r.misconceptions.map((m, i) => (
           <div key={m.id} className="flex items-center gap-2">
             <input
               aria-label={`Quan niệm sai ${m.id}`}
               className={field}
+              placeholder="Quan niệm sai hoặc lỗi phổ biến..."
               value={m.content}
               onChange={(e) => set({ misconceptions: r.misconceptions.map((x, j) => (j === i ? { ...x, content: e.target.value } : x)) })}
             />
-            <button type="button" aria-label={`Xóa quan niệm sai ${m.id}`} onClick={() => set({ misconceptions: r.misconceptions.filter((_, j) => j !== i) })} className="p-1 text-ink-500 hover:text-red-700">
+            <button
+              type="button"
+              aria-label={`Xóa quan niệm sai ${m.id}`}
+              title="Xóa quan niệm sai này"
+              onClick={() => set({ misconceptions: r.misconceptions.filter((_, j) => j !== i) })}
+              className="p-1 text-ink-400 hover:text-red-700 transition"
+            >
               <Trash2 aria-hidden size={16} />
             </button>
           </div>
@@ -80,55 +114,65 @@ export function RubricEditor({
         <button
           type="button"
           onClick={() => set({ misconceptions: [...r.misconceptions, { id: nextId("MC", r.misconceptions.map((m) => m.id)), content: "", isCritical: false }] })}
-          className="inline-flex items-center gap-1 text-body-m font-semibold text-teal"
+          className="inline-flex items-center gap-1 text-body-m font-semibold text-teal hover:underline"
         >
           <Plus aria-hidden size={16} /> Thêm quan niệm sai
         </button>
       </section>
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="space-y-1 text-body-s font-semibold">
-          Số câu phản biện
+        <label className="space-y-1 text-body-s font-semibold text-ink-700">
+          <span>Số câu phản biện</span>
           <input type="number" min={1} className={field} value={r.minChallenges} onChange={(e) => set({ minChallenges: Number(e.target.value) })} />
         </label>
-        <label className="space-y-1 text-body-s font-semibold">
-          Ngưỡng Đạt (/100)
+        <label className="space-y-1 text-body-s font-semibold text-ink-700">
+          <span>Ngưỡng Đạt (/100)</span>
           <input type="number" min={0} max={100} className={field} value={r.passThreshold} onChange={(e) => set({ passThreshold: Number(e.target.value) })} />
         </label>
       </div>
+
       {r.scenarios.length > 0 && (
         <section aria-label="Tình huống phản biện" className="space-y-1">
-          <h3 className="caps">Tình huống phản biện</h3>
-          <ul className="list-disc space-y-1 pl-5 text-body-m">
+          <h4 className="caps text-ink-700">Tình huống phản biện</h4>
+          <ul className="list-disc space-y-1 pl-5 text-body-m text-ink-700">
             {r.scenarios.map((s) => (
               <li key={s.id}>{s.scenario}</li>
             ))}
           </ul>
         </section>
       )}
-      {r.sourcePages.length > 0 && <p className="rounded-md bg-app px-3 py-2 text-body-s">Trích dẫn giáo trình: tr. {r.sourcePages.join(", ")}</p>}
 
-      {rubricProblems(r).length > 0 && (
-        <p className="rounded-md bg-honey-soft px-3 py-1.5 text-body-s font-medium text-honey-deep">
-          Chưa đủ điều kiện duyệt: {rubricProblems(r).join("; ")}
+      {r.sourcePages.length > 0 && (
+        <p className="rounded-md bg-app px-3 py-2 text-body-s text-ink-500">
+          Trích dẫn giáo trình: <strong>tr. {r.sourcePages.join(", ")}</strong>
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
-        <Button variant="secondary" disabled={busy} onClick={onRegenerate}>
-          <Sparkles aria-hidden size={16} /> Sinh lại AI
-        </Button>
-        <Button variant="secondary" disabled={busy || !dirty} onClick={() => onSave({ ...r, approved: false })}>
-          Lưu nháp
-        </Button>
+      {problems.length > 0 && (
+        <div role="alert" className="flex items-center gap-2 rounded-md bg-honey-soft px-3 py-2 text-body-s font-medium text-honey-deep">
+          <TriangleAlert size={16} className="shrink-0" />
+          <span>Chưa đủ điều kiện duyệt: {problems.join("; ")}</span>
+        </div>
+      )}
+
+      <div className="space-y-2 pt-2">
         <Button
           variant="teal"
-          disabled={busy || rubricProblems(r).length > 0 || (r.approved && !dirty)}
-          title={rubricProblems(r).length > 0 ? `Chưa thể duyệt: ${rubricProblems(r).join("; ")}` : undefined}
+          className="w-full justify-center"
+          disabled={busy || problems.length > 0 || (r.approved && !dirty)}
+          title={problems.length > 0 ? `Chưa thể duyệt: ${problems.join("; ")}` : undefined}
           onClick={() => onSave({ ...r, approved: true })}
         >
-          <Check aria-hidden size={16} /> {r.approved && !dirty ? "Đã duyệt" : "Duyệt rubric"}
+          <Check aria-hidden size={16} /> {r.approved && !dirty ? "Đã duyệt rubric" : "Duyệt rubric"}
         </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" className="justify-center" disabled={busy} onClick={onRegenerate}>
+            <Sparkles aria-hidden size={16} /> Sinh lại AI
+          </Button>
+          <Button variant="secondary" className="justify-center" disabled={busy || !dirty} onClick={() => onSave({ ...r, approved: false })}>
+            Lưu nháp
+          </Button>
+        </div>
       </div>
     </div>
   );

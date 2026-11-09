@@ -1,4 +1,4 @@
-import { CheckCheck, CircleCheck, Flag, History, Lock, Plus, Sparkles, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCheck, CircleCheck, Flag, History, Lock, Plus, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { AsyncView, ErrorBox } from "../../components/AsyncView";
@@ -289,8 +289,13 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
           <Sparkles aria-hidden size={16} /> Sắp xếp
         </Button>
         {editable && missing.length > 0 && (
-          <Button variant="secondary" disabled={busy} onClick={approveAll}>
-            <CheckCheck aria-hidden size={16} /> Duyệt tất cả rubric ({missing.length})
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={approveAll}
+            className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 font-semibold shadow-sm"
+          >
+            <CheckCheck aria-hidden size={16} className="text-amber-700" /> Duyệt tất cả rubric ({missing.length})
           </Button>
         )}
         <span className="ml-auto text-body-s text-ink-500">{`v${tree.versionNo} · ${editable ? "Bản nháp" : tree.status === "PUBLISHED" ? "Đã phát hành" : tree.status}`}</span>
@@ -402,7 +407,7 @@ function Editor({ initial, classId }: { initial: TreeVersion; classId: string })
             selectedKey={selectedKey}
             cycleEdge={cycleEdge}
             onClearCycleEdge={() => setCycleEdge(null)}
-            height={420}
+            height={520}
             onNodeClick={(n) => {
               setCycleEdge(null);
               setSelectedKey(n.key);
@@ -475,23 +480,24 @@ function NodePanel({
   const [draft, setDraft] = useState(node);
   const name = (key: string) => tree.nodes.find((n) => n.key === key)?.title ?? key;
   const incoming = tree.edges.filter((e) => e.toKey === node.key);
+  const outgoing = tree.edges.filter((e) => e.fromKey === node.key);
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h2 className="caps">Thuộc tính nút</h2>
-        <span className="rounded-full bg-app px-2 py-0.5 text-body-s font-semibold">{node.code ?? node.key}</span>
+      <div className="flex items-center justify-between border-b border-line-soft pb-2">
+        <h2 className="caps text-ink-900">Thuộc tính nút</h2>
+        <span className="rounded-full bg-teal-soft px-2.5 py-0.5 text-body-s font-bold text-teal">{node.code ?? node.key}</span>
       </div>
-      <label className="block space-y-1 text-body-s font-semibold">
-        Tên nút
+      <label className="block space-y-1 text-body-s font-semibold text-ink-700">
+        <span>Tên nút</span>
         <input className={field} value={draft.title} disabled={!editable} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label className="space-y-1 text-body-s font-semibold">
-          Chương
+        <label className="space-y-1 text-body-s font-semibold text-ink-700">
+          <span>Chương</span>
           <input className={field} value={draft.chapterRef ?? ""} disabled={!editable} onChange={(e) => setDraft({ ...draft, chapterRef: e.target.value })} />
         </label>
-        <label className="space-y-1 text-body-s font-semibold">
-          Mức Bloom
+        <label className="space-y-1 text-body-s font-semibold text-ink-700">
+          <span>Mức Bloom</span>
           <select className={field} value={draft.bloomLevel} disabled={!editable} onChange={(e) => setDraft({ ...draft, bloomLevel: e.target.value as typeof draft.bloomLevel })}>
             {Object.entries(BLOOM_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
@@ -502,25 +508,57 @@ function NodePanel({
         </label>
       </div>
       {editable && (
-        <Button variant="secondary" disabled={busy || !draft.title.trim()} onClick={() => onSaveBasics(draft)}>
+        <Button variant="secondary" className="w-full justify-center" disabled={busy || !draft.title.trim()} onClick={() => onSaveBasics(draft)}>
           Lưu thông tin nút
         </Button>
       )}
 
-      <section aria-label="Tiên quyết" className="space-y-1">
-        <h3 className="caps">Tiên quyết</h3>
-        {incoming.length === 0 && <p className="text-body-s text-ink-500">Nút gốc – không có tiên quyết.</p>}
-        {incoming.map((e) => (
-          <div key={e.id ?? e.fromKey} className="flex items-center justify-between text-body-m">
-            {name(e.fromKey)}
-            {editable && e.id && (
-              <button type="button" aria-label={`Xóa cạnh từ ${name(e.fromKey)}`} onClick={() => onRemoveEdge(e.id!)} className="p-1 text-ink-500 hover:text-red-700">
-                <Trash2 aria-hidden size={16} />
-              </button>
-            )}
+      <section aria-label="Tiên quyết" className="space-y-2">
+        <h3 className="caps text-ink-700">Tiên quyết ({incoming.length})</h3>
+        {incoming.length === 0 ? (
+          <p className="rounded-md border border-dashed border-line-strong p-2.5 text-body-s text-ink-500">
+            Nút gốc – không cần kiến thức tiên quyết.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {incoming.map((e) => (
+              <div key={e.id ?? e.fromKey} className="flex items-center justify-between rounded-md border border-line-soft bg-app px-2.5 py-1.5 text-body-m">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <ArrowLeft size={14} className="shrink-0 text-teal" />
+                  <span className="truncate font-medium">{name(e.fromKey)}</span>
+                </span>
+                {editable && e.id && (
+                  <button
+                    type="button"
+                    aria-label={`Xóa cạnh từ ${name(e.fromKey)}`}
+                    title="Xóa cạnh tiên quyết này"
+                    onClick={() => onRemoveEdge(e.id!)}
+                    className="p-1 text-ink-400 hover:text-red-700 transition"
+                  >
+                    <Trash2 aria-hidden size={15} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </section>
+
+      {outgoing.length > 0 && (
+        <section aria-label="Mở khóa tiếp theo" className="space-y-1.5">
+          <h3 className="caps text-ink-700">Mở khóa tiếp theo ({outgoing.length})</h3>
+          <div className="space-y-1.5">
+            {outgoing.map((e) => (
+              <div key={e.id ?? e.toKey} className="flex items-center justify-between rounded-md border border-line-soft bg-app px-2.5 py-1 text-body-s text-ink-700">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <ArrowRight size={14} className="shrink-0 text-teal" />
+                  <span className="truncate">{name(e.toKey)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {editable && node.id ? (
         <RubricEditor key={JSON.stringify(node.rubric)} rubric={node.rubric ?? emptyRubric()} busy={busy} onSave={onSaveRubric} onRegenerate={onRegenerate} />

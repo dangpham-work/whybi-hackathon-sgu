@@ -93,19 +93,21 @@ function SkillNodeView({ data }: NodeProps<SkillFlowNode>) {
   const RootIcon = ROOT_CAUSE.icon;
   const name = `${node.code ? `${node.code} ` : ""}${node.title}`;
   const handleCls = editable ? "!size-2.5 !border-surface !bg-teal" : "!opacity-0 !pointer-events-none";
+  const fullDetail = [look?.label, detail].filter(Boolean).join(" · ");
   return (
     <div
       aria-label={look ? `${name} – ${look.label}` : name}
+      title={name}
       style={{ width: NODE_W, height: NODE_H }}
-      className={`flex cursor-pointer flex-col justify-center gap-0.5 rounded-md border px-3 shadow-card ${look?.className ?? NEUTRAL} ${
+      className={`flex cursor-pointer flex-col justify-center gap-0.5 rounded-lg border px-3.5 shadow-card transition-all duration-150 hover:shadow-md ${look?.className ?? NEUTRAL} ${
         root ? "border-2 !border-ink-900" : ""
       } ${selected ? "ring-2 ring-teal ring-offset-2" : ""}`}
     >
       <Handle type="target" position={vertical ? Position.Top : Position.Left} className={handleCls} isConnectable={editable} />
       <div className="flex min-w-0 items-center gap-1.5 text-body-m font-semibold">
         {Icon && <Icon aria-hidden size={14} strokeWidth={2.5} className="shrink-0" />}
-        {node.code && <span className="shrink-0">{node.code}</span>}
-        <span className="truncate">{node.title}</span>
+        {node.code && <span className="shrink-0 text-body-s font-bold opacity-75">{node.code}</span>}
+        <span className="truncate" title={node.title}>{node.title}</span>
         {root && (
           <span className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-caps font-semibold ${ROOT_CAUSE.className}`}>
             <RootIcon aria-hidden size={10} />
@@ -113,7 +115,7 @@ function SkillNodeView({ data }: NodeProps<SkillFlowNode>) {
           </span>
         )}
       </div>
-      <p className="truncate text-body-s opacity-80">
+      <p className="truncate text-body-s opacity-80" title={fullDetail}>
         {look && <span className="font-semibold">{look.label}</span>}
         {look && detail && " · "}
         {detail}
@@ -155,7 +157,7 @@ export function SkillTree({
   rootCauseKey,
   selectedKey,
   direction = "TB",
-  height = 480,
+  height = 520,
   legend = true,
   cycleEdge,
   onClearCycleEdge,

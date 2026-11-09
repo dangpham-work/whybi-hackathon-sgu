@@ -1,5 +1,16 @@
-import { CircleCheck, CircleX, FileUp, Hourglass, LoaderCircle, Pencil, Square } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  CircleCheck,
+  CircleX,
+  FileText,
+  FileUp,
+  Hourglass,
+  LoaderCircle,
+  Pencil,
+  Square,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { DevelopingBox, ErrorBox } from "../../components/AsyncView";
 import { Button } from "../../components/Button";
@@ -43,11 +54,19 @@ export function checkFile(f: File): string | null {
   return null;
 }
 
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 /** GV-03 Tải giáo trình & tiến độ (Figma 14:1468, FR-SK-02/03, GD-05). Tiến độ nghe kênh `job:{jobId}`. */
 export default function LecturerSyllabus() {
   const { classId = "" } = useParams();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File>();
+  const [isDragging, setIsDragging] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [failure, setFailure] = useState<unknown>();
   const [busy, setBusy] = useState(false);
@@ -160,6 +179,33 @@ export default function LecturerSyllabus() {
     }
   }
 
+  const PHASES = [
+    { id: 1, name: "Bóc tách văn bản", steps: ["DOWNLOADING", "EXTRACTING", "OCR", "SAVING"] },
+    { id: 2, name: "Trích xuất khái niệm", steps: ["AWAITING_SELECTION", "CONCEPTS", "DEDUPE"] },
+    { id: 3, name: "Dựng cây kỹ năng", steps: ["PREREQUISITES", "TREE", "INDEXING"] },
+    { id: 4, name: "Sinh rubric đánh giá", steps: ["RUBRICS", "DONE"] },
+  ];
+
+  const currentPhaseIndex = PHASES.findIndex((p) => p.steps.includes(progress?.step ?? ""));
+
+  function handleDragOver(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    if (!running) setIsDragging(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIsDragging(false);
+    if (running) return;
+    const f = e.dataTransfer.files?.[0];
+    if (f) pick(f);
+  }
+
   return (
     <div className="space-y-6 p-4 lg:p-7">
       <header>
@@ -167,18 +213,88 @@ export default function LecturerSyllabus() {
         <p className="text-body-m text-ink-500">Whybi AI đọc giáo trình, trích khái niệm và suy luận quan hệ tiên quyết.</p>
       </header>
 
-      <form onSubmit={upload} className="space-y-3 rounded-lg border border-line-soft bg-surface p-5">
-        <h2 className="text-h3 font-semibold">Tệp giáo trình</h2>
-        <input
-          ref={input}
-          type="file"
-          aria-label="Chọn tệp giáo trình"
-          accept=".pdf,.docx"
-          disabled={running}
-          onChange={(e) => pick(e.target.files?.[0])}
-          className="block w-full text-body-m"
-        />
-        <p className="text-body-s text-ink-500">Giới hạn 20 MB, định dạng PDF hoặc DOCX. Bản quét được nhận dạng bằng OCR tiếng Việt.</p>
+      <form onSubmit={upload} className="space-y-4 rounded-xl border border-line-soft bg-surface p-5 shadow-card">
+        <div className="flex items-center justify-between">
+          <h2 className="text-h3 font-semibold">Tệp giáo trình / đề cương</h2>
+          <span className="text-body-s text-ink-400">PDF, DOCX · Tối đa 20 MB</span>
+        </div>
+
+        {!file ? (
+          <label
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`group relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+              isDragging
+                ? "border-teal bg-teal-soft/30 scale-[1.01]"
+                : "border-line-strong hover:border-honey/80 hover:bg-honey-soft/20 bg-surface/50"
+            }`}
+          >
+            <input
+              ref={input}
+              type="file"
+              aria-label="Chọn tệp giáo trình"
+              accept=".pdf,.docx"
+              disabled={running}
+              onChange={(e) => pick(e.target.files?.[0])}
+              className="sr-only"
+            />
+            <div className="flex size-14 items-center justify-center rounded-full bg-honey-soft text-honey-deep mb-3 shadow-inner group-hover:scale-105 transition-transform">
+              <UploadCloud size={28} />
+            </div>
+            <p className="text-body-m font-semibold text-ink-900">
+              Kéo & thả tệp đề cương / giáo trình vào đây, hoặc <span className="text-teal underline underline-offset-2">duyệt từ máy tính</span>
+            </p>
+            <p className="mt-1.5 text-body-s text-ink-500">
+              Bản quét scan được tự động nhận dạng bằng bộ OCR tiếng Việt chuyên sâu.
+            </p>
+          </label>
+        ) : (
+          <div className="rounded-xl border border-line-soft bg-app/60 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-teal-soft text-teal">
+                  <FileText size={24} />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-body-m font-bold text-ink-900" title={file.name}>
+                    {file.name}
+                  </p>
+                  <p className="text-body-s text-ink-500">{formatBytes(file.size)}</p>
+                </div>
+              </div>
+              {!running && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => input.current?.click()}
+                    className="rounded-md border border-line-strong bg-surface px-3 py-1.5 text-body-s font-semibold hover:bg-app text-ink-700 shadow-sm transition"
+                  >
+                    Đổi tệp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pick(undefined)}
+                    aria-label="Bỏ chọn tệp"
+                    className="rounded-md border border-line-strong p-1.5 text-ink-500 hover:text-red-700 hover:bg-red-50 transition"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <input
+              ref={input}
+              type="file"
+              aria-label="Chọn tệp giáo trình"
+              accept=".pdf,.docx"
+              disabled={running}
+              onChange={(e) => pick(e.target.files?.[0])}
+              className="sr-only"
+            />
+          </div>
+        )}
+
         {problem && <ErrorBox text={problem} />}
         {failure !== undefined &&
           (failure instanceof ApiError && failure.notImplemented ? (
@@ -186,28 +302,68 @@ export default function LecturerSyllabus() {
           ) : (
             <ErrorBox text={(failure instanceof ApiError && UPLOAD_ERRORS[failure.code]) || errorText(failure)} />
           ))}
-        <Button type="submit" disabled={!file || !!problem || busy || running}>
-          <FileUp aria-hidden size={18} /> {busy ? "Đang tải lên…" : "Tải lên và phân tích"}
-        </Button>
+
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-body-s text-ink-500">Giới hạn 20 MB, định dạng PDF hoặc DOCX. Bản quét được nhận dạng bằng OCR tiếng Việt.</p>
+          <Button type="submit" disabled={!file || !!problem || busy || running}>
+            <FileUp aria-hidden size={18} /> {busy ? "Đang tải lên…" : "Tải lên và phân tích"}
+          </Button>
+        </div>
       </form>
 
       {progress && (
-        <section aria-label="Tiến độ phân tích" className="space-y-3 rounded-lg border border-line-soft bg-surface p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-h3 font-semibold">Tiến độ phân tích</h2>
-            <span className="text-h3 font-bold text-honey-deep">{progress.percent}%</span>
+        <section aria-label="Tiến độ phân tích" className="space-y-4 rounded-xl border border-line-soft bg-surface p-5 shadow-card">
+          <div className="flex items-center justify-between border-b border-line-soft pb-3">
+            <div>
+              <h2 className="text-h3 font-semibold">Tiến độ phân tích Whybi AI</h2>
+              <p className="text-body-s text-ink-500">Hệ thống đang xử lý tự động theo mô hình sư phạm</p>
+            </div>
+            <div className="text-right">
+              <span className="text-h2 font-black text-honey-deep">{progress.percent}%</span>
+            </div>
           </div>
+
           <div
             role="progressbar"
             aria-label="Tiến độ phân tích giáo trình"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress.percent}
-            className="h-2 overflow-hidden rounded-full bg-app"
+            className="h-2.5 overflow-hidden rounded-full bg-app"
           >
-            <div className={`h-full ${failed ? "bg-red-600" : "bg-honey"}`} style={{ width: `${progress.percent}%` }} />
+            <div
+              className={`h-full transition-all duration-300 ${
+                failed ? "bg-red-600" : "bg-gradient-to-r from-honey to-teal"
+              }`}
+              style={{ width: `${progress.percent}%` }}
+            />
           </div>
-          <p role="status" className="flex items-center gap-2 text-body-m">
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 pt-1">
+            {PHASES.map((phase, idx) => {
+              const isPast = done || (currentPhaseIndex >= 0 && idx < currentPhaseIndex);
+              const isCurrent = !done && idx === currentPhaseIndex;
+              return (
+                <div
+                  key={phase.id}
+                  className={`rounded-lg border p-2.5 text-center transition-all ${
+                    isCurrent
+                      ? "border-honey bg-honey-soft/40 shadow-sm"
+                      : isPast
+                      ? "border-teal/40 bg-teal-soft/20 text-teal"
+                      : "border-line-soft bg-app/50 text-ink-400"
+                  }`}
+                >
+                  <p className="text-caption font-bold">BƯỚC {phase.id}</p>
+                  <p className="truncate text-body-s font-semibold text-ink-900" title={phase.name}>
+                    {phase.name}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <p role="status" className="flex items-center gap-2 text-body-m font-medium pt-1">
             {failed || cancelled ? (
               <CircleX aria-hidden size={18} className="text-red-700" />
             ) : done ? (
@@ -219,17 +375,23 @@ export default function LecturerSyllabus() {
             )}
             {STEP_LABEL[progress.step] ?? progress.step}
           </p>
-          {running && documentId && (
-            <Button type="button" variant="secondary" onClick={cancel} disabled={cancelling}>
-              <Square aria-hidden size={16} /> {cancelling ? "Đang hủy…" : "Hủy"}
-            </Button>
-          )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {running && documentId && (
+              <Button type="button" variant="secondary" onClick={cancel} disabled={cancelling}>
+                <Square aria-hidden size={16} /> {cancelling ? "Đang hủy…" : "Hủy"}
+              </Button>
+            )}
+            {done && (
+              <Link
+                to={`/gv/classes/${classId}/tree`}
+                className="inline-flex items-center gap-2 rounded-lg bg-teal px-5 py-2.5 font-semibold text-white shadow-md hover:brightness-110 transition-all"
+              >
+                <Pencil aria-hidden size={18} /> Mở trình sửa cây
+              </Link>
+            )}
+          </div>
           {failed && <ErrorBox text="Không xử lý được giáo trình này. Kiểm tra tệp rồi tải lại." />}
-          {done && (
-            <Link to={`/gv/classes/${classId}/tree`} className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 font-semibold text-white">
-              <Pencil aria-hidden size={16} /> Mở trình sửa cây
-            </Link>
-          )}
         </section>
       )}
 
